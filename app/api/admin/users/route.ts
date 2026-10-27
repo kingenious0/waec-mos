@@ -22,6 +22,17 @@ export async function POST(request: Request) {
   return Response.json({ id: created.user.id, name, email })
 }
 
+export async function PATCH(request: Request) {
+  if (!await requireAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  const body = await request.json()
+  const id = String(body.id || '')
+  const action = body.action === 'restore' ? 'restore' : body.action === 'revoke' ? 'revoke' : null
+  if (!id || !action) return Response.json({ error: 'A valid account action is required.' }, { status: 400 })
+  const result = await pool.query('UPDATE "user" SET "role" = $1 WHERE "id" = $2 AND "role" <> $3 RETURNING "id"', [action === 'revoke' ? 'revoked' : 'field_officer', id, 'admin'])
+  if (!result.rowCount) return Response.json({ error: 'Account not found or cannot be changed.' }, { status: 404 })
+  return Response.json({ ok: true })
+}
+
 export async function GET() {
   if (!await requireAdmin()) return Response.json({ error: 'Unauthorized' }, { status: 401 })
   const result = await pool.query('SELECT "id", "name", "email", "role", "createdAt" FROM "user" ORDER BY "createdAt" DESC')
