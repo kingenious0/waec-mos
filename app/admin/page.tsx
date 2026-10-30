@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getCurrentClientSession, SessionData } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
+import { PreProvisionOfficerModal, PreProvisionData } from '@/components/admin/modals/PreProvisionOfficerModal'
+import { ResetPinModal } from '@/components/admin/modals/ResetPinModal'
 import {
   Users,
   ShieldCheck,
@@ -32,9 +34,15 @@ import {
   Clock,
   Shield,
   Siren,
+  KeyRound,
+  User,
 } from 'lucide-react'
 import { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
+import { AdminSidebar } from '@/components/admin/sidebar/AdminSidebar'
+import { AdminTopNav } from '@/components/admin/header/AdminTopNav'
+import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTelematicsDrawer'
+import { MobileBottomNav } from '@/components/admin/mobile/MobileBottomNav'
 
 // Dynamic import for Leaflet FleetMap to prevent SSR issues
 const FleetMap = dynamic(() => import('@/components/admin/FleetMap'), {
@@ -849,9 +857,29 @@ export default function AdminPage() {
 
   // Fleet Telematics state
   const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>(INITIAL_FLEET_OFFICERS)
-  const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(null)
+  const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(INITIAL_FLEET_OFFICERS[0])
   const [focusTarget, setFocusTarget] = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
   const [patrolDispatched, setPatrolDispatched] = useState<boolean>(false)
+
+  // Responsive Layout States
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobileDrawerExpanded, setIsMobileDrawerExpanded] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const activeTabTitle = useMemo(() => {
+    switch (activeTab) {
+      case 'map':
+        return 'Live Fleet Map'
+      case 'directory':
+        return 'Monitor Directory'
+      case 'centers':
+        return 'Exam Centers'
+      case 'incidents':
+        return 'Incident Logs'
+      default:
+        return 'Live Fleet Map'
+    }
+  }, [activeTab])
 
   // Roster search and filters
   const [rosterSearch, setRosterSearch] = useState('')
@@ -981,40 +1009,35 @@ export default function AdminPage() {
     }))
   }
 
-  // Handle Create New Officer
-  const handleCreateOfficer = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Handle Create New Officer via Modal
+  const handlePreProvisionOfficer = async (data: PreProvisionData) => {
     try {
       const res = await fetch('/api/officers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newName,
-          staffId: newStaffId || `WAEC-${Math.floor(1000 + Math.random() * 9000)}`,
-          phone: newPhone,
-          pin: newPin,
-          region: newRegion,
-          group: newGroup,
-          isGroupLeader: newIsGroupLeader,
-          assignedCenter: newCenter,
-          assignedCenterCode: newCenterCode,
+          name: data.name,
+          staffId: data.staffId || `WAEC-${Math.floor(1000 + Math.random() * 9000)}`,
+          phone: data.phone,
+          pin: data.pin,
+          region: data.region,
+          group: data.group,
+          isGroupLeader: data.isGroupLeader,
+          assignedCenter: data.centerName,
+          assignedCenterCode: data.centerCode,
         }),
       })
 
       if (res.ok) {
-        setFeedback(`Officer ${newName} successfully pre-provisioned in ${newGroup}`)
+        setFeedback(`Officer ${data.name} successfully registered in ${data.group}`)
         setShowCreateModal(false)
-        setNewName('')
-        setNewStaffId('')
-        setNewPhone('')
-        setNewPin(Math.floor(1000 + Math.random() * 9000).toString())
         loadOfficers()
       } else {
         const err = await res.json()
         setFeedback(`Error: ${err.error || 'Failed to create account'}`)
       }
     } catch {
-      setFeedback('Error pre-provisioning officer account.')
+      setFeedback('Error registering officer account.')
     }
   }
 
@@ -1040,24 +1063,24 @@ export default function AdminPage() {
     }
   }
 
-  // Handle Reset PIN
-  const handleResetPin = async () => {
-    if (!showResetPinModal) return
+  // Handle Reset PIN via Modal
+  const handleSaveResetPin = async (officerId: string, newPin: string) => {
     try {
       const res = await fetch('/api/officers', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: showResetPinModal.id,
-          pin: newResetPin,
+          id: officerId,
+          pin: newPin,
         }),
       })
 
       if (res.ok) {
-        setFeedback(`4-Digit PIN for ${showResetPinModal.name} reset to: ${newResetPin}`)
+        setFeedback(`PIN reset successfully for officer`)
         setShowResetPinModal(null)
-        setNewResetPin(Math.floor(1000 + Math.random() * 9000).toString())
         loadOfficers()
+      } else {
+        setFeedback('Failed to reset officer PIN.')
       }
     } catch {
       setFeedback('Failed to reset officer PIN.')
@@ -1099,363 +1122,278 @@ export default function AdminPage() {
   }, [officers, directorySearch])
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#090A0F] text-slate-100 font-sans select-none antialiased">
-      {/* 3. Top Header Bar (h-14 shrink-0 border-b border-[#22263C] px-4) */}
-      <header className="h-14 shrink-0 border-b border-[#22263C] px-4 bg-[#0E1222] flex items-center justify-between z-30 shadow-md">
-        {/* Left: WAEC Crest & Hub Title */}
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-[#1E2B7B] border border-[#F6D300]/50 text-[#F6D300] font-black text-sm shadow-[0_0_12px_rgba(30,43,123,0.8)]">
-            <Shield className="size-4 text-[#F6D300] fill-[#F6D300]/20" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-xs sm:text-sm text-slate-100 tracking-wider">
-              WAEC MOS COMMAND <span className="text-slate-500">•</span> ASHANTI REGIONAL HUB
-            </span>
-            <span className="rounded bg-[#1E2B7B]/70 border border-[#F6D300]/40 px-1.5 py-0.5 text-[10px] font-mono font-bold text-[#F6D300]">
-              v1.0-PROD
-            </span>
-          </div>
-        </div>
+    <div className="h-screen w-screen overflow-hidden flex bg-[#090A0F] text-foreground font-sans select-none antialiased">
+      {/* Desktop Left Slim Sidebar Rail (Collapsible w-60 / w-16, hidden on mobile) */}
+      <AdminSidebar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        sosCount={activeSosCount}
+        adminName={session?.name || 'Dr. Mensah Osei'}
+      />
 
-        {/* Center: Active Emergency Alert pill */}
-        <div className="hidden md:flex items-center">
-          {sosOfficer && (
+      {/* Main Operations Split: Top Nav + Dynamic Tab Stage */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
+        {/* Top Responsive Header */}
+        <AdminTopNav
+          activeCount={deployedMonitorsCount}
+          activeTabTitle={activeTabTitle}
+          searchQuery={rosterSearch}
+          onSearchChange={setRosterSearch}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
+          onOpenProfile={() => setShowAdminProfile(true)}
+          session={session}
+          unreadAlertsCount={activeSosCount}
+        />
+
+        {/* Floating Feedback Notification Toast */}
+        {feedback && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border border-[#22263C] bg-[#11131F]/95 px-4 py-2 text-xs font-mono text-[#10B981] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+            <CheckCircle2 className="size-4 shrink-0 text-[#10B981]" />
+            <span>{feedback}</span>
             <button
-              onClick={handleFocusSamuelQuaye}
-              className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#EF4444]/20 border border-[#EF4444] text-[#EF4444] text-xs font-mono font-bold hover:bg-[#EF4444]/30 transition animate-pulse cursor-pointer shadow-[0_0_15px_rgba(239,68,68,0.35)]"
-              title="Click to zoom in on Opoku Ware School emergency location"
+              onClick={() => setFeedback('')}
+              className="ml-2 text-slate-400 hover:text-white cursor-pointer"
             >
-              <span className="size-2 rounded-full bg-[#EF4444] animate-ping" />
-              <span>
-                ⚠️ 1 ACTIVE SOS: {sosOfficer.name} ({sosOfficer.assignedCenter.split(' School')[0]}) [Bat: {sosOfficer.battery}%]
-              </span>
-            </button>
-          )}
-        </div>
-
-        {/* Right: Live Connection, Avatar & Sign Out */}
-        <div className="flex items-center gap-4">
-          {/* Gateway Status Indicator */}
-          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-[#11131F] border border-[#22263C] text-[11px] font-mono text-[#10B981]">
-            <span className="size-2 rounded-full bg-[#10B981] animate-pulse shadow-[0_0_8px_#10B981]" />
-            <span className="font-bold tracking-wide">GATEWAY ONLINE</span>
-          </div>
-
-          {/* User Profile */}
-          <button
-            onClick={() => setShowAdminProfile(true)}
-            className="flex items-center gap-2 hover:opacity-90 transition cursor-pointer"
-            title="Dr. Mensah Osei (Regional Controller Profile)"
-          >
-            <div className="size-8 rounded-full bg-[#1E2B7B] border border-[#22263C] flex items-center justify-center text-xs font-bold text-white shadow-xs">
-              MO
-            </div>
-            <div className="hidden xl:flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-200 leading-tight">Dr. Mensah Osei</span>
-              <span className="text-[10px] font-mono text-slate-400">Regional Controller</span>
-            </div>
-          </button>
-
-          {/* Sign Out Button */}
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#22263C] bg-[#11131F] hover:bg-[#1A1F36] hover:border-red-500/50 hover:text-red-400 text-xs font-mono font-semibold text-slate-300 transition cursor-pointer shadow-xs"
-            title="Secure Sign Out"
-          >
-            <LogOut className="size-3.5" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Floating Tactical Notification Toast */}
-      {feedback && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border border-[#22263C] bg-[#11131F]/95 px-4 py-2 text-xs font-mono text-[#10B981] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-          <CheckCircle2 className="size-4 shrink-0 text-[#10B981]" />
-          <span>{feedback}</span>
-          <button
-            onClick={() => setFeedback('')}
-            className="ml-2 text-slate-400 hover:text-white cursor-pointer"
-          >
-            <X className="size-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* 4. Main Operations Split (flex-1 flex overflow-hidden) */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Slim Sidebar (w-56 shrink-0 border-r border-[#22263C] bg-[#0C0F1D] flex flex-col justify-between p-3) */}
-        <aside className="w-56 shrink-0 border-r border-[#22263C] bg-[#0C0F1D] flex flex-col justify-between p-3 z-10">
-          {/* Nav Items */}
-          <div className="space-y-1.5">
-            <div className="px-2 py-1 text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">
-              Operations Control
-            </div>
-
-            {/* Live Fleet Map */}
-            <button
-              onClick={() => setActiveTab('map')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-mono transition cursor-pointer ${
-                activeTab === 'map'
-                  ? 'bg-[#1E2B7B] text-[#F6D300] font-bold border border-[#F6D300]/40 shadow-[0_0_15px_rgba(30,43,123,0.5)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#11131F]'
-              }`}
-            >
-              <Compass className={`size-4 ${activeTab === 'map' ? 'text-[#F6D300]' : 'text-slate-500'}`} />
-              <span>Live Fleet Map</span>
-            </button>
-
-            {/* Monitor Directory */}
-            <button
-              onClick={() => setActiveTab('directory')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-mono transition cursor-pointer ${
-                activeTab === 'directory'
-                  ? 'bg-[#1E2B7B] text-[#F6D300] font-bold border border-[#F6D300]/40 shadow-[0_0_15px_rgba(30,43,123,0.5)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#11131F]'
-              }`}
-            >
-              <Users className={`size-4 ${activeTab === 'directory' ? 'text-[#F6D300]' : 'text-slate-500'}`} />
-              <span>Monitor Directory</span>
-            </button>
-
-            {/* Exam Centers */}
-            <button
-              onClick={() => setActiveTab('centers')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-mono transition cursor-pointer ${
-                activeTab === 'centers'
-                  ? 'bg-[#1E2B7B] text-[#F6D300] font-bold border border-[#F6D300]/40 shadow-[0_0_15px_rgba(30,43,123,0.5)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#11131F]'
-              }`}
-            >
-              <Building2 className={`size-4 ${activeTab === 'centers' ? 'text-[#F6D300]' : 'text-slate-500'}`} />
-              <span>Exam Centers</span>
-            </button>
-
-            {/* Incident Logs */}
-            <button
-              onClick={() => setActiveTab('incidents')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-mono transition cursor-pointer ${
-                activeTab === 'incidents'
-                  ? 'bg-[#1E2B7B] text-[#F6D300] font-bold border border-[#F6D300]/40 shadow-[0_0_15px_rgba(30,43,123,0.5)]'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-[#11131F]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Siren className={`size-4 ${activeTab === 'incidents' ? 'text-[#F6D300]' : 'text-slate-500'}`} />
-                <span>Incident Logs</span>
-              </div>
-              {activeSosCount > 0 && (
-                <span className="size-2 rounded-full bg-[#EF4444] animate-ping" />
-              )}
+              <X className="size-3.5" />
             </button>
           </div>
+        )}
 
-          {/* Bottom Sidebar Card: Shift Info */}
-          <div className="rounded-xl border border-[#22263C] bg-[#11131F] p-3 text-xs font-mono space-y-1 shadow-sm">
-            <div className="flex items-center gap-1.5 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
-              <Clock className="size-3 text-[#F6D300]" />
-              <span>Shift Operations</span>
-            </div>
-            <div className="text-slate-200 font-bold text-[11px]">Morning Paper (08:30 GMT)</div>
-            <div className="flex items-center gap-1.5 text-[10px] text-[#10B981] pt-1 border-t border-[#22263C]/80">
-              <span className="size-1.5 rounded-full bg-[#10B981]" />
-              <span>48 Active Units Deployed</span>
-            </div>
-          </div>
-        </aside>
-
-        {/* Center Section: Map & Operations HUD */}
-        <main className="flex-1 flex flex-col relative overflow-hidden bg-[#090A0F]">
+        {/* Main Work Area: Flex row (Map + Inspector) or Tab Panels */}
+        <main className="flex-1 flex overflow-hidden relative min-w-0">
           {/* TAB 1: LIVE FLEET MAP VIEW */}
           {activeTab === 'map' && (
-            <div className="size-full relative overflow-hidden flex flex-col">
-              {/* Top Floating KPI Capsule (over map) */}
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
-                <div className="bg-[#11131F]/90 backdrop-blur-md border border-[#22263C] rounded-xl px-5 py-2 flex items-center gap-6 text-xs font-mono shadow-2xl">
-                  <div className="flex items-center gap-1.5 text-slate-300">
-                    <span className="text-slate-500">DEPLOYED:</span>
-                    <span className="font-bold text-white text-sm">{deployedMonitorsCount}</span>
-                  </div>
-
-                  <div className="h-3 w-px bg-[#22263C]" />
-
-                  <div className="flex items-center gap-1.5 text-[#10B981]">
-                    <span className="text-slate-500">ON-SITE:</span>
-                    <span className="font-bold text-sm">42 (87.5%)</span>
-                  </div>
-
-                  <div className="h-3 w-px bg-[#22263C]" />
-
-                  <div className="flex items-center gap-1.5 text-[#EAB308]">
-                    <span className="text-slate-500">EN ROUTE:</span>
-                    <span className="font-bold text-sm">5</span>
-                  </div>
-
-                  <div className="h-3 w-px bg-[#22263C]" />
-
-                  <div className="flex items-center gap-1.5 text-[#EF4444] animate-pulse">
-                    <span className="text-slate-500">SOS DISTRESS:</span>
-                    <span className="font-black text-sm">1</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Fast Center Selector Chips (Top Right of Map) */}
-              <div className="absolute top-3 right-14 z-20 flex items-center gap-1.5">
-                <button
-                  onClick={() => setFocusTarget({ lat: 6.6924, lng: -1.6241, zoom: 13 })}
-                  className="rounded-lg border border-[#22263C] bg-[#11131F]/90 px-2.5 py-1 text-xs font-mono font-semibold text-slate-300 hover:text-white hover:bg-[#1A1F36] transition cursor-pointer shadow-md backdrop-blur-xs"
-                >
-                  All Kumasi
-                </button>
-                {EXAM_CENTERS.map((c) => (
-                  <button
-                    key={c.code}
-                    onClick={() => handleCenterFocus(c)}
-                    className="rounded-lg border border-[#22263C] bg-[#11131F]/90 px-2.5 py-1 text-xs font-mono text-slate-300 hover:text-[#F6D300] hover:border-[#F6D300]/50 transition cursor-pointer flex items-center gap-1 shadow-md backdrop-blur-xs"
-                  >
-                    <span>{c.name.split(' ')[0]}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">({c.totalMonitors})</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Map Canvas */}
-              <div className="h-full w-full">
+            <div className="flex-1 flex flex-col lg:flex-row h-full w-full overflow-hidden relative min-w-0 p-0 lg:p-4 gap-0 lg:gap-4">
+              {/* Center Map Canvas Card */}
+              <div className="flex-1 h-full w-full relative min-w-0 rounded-none lg:rounded-2xl border-0 lg:border border-[#22263C] overflow-hidden bg-[#090A0F] shadow-2xl">
                 <FleetMap
-                  officers={fleetOfficers}
+                  officers={filteredFleetOfficers}
                   centers={EXAM_CENTERS}
                   selectedOfficer={selectedOfficer}
                   onSelectOfficer={(off) => setSelectedOfficer(off)}
                   onCallOfficer={handleCallOfficer}
                   onNavigate={handleNavigate}
                   focusTarget={focusTarget}
+                  activeSectorName="Ashanti Regional Zone"
                 />
               </div>
+
+              {/* Desktop Right Telematics Inspector Drawer Card */}
+              {selectedOfficer && (
+                <aside className="hidden lg:flex w-[380px] shrink-0 h-full rounded-2xl border border-[#22263C] bg-[#0C0F17] overflow-hidden flex-col shadow-2xl z-10 animate-in fade-in slide-in-from-right-4 duration-200">
+                  <OfficerTelematicsDrawer
+                    officer={selectedOfficer}
+                    onCallOfficer={handleCallOfficer}
+                    onViewLogs={() => setActiveTab('incidents')}
+                    onClose={() => setSelectedOfficer(null)}
+                  />
+                </aside>
+              )}
+
+              {/* Mobile Floating Card Telematics Inspector (< 1024px) */}
+              {selectedOfficer && (
+                <div
+                  className={`lg:hidden absolute left-3 right-3 sm:left-4 sm:right-auto sm:w-[380px] z-30 transition-all duration-300 ease-in-out border border-[#22263C] bg-[#0C0F17]/95 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden flex flex-col ${
+                    isMobileDrawerExpanded
+                      ? 'bottom-16 h-[70vh] max-h-[520px]'
+                      : 'bottom-16 max-h-[220px]'
+                  }`}
+                >
+                  <OfficerTelematicsDrawer
+                    officer={selectedOfficer}
+                    onCallOfficer={handleCallOfficer}
+                    onViewLogs={() => setActiveTab('incidents')}
+                    isMobileDrawerExpanded={isMobileDrawerExpanded}
+                    onToggleMobileDrawer={() => setIsMobileDrawerExpanded(!isMobileDrawerExpanded)}
+                    onClose={() => setSelectedOfficer(null)}
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* TAB 2: MONITOR DIRECTORY & CREDENTIALS */}
           {activeTab === 'directory' && (
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#090A0F]">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#22263C] pb-4">
-                <div>
-                  <h2 className="text-base font-mono font-bold text-slate-100 tracking-wide flex items-center gap-2">
-                    <Users className="size-4 text-[#F6D300]" />
-                    <span>Field Personnel & Security Credentials</span>
-                  </h2>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">
-                    Pre-provisioned accounts with 4-digit PIN authentication & biometric audit trail
-                  </p>
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 bg-[#090A0F] font-sans">
+              {/* Header: Title, Counts, Search, and Register Trigger */}
+              <div className="flex flex-col gap-3 pb-3 border-b border-[#22263C]">
+                {/* Row 1: Section Title & Register Button */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-9 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] shrink-0">
+                      <Users className="size-4.5" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                        <span>Field Officers Directory</span>
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                          {filteredDirectoryOfficers.length} Officers
+                        </span>
+                      </h2>
+                      <p className="text-xs text-slate-400 hidden sm:block">
+                        Manage field personnel, exam center assignments, and login credentials
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Desktop Quick Register Button */}
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer shrink-0"
+                  >
+                    <UserPlus className="size-3.5 text-[#F6D300]" />
+                    <span>+ Register Officer</span>
+                  </button>
                 </div>
 
-                <div className="flex items-center gap-2.5">
-                  <div className="relative">
-                    <Search className="size-3.5 absolute left-3 top-2.5 text-slate-500" />
+                {/* Row 2: Responsive Search Input + Mobile Register Button */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="size-4 absolute left-3 top-2.5 text-slate-500" />
                     <input
                       type="text"
                       value={directorySearch}
                       onChange={(e) => setDirectorySearch(e.target.value)}
-                      placeholder="Search officer name, phone, center..."
-                      className="rounded-xl border border-[#22263C] bg-[#11131F] py-1.5 pl-8 pr-3 text-xs font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-[#1E2B7B] w-64"
+                      placeholder="Search by name, phone, or assigned center..."
+                      className="w-full rounded-xl border border-[#22263C] bg-[#11131F] py-2 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans"
                     />
+                    {directorySearch && (
+                      <button
+                        onClick={() => setDirectorySearch('')}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+                        aria-label="Clear search"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
                   </div>
+
+                  {/* Mobile full-width register button */}
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3 py-1.5 text-xs font-mono font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer"
+                    className="sm:hidden flex items-center justify-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white py-2.5 px-4 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer w-full"
                   >
-                    <UserPlus className="size-3.5 text-[#F6D300]" />
-                    <span>+ Pre-Provision Officer</span>
+                    <UserPlus className="size-4 text-[#F6D300]" />
+                    <span>+ Register Field Officer</span>
                   </button>
                 </div>
               </div>
 
-              {/* Personnel Cards Grid */}
+              {/* Personnel Cards Grid (Lean 1-col on mobile, 2-col tablet, 3-col desktop) */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
                 {filteredDirectoryOfficers.map((officer) => (
                   <div
                     key={officer.id}
-                    className="rounded-xl border border-[#22263C] bg-[#11131F] p-4 hover:border-slate-500/40 transition space-y-3 shadow-md"
+                    className="rounded-2xl border border-[#22263C] bg-[#11131F]/90 hover:border-slate-500/50 transition-all p-4 space-y-3 shadow-md flex flex-col justify-between"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#1E2B7B] text-white font-mono font-bold text-xs shadow-xs border border-[#22263C]">
+                    {/* Top Row: Avatar + Name & Phone + Status */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E2B7B] to-[#12162B] text-white font-bold text-xs shadow-sm border border-[#2B355A]">
                           {officer.name
                             .split(' ')
                             .map((n) => n[0])
                             .join('')
                             .slice(0, 2)}
                           {officer.isGroupLeader && (
-                            <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-[#F6D300] text-black">
-                              <Star className="size-2 fill-black" />
+                            <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-[#F6D300] text-black shadow-xs">
+                              <Star className="size-2.5 fill-black" />
                             </span>
                           )}
                         </div>
-                        <div>
-                          <div className="font-bold text-xs text-white font-mono flex items-center gap-1.5">
-                            <span>{officer.name}</span>
+                        <div className="min-w-0">
+                          <div className="font-bold text-sm text-white flex items-center gap-1.5 truncate">
+                            <span className="truncate">{officer.name}</span>
                             {officer.isGroupLeader && (
-                              <span className="text-[9px] font-bold text-[#F6D300] bg-[#F6D300]/10 border border-[#F6D300]/40 px-1 rounded">
-                                LEADER
+                              <span className="text-[9px] font-bold text-[#F6D300] bg-[#F6D300]/15 border border-[#F6D300]/30 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5">
+                                <Star className="size-2 fill-[#F6D300]" />
+                                <span>Leader</span>
                               </span>
                             )}
                           </div>
-                          <div className="font-mono text-[11px] text-slate-400">{officer.phone}</div>
+                          <div className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                            <Phone className="size-3 text-slate-500 shrink-0" />
+                            <span>{officer.phone}</span>
+                          </div>
                         </div>
                       </div>
 
                       <span
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-mono font-bold ${
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold shrink-0 flex items-center gap-1 ${
                           officer.status === 'ACTIVE'
-                            ? 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/40'
-                            : 'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/40'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
                         }`}
                       >
-                        {officer.status}
+                        <span className={`size-1.5 rounded-full ${officer.status === 'ACTIVE' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                        <span>{officer.status === 'ACTIVE' ? 'Active' : 'Revoked'}</span>
                       </span>
                     </div>
 
-                    <div className="space-y-1 text-xs text-slate-300 font-mono pt-2 border-t border-[#22263C]">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Center:</span>
-                        <span className="text-slate-200 truncate max-w-[170px]">{officer.assignedCenter}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Roster Group:</span>
-                        <span className="font-bold text-blue-400">{officer.group || 'Group 1'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-500">4-Digit PIN:</span>
-                        <span className="font-mono text-xs font-bold text-[#F6D300] bg-[#F6D300]/10 px-1.5 py-0.5 rounded border border-[#F6D300]/30">
-                          {officer.pin || '0412'}
+                    {/* Details Section */}
+                    <div className="rounded-xl bg-[#0A0D17]/80 p-3 border border-[#1E243A] space-y-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="size-3.5 text-slate-500 shrink-0" />
+                        <span className="text-slate-400 shrink-0">Center:</span>
+                        <span className="text-slate-200 font-medium truncate flex-1">
+                          {officer.assignedCenter || 'Unassigned'}
                         </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1C2237]">
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                          <Users className="size-3.5 text-slate-500 shrink-0" />
+                          <span className="text-slate-400">Group:</span>
+                          <span className="font-semibold text-sky-400">{officer.group || 'Group 1'}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 bg-[#121626] px-2 py-0.5 rounded-md border border-[#22263C]">
+                          <Lock className="size-3 text-[#F6D300]" />
+                          <span className="text-slate-400">PIN:</span>
+                          <span className="font-bold text-[#F6D300] tracking-wider">
+                            {officer.pin || '••••'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-[#22263C]">
+                    {/* Touch-Friendly Action Buttons */}
+                    <div className="grid grid-cols-3 gap-2 pt-1">
                       <button
                         onClick={() => setInspectedOfficer(officer)}
-                        className="rounded-lg border border-[#22263C] bg-[#1A1F36] py-1.5 text-[11px] font-mono font-semibold text-slate-200 hover:bg-[#252C4D] transition cursor-pointer"
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
                       >
-                        Dossier
+                        <User className="size-3 text-slate-400" />
+                        <span>Profile</span>
                       </button>
                       <button
                         onClick={() => setShowResetPinModal(officer)}
-                        className="rounded-lg border border-[#22263C] bg-[#1A1F36] py-1.5 text-[11px] font-mono font-semibold text-slate-200 hover:bg-[#252C4D] transition cursor-pointer flex items-center justify-center gap-1"
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
                       >
-                        <Lock className="size-2.5 text-[#F6D300]" />
+                        <KeyRound className="size-3 text-[#F6D300]" />
                         <span>PIN</span>
                       </button>
                       <button
                         onClick={() => handleToggleStatus(officer)}
-                        className={`rounded-lg py-1.5 text-[11px] font-mono font-bold transition cursor-pointer ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
                           officer.status === 'ACTIVE'
-                            ? 'bg-[#EF4444]/15 text-[#EF4444] hover:bg-[#EF4444]/25 border border-[#EF4444]/40'
-                            : 'bg-[#10B981]/15 text-[#10B981] hover:bg-[#10B981]/25 border border-[#10B981]/40'
+                            ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
+                            : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
                         }`}
                       >
-                        {officer.status === 'ACTIVE' ? 'Revoke' : 'Activate'}
+                        {officer.status === 'ACTIVE' ? (
+                          <>
+                            <ShieldAlert className="size-3" />
+                            <span>Revoke</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="size-3" />
+                            <span>Activate</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1466,57 +1404,169 @@ export default function AdminPage() {
 
           {/* TAB 3: EXAM CENTERS & GEOFENCES */}
           {activeTab === 'centers' && (
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#090A0F]">
-              <div className="border-b border-[#22263C] pb-3">
-                <h2 className="text-base font-mono font-bold text-slate-100 flex items-center gap-2">
-                  <Building2 className="size-4 text-[#F6D300]" />
-                  <span>Ashanti Examination Centers & Vault Geofences</span>
-                </h2>
-                <p className="text-xs font-mono text-slate-400 mt-0.5">
-                  Authorized 150m radius perimeter boundaries with real-time telematics lock
-                </p>
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#22263C] pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <Building2 className="size-4.5 text-[#F6D300]" />
+                    <span>Examination Centers & Geofences</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    150m perimeter boundaries with real-time telematics sync and automatic attendance verification
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-semibold text-emerald-400 self-start sm:self-auto">
+                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>All 4 Geofences Operational</span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {EXAM_CENTERS.map((center) => (
+              {/* Bento Grid Top Summary Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+                {/* Bento Card 1: Regional District Coverage (Spans 2 columns on desktop) */}
+                <div className="md:col-span-2 rounded-2xl border border-[#22263C] bg-gradient-to-br from-[#161D3A]/60 via-[#101426] to-[#0B0D17] p-4 sm:p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400">
+                        Ashanti Examination Zone
+                      </span>
+                      <h3 className="text-lg font-bold text-white mt-0.5">
+                        Kumasi Metro Central District
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1 max-w-md">
+                        Continuous GPS telemetry monitoring 4 major secondary schools with automated geo-fenced attendance and perimeter breach alarms.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-[#0C0F17]/80 border border-[#22263C] px-3.5 py-2 rounded-xl text-xs shrink-0">
+                      <ShieldCheck className="size-4 text-emerald-400" />
+                      <div>
+                        <div className="font-bold text-emerald-400">100% Integrity</div>
+                        <div className="text-[10px] text-slate-400">0 Perimeter Breaches</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 pt-4 mt-4 border-t border-[#22263C]/80 relative z-10">
+                    <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
+                      <span className="text-[10px] text-slate-400 block font-medium">Monitored Centers</span>
+                      <span className="text-base sm:text-lg font-bold text-white mt-0.5 block">4 Centers</span>
+                    </div>
+                    <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
+                      <span className="text-[10px] text-slate-400 block font-medium">Deployed Personnel</span>
+                      <span className="text-base sm:text-lg font-bold text-[#F6D300] mt-0.5 block">
+                        {EXAM_CENTERS.reduce((acc, c) => acc + c.totalMonitors, 0)} Officers
+                      </span>
+                    </div>
+                    <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
+                      <span className="text-[10px] text-slate-400 block font-medium">Safety Perimeter</span>
+                      <span className="text-base sm:text-lg font-bold text-sky-400 mt-0.5 block">150m Radius</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bento Card 2: Live Geofence Telematics Status */}
+                <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 shadow-xl flex flex-col justify-between space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Perimeter Status
+                      </span>
+                      <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                    </div>
+                    <h4 className="text-sm font-bold text-white mt-1">Live Sensor Network</h4>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
+                      <span className="text-slate-400">GPS Triangulation:</span>
+                      <span className="font-semibold text-emerald-400">High Precision (RTK)</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
+                      <span className="text-slate-400">Corridor Checkpoints:</span>
+                      <span className="font-semibold text-white">All Clear</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-300 py-1.5">
+                      <span className="text-slate-400">Automatic Sync:</span>
+                      <span className="font-semibold text-sky-400">Every 10s</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setActiveTab('map')}
+                    className="w-full py-2 px-3 rounded-xl bg-[#1E2B7B]/70 hover:bg-[#1E2B7B] border border-[#F6D300]/30 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <MapPin className="size-3.5 text-[#F6D300]" />
+                    <span>View All On Map</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Centers Bento Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
+                {EXAM_CENTERS.map((center, index) => (
                   <div
                     key={center.code}
-                    className="rounded-xl border border-[#22263C] bg-[#11131F] p-4 space-y-3 shadow-md"
+                    className="rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-[#38bdf8]/40 transition-all duration-200 p-4 sm:p-5 space-y-3.5 shadow-md flex flex-col justify-between"
                   >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-mono font-bold text-sm text-white">{center.name}</h3>
-                        <p className="text-xs font-mono text-slate-400">Index Code: {center.code}</p>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] font-bold text-sm shrink-0">
+                          {String(index + 1).padStart(2, '0')}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-sm sm:text-base text-white">{center.name}</h3>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-slate-400 font-sans">Index Code:</span>
+                            <span className="text-xs text-sky-400 font-semibold">{center.code}</span>
+                          </div>
+                        </div>
                       </div>
-                      <span className="rounded bg-[#10B981]/15 border border-[#10B981]/40 px-2 py-0.5 text-[10px] font-mono font-bold text-[#10B981]">
-                        DEPOT LOCKED
+                      <span className="rounded-full bg-emerald-500/15 border border-emerald-500/35 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 shrink-0 flex items-center gap-1.5">
+                        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>ACTIVE GEOFENCE</span>
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300 pt-2 border-t border-[#22263C]">
-                      <div>
-                        <span className="text-slate-500">Geofence Radius:</span>
-                        <div className="text-white font-bold">{center.radius} meters</div>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">Active Monitors:</span>
-                        <div className="text-[#F6D300] font-bold">{center.totalMonitors} Units</div>
-                      </div>
-                      <div>
-                        <span className="text-slate-500">GPS Coordinates:</span>
-                        <div className="text-slate-300 font-mono text-[11px]">
-                          {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
+                    {/* Bento Mini-Tiles Grid */}
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#1E243A]">
+                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                        <span className="text-slate-400 text-[11px] block">Perimeter Boundary:</span>
+                        <div className="text-white font-bold text-sm mt-0.5 flex items-center gap-1">
+                          <Radio className="size-3 text-sky-400" />
+                          <span>{center.radius}m Radius</span>
                         </div>
                       </div>
-                      <div>
-                        <span className="text-slate-500">Tamper Status:</span>
-                        <div className="text-[#10B981] font-bold">SECURE (0 Breaches)</div>
+
+                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                        <span className="text-slate-400 text-[11px] block">Active Personnel:</span>
+                        <div className="text-[#F6D300] font-bold text-sm mt-0.5 flex items-center gap-1">
+                          <Users className="size-3 text-[#F6D300]" />
+                          <span>{center.totalMonitors} Officers</span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                        <span className="text-slate-400 text-[11px] block">GPS Coordinates:</span>
+                        <div className="text-slate-200 font-sans text-xs mt-0.5 font-medium truncate">
+                          {center.lat.toFixed(4)}° N, {center.lng.toFixed(4)}° W
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                        <span className="text-slate-400 text-[11px] block">Perimeter Security:</span>
+                        <div className="text-emerald-400 font-bold text-xs mt-0.5 flex items-center gap-1">
+                          <ShieldCheck className="size-3" />
+                          <span>Normal (0 Breaches)</span>
+                        </div>
                       </div>
                     </div>
 
+                    {/* Touch Action Button */}
                     <button
                       onClick={() => handleCenterFocus(center)}
-                      className="w-full mt-2 py-2 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] border border-[#22263C] text-xs font-mono font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-2.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <MapPin className="size-3.5 text-[#F6D300]" />
                       <span>Focus Geofence on Live Map</span>
@@ -1529,110 +1579,170 @@ export default function AdminPage() {
 
           {/* TAB 4: INCIDENT LOGS & EMERGENCY DISPATCH */}
           {activeTab === 'incidents' && (
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#090A0F]">
-              <div className="border-b border-[#22263C] pb-3">
-                <h2 className="text-base font-mono font-bold text-slate-100 flex items-center gap-2">
-                  <Siren className="size-4 text-[#EF4444]" />
-                  <span>Security Incident Command Logs</span>
-                </h2>
-                <p className="text-xs font-mono text-slate-400 mt-0.5">
-                  High-priority telematics alarms, SOS alerts, and emergency dispatch tracking
-                </p>
+            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
+              <div className="border-b border-[#22263C] pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <Siren className="size-4.5 text-[#EF4444]" />
+                    <span>Security & Emergency Logs</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    High-priority telematics alarms, SOS alerts, and emergency dispatch tracking
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-semibold text-rose-400 self-start sm:self-auto">
+                  <span className="size-2 rounded-full bg-rose-500 animate-ping" />
+                  <span>1 Active Emergency Alert</span>
+                </div>
               </div>
 
-              {/* SOS Incident Highlight Card */}
+              {/* SOS Incident Highlight Bento Card */}
               {sosOfficer && (
-                <div className="rounded-xl border border-[#EF4444] bg-[#EF4444]/10 p-5 space-y-4 shadow-xl">
+                <div className="rounded-2xl border border-[#EF4444]/80 bg-gradient-to-br from-rose-950/40 via-[#14121F] to-[#0C0F17] p-4 sm:p-5 space-y-4 shadow-2xl">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="size-10 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg">
-                        <AlertTriangle className="size-5" />
+                      <div className="size-11 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg shadow-rose-950 shrink-0">
+                        <AlertTriangle className="size-6 animate-pulse" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="rounded bg-[#EF4444] px-2 py-0.5 text-[10px] font-mono font-black text-white">
+                          <span className="rounded-full bg-[#EF4444] px-2.5 py-0.5 text-[10px] font-black text-white tracking-wider">
                             CRITICAL SOS
                           </span>
-                          <span className="text-xs font-mono text-red-300">#WAEC-SEC-091</span>
+                          <span className="text-xs font-sans text-rose-300 font-semibold">Incident #WAEC-SEC-091</span>
                         </div>
-                        <h3 className="font-mono font-bold text-base text-white mt-1">
+                        <h3 className="font-bold text-base sm:text-lg text-white mt-0.5">
                           Officer {sosOfficer.name} — {sosOfficer.assignedCenter}
                         </h3>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                       <button
                         onClick={handleFocusSamuelQuaye}
-                        className="px-3.5 py-2 rounded-lg bg-[#11131F] hover:bg-[#1A1F36] border border-[#22263C] text-xs font-mono font-bold text-slate-200 transition cursor-pointer"
+                        className="px-3.5 py-2.5 rounded-xl bg-[#11131F] hover:bg-[#1A1F36] active:bg-[#0D0F1A] border border-[#22263C] text-xs font-bold text-slate-200 transition cursor-pointer text-center"
                       >
-                        Focus Map Pin
+                        Focus on Map
                       </button>
                       <button
                         onClick={handleDispatchPatrol}
-                        className="px-4 py-2 rounded-lg bg-[#EF4444] hover:bg-red-600 text-white text-xs font-mono font-black transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                        className="px-4 py-2.5 rounded-xl bg-[#EF4444] hover:bg-red-600 active:bg-red-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                       >
                         <Phone className="size-3.5" />
-                        <span>{patrolDispatched ? 'PATROL DISPATCHED (191)' : 'DISPATCH PATROL (Call 191)'}</span>
+                        <span>{patrolDispatched ? 'Emergency Dispatched (191)' : 'Call Emergency (191)'}</span>
                       </button>
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-lg bg-[#11131F]/90 border border-[#22263C] text-xs font-mono text-slate-200">
-                    <span className="text-slate-500">Incident Details: </span>
-                    {sosOfficer.sosDetails}
+                  <div className="p-3.5 rounded-xl bg-[#0A0D17]/90 border border-[#22263C] text-xs text-slate-200">
+                    <span className="text-slate-400 font-semibold">Incident Report: </span>
+                    <span>{sosOfficer.sosDetails}</span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono text-slate-300">
-                    <div>
-                      <span className="text-slate-500">Battery:</span>
-                      <div className="text-[#EF4444] font-bold">{sosOfficer.battery}%</div>
+                  {/* Bento Telemetry Stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-300">
+                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                      <span className="text-slate-400 block text-[11px] font-medium">Device Battery</span>
+                      <div className="text-[#EF4444] font-bold text-sm mt-0.5 flex items-center gap-1">
+                        <Battery className="size-3.5" />
+                        <span>{sosOfficer.battery}% (Critical)</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-slate-500">Phone:</span>
-                      <div className="text-white font-bold">{sosOfficer.phone}</div>
+                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                      <span className="text-slate-400 block text-[11px] font-medium">Contact Phone</span>
+                      <div className="text-white font-sans font-bold text-sm mt-0.5">{sosOfficer.phone}</div>
                     </div>
-                    <div>
-                      <span className="text-slate-500">Timestamp:</span>
-                      <div className="text-white font-bold">{sosOfficer.verifiedTime}</div>
+                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                      <span className="text-slate-400 block text-[11px] font-medium">Trigger Time</span>
+                      <div className="text-white font-sans font-bold text-sm mt-0.5">{sosOfficer.verifiedTime}</div>
                     </div>
-                    <div>
-                      <span className="text-slate-500">Distance from Datum:</span>
-                      <div className="text-[#10B981] font-bold">{sosOfficer.distanceFromDatum}m (Inside)</div>
+                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                      <span className="text-slate-400 block text-[11px] font-medium">Center Proximity</span>
+                      <div className="text-emerald-400 font-bold text-sm mt-0.5">{sosOfficer.distanceFromDatum}m (Inside)</div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Historical Incident Log */}
-              <div className="rounded-xl border border-[#22263C] bg-[#11131F] p-4 space-y-3">
-                <h3 className="font-mono font-bold text-xs text-slate-300 uppercase tracking-wider">
-                  Audit Trail & Telematics Timeline
-                </h3>
-                <div className="space-y-2 text-xs font-mono">
-                  <div className="p-2.5 rounded-lg bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between">
-                    <div>
-                      <span className="text-[#EF4444] font-bold">[07:48 GMT]</span> SOS triggered by Officer Samuel Quaye (Opoku Ware Center A)
-                    </div>
-                    <span className="text-red-400 font-bold">UNRESOLVED</span>
+              {/* Bento Row: System Integrity + Audit Trail Timeline */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
+                {/* Audit Trail Timeline (Spans 2 columns on lg) */}
+                <div className="lg:col-span-2 rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                      Audit Trail & Telematics Timeline
+                    </h3>
+                    <span className="text-[11px] text-slate-400 font-sans">Today's Session</span>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between">
-                    <div>
-                      <span className="text-[#10B981] font-bold">[07:54 GMT]</span> Kofi Mensah verified on-site at Prempeh College Center A
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-rose-500/30 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#EF4444] font-sans font-bold shrink-0">[07:48 GMT]</span>
+                        <span className="text-slate-200">SOS triggered by Officer Samuel Quaye (Opoku Ware Center A)</span>
+                      </div>
+                      <span className="text-rose-400 font-bold shrink-0 text-[10px] bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/30">
+                        UNRESOLVED
+                      </span>
                     </div>
-                    <span className="text-emerald-400">VERIFIED</span>
+
+                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 font-sans font-bold shrink-0">[07:54 GMT]</span>
+                        <span className="text-slate-200">Kofi Mensah verified on-site at Prempeh College Center A</span>
+                      </div>
+                      <span className="text-emerald-400 font-bold shrink-0 text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        VERIFIED
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-emerald-400 font-sans font-bold shrink-0">[08:02 GMT]</span>
+                        <span className="text-slate-200">Akua Owusu verified on-site at Prempeh College Center B</span>
+                      </div>
+                      <span className="text-emerald-400 font-bold shrink-0 text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        VERIFIED
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400 font-sans font-bold shrink-0">[08:05 GMT]</span>
+                        <span className="text-slate-200">Emmanuel Boateng moving en route (450m from Kumasi High School)</span>
+                      </div>
+                      <span className="text-amber-400 font-bold shrink-0 text-[10px] bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        IN TRANSIT
+                      </span>
+                    </div>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between">
-                    <div>
-                      <span className="text-[#10B981] font-bold">[08:02 GMT]</span> Akua Owusu verified on-site at Prempeh College Center B
+                </div>
+
+                {/* System Readiness Bento Tile */}
+                <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 space-y-4 shadow-md flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                      Security Network Status
+                    </h3>
+                    <div className="mt-3 space-y-2.5 text-xs">
+                      <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
+                        <span className="text-slate-400">Station Verification:</span>
+                        <span className="text-emerald-400 font-bold">3 / 4 Centers Safe</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
+                        <span className="text-slate-400">Emergency Unit:</span>
+                        <span className="text-sky-400 font-bold">Police Command 191</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
+                        <span className="text-slate-400">Corridor Transit:</span>
+                        <span className="text-amber-400 font-bold">Normal Traffic</span>
+                      </div>
                     </div>
-                    <span className="text-emerald-400">VERIFIED</span>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between">
-                    <div>
-                      <span className="text-[#EAB308] font-bold">[08:05 GMT]</span> Emmanuel Boateng moving en route (450m from Kumasi High School)
-                    </div>
-                    <span className="text-amber-400">TELEMETRY OK</span>
+
+                  <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-slate-300">
+                    <span className="text-sky-400 font-bold block mb-1">WAEC Incident Protocol:</span>
+                    <span>All emergency events trigger immediate audio communication and central dispatch recording.</span>
                   </div>
                 </div>
               </div>
@@ -1640,440 +1750,122 @@ export default function AdminPage() {
           )}
         </main>
 
-        {/* Right Section: Regional Fleet & Groups Roster (w-80 shrink-0 border-l border-[#22263C] bg-[#0E1222] flex flex-col overflow-hidden) */}
-        <aside className="w-80 shrink-0 border-l border-[#22263C] bg-[#0E1222] flex flex-col overflow-hidden z-10">
-          {/* Header */}
-          <div className="p-3 border-b border-[#22263C] space-y-2.5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-mono font-bold text-xs text-slate-100 uppercase tracking-wide">
-                Ashanti Fleet Roster
-              </h3>
-              <span className="text-[10px] font-mono text-[#F6D300] font-bold bg-[#F6D300]/10 px-2 py-0.5 rounded border border-[#F6D300]/30">
-                10 GROUPS
-              </span>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="size-3.5 absolute left-3 top-2.5 text-slate-500" />
-              <input
-                type="text"
-                value={rosterSearch}
-                onChange={(e) => setRosterSearch(e.target.value)}
-                placeholder="Filter officer or group..."
-                className="w-full rounded-lg border border-[#22263C] bg-[#11131F] py-1.5 pl-8 pr-3 text-xs font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-[#1E2B7B]"
-              />
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1 text-[10px] font-mono">
-              <button
-                onClick={() => setStatusFilter('ALL')}
-                className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                  statusFilter === 'ALL'
-                    ? 'bg-[#1E2B7B] text-[#F6D300]'
-                    : 'bg-[#11131F] text-slate-400 hover:text-white'
-                }`}
-              >
-                All (48)
-              </button>
-              <button
-                onClick={() => setStatusFilter('ON_SITE')}
-                className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                  statusFilter === 'ON_SITE'
-                    ? 'bg-[#10B981]/25 text-[#10B981] border border-[#10B981]/50'
-                    : 'bg-[#11131F] text-slate-400 hover:text-white'
-                }`}
-              >
-                On-Site (42)
-              </button>
-              <button
-                onClick={() => setStatusFilter('PENDING')}
-                className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                  statusFilter === 'PENDING'
-                    ? 'bg-[#EAB308]/25 text-[#EAB308] border border-[#EAB308]/50'
-                    : 'bg-[#11131F] text-slate-400 hover:text-white'
-                }`}
-              >
-                Pending (5)
-              </button>
-              <button
-                onClick={() => setStatusFilter('SOS')}
-                className={`px-2 py-0.5 rounded font-bold transition cursor-pointer ${
-                  statusFilter === 'SOS'
-                    ? 'bg-[#EF4444]/25 text-[#EF4444] border border-[#EF4444]/50'
-                    : 'bg-[#11131F] text-slate-400 hover:text-white'
-                }`}
-              >
-                SOS (1)
-              </button>
-            </div>
-          </div>
-
-          {/* Scrollable Group List (flex-1 overflow-y-auto p-3 space-y-2) */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {groupsList.map((grpName) => {
-              const groupOfficers = filteredFleetOfficers.filter((o) => o.group === grpName)
-              const isExpanded = Boolean(expandedGroups[grpName])
-              const hasSos = groupOfficers.some((o) => o.status === 'SOS')
-              const onSiteInGroup = groupOfficers.filter((o) => o.status === 'ON_SITE').length
-
-              return (
-                <div
-                  key={grpName}
-                  className={`rounded-xl border transition overflow-hidden ${
-                    hasSos
-                      ? 'border-[#EF4444]/70 bg-[#EF4444]/10'
-                      : isExpanded
-                      ? 'border-[#22263C] bg-[#11131F]'
-                      : 'border-[#22263C]/60 bg-[#0C0F1D]'
-                  }`}
-                >
-                  {/* Accordion Header */}
-                  <button
-                    type="button"
-                    onClick={() => toggleGroupAccordion(grpName)}
-                    className="w-full flex items-center justify-between p-2.5 text-left hover:bg-[#1A1F36]/50 transition cursor-pointer font-mono"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-slate-200">{grpName}</span>
-                      {hasSos && (
-                        <span className="rounded bg-[#EF4444] px-1.5 py-0.2 text-[9px] font-black text-white animate-pulse">
-                          ⚠️ SOS
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <span className="text-[10px]">
-                        {onSiteInGroup}/{groupOfficers.length} On-Site
-                      </span>
-                      {isExpanded ? (
-                        <ChevronUp className="size-3.5 text-slate-400" />
-                      ) : (
-                        <ChevronDown className="size-3.5 text-slate-400" />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Accordion Content */}
-                  {isExpanded && (
-                    <div className="divide-y divide-[#22263C]/80 border-t border-[#22263C] bg-[#11131F]">
-                      {groupOfficers.length === 0 ? (
-                        <div className="p-3 text-center text-xs font-mono text-slate-500">
-                          No officers matching filter.
-                        </div>
-                      ) : (
-                        groupOfficers.map((officer) => (
-                          <div
-                            key={officer.id}
-                            onClick={() => {
-                              setActiveTab('map')
-                              setSelectedOfficer(officer)
-                              setFocusTarget({ lat: officer.lat, lng: officer.lng, zoom: 16 })
-                            }}
-                            className={`p-2.5 transition hover:bg-[#1A1F36] cursor-pointer flex items-center justify-between ${
-                              selectedOfficer?.id === officer.id ? 'bg-[#1E2B7B]/40 border-l-2 border-[#F6D300]' : ''
-                            }`}
-                          >
-                            <div className="min-w-0 flex-1 pr-2">
-                              <div className="flex items-center gap-1.5 truncate">
-                                <span className="font-mono font-bold text-xs text-white truncate">
-                                  {officer.name}
-                                </span>
-                                {officer.isLeader && (
-                                  <span className="text-[10px] font-bold text-[#F6D300]">
-                                    ★ (Leader)
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-[11px] font-mono text-slate-400 truncate">
-                                {officer.assignedCenter.split(' School')[0].split(' College')[0]}
-                              </div>
-                              <div className="mt-1 flex items-center gap-2 text-[10px] font-mono">
-                                {officer.status === 'ON_SITE' && (
-                                  <span className="text-[#10B981] font-bold bg-[#10B981]/15 px-1.5 py-0.5 rounded border border-[#10B981]/30">
-                                    [ON-SITE {officer.verifiedTime}]
-                                  </span>
-                                )}
-                                {officer.status === 'PENDING' && (
-                                  <span className="text-[#EAB308] font-bold bg-[#EAB308]/15 px-1.5 py-0.5 rounded border border-[#EAB308]/30">
-                                    [{officer.distanceFromDatum}m AWAY]
-                                  </span>
-                                )}
-                                {officer.status === 'SOS' && (
-                                  <span className="text-[#EF4444] font-black bg-[#EF4444]/20 px-1.5 py-0.5 rounded border border-[#EF4444]/50 animate-pulse">
-                                    [⚠️ SOS DISTRESS]
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Battery & Action Buttons */}
-                            <div className="flex items-center gap-1 shrink-0">
-                              <span className="flex items-center gap-0.5 text-[10px] font-mono text-slate-400 mr-1">
-                                <Battery className="size-3" />
-                                {officer.battery}%
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleCallOfficer(officer.phone)
-                                }}
-                                className="size-6 rounded bg-[#1A1F36] hover:bg-[#252C4D] text-slate-300 flex items-center justify-center transition"
-                                title={`Call ${officer.phone}`}
-                              >
-                                <Phone className="size-2.5 text-[#F6D300]" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleNavigate(officer.lat, officer.lng)
-                                }}
-                                className="size-6 rounded bg-[#1A1F36] hover:bg-[#252C4D] text-slate-300 flex items-center justify-center transition"
-                                title="Navigate on Google Maps"
-                              >
-                                <Navigation className="size-2.5 text-blue-400" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </aside>
+        {/* Mobile Fixed 4-Tab Bottom Navigation Bar (< 1024px) */}
+        <MobileBottomNav
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          sosCount={activeSosCount}
+        />
       </div>
 
-      {/* MODAL: PRE-PROVISION FIELD OFFICER (Account Creation) */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-2xl border border-[#22263C] bg-[#11131F] p-6 shadow-2xl text-slate-100 animate-in fade-in duration-200">
-            <div className="mb-4 flex items-center justify-between border-b border-[#22263C] pb-3">
-              <div>
-                <h2 className="text-base font-mono font-bold text-white">Pre-Provision Field Officer</h2>
-                <p className="text-xs font-mono text-slate-400">Create official account with 4-digit PIN authentication</p>
+      {/* Mobile Slide-Over Navigation Modal */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative w-72 max-w-[80vw] h-full bg-[#0C0F1D] border-r border-[#22263C] p-4 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#22263C]">
+                <div className="flex items-center gap-2">
+                  <div className="size-8 rounded-lg bg-[#1E2B7B]/60 border border-[#F6D300]/40 flex items-center justify-center text-[#F6D300]">
+                    <Shield className="size-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-sans font-bold text-white tracking-wider">M.O.S ADMIN</h2>
+                    <p className="text-[10px] font-sans text-slate-400">EXAM MONITORING</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 rounded-md text-slate-400 hover:text-white cursor-pointer"
+                  aria-label="Close navigation"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="size-8 rounded-lg hover:bg-[#1A1F36] text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
-              >
-                <X className="size-4" />
-              </button>
+
+              {/* Nav items */}
+              <div className="space-y-1">
+                {[
+                  { id: 'map' as const, label: 'Live Fleet Map', icon: Compass },
+                  { id: 'directory' as const, label: 'Monitor Directory', icon: Users },
+                  { id: 'centers' as const, label: 'Exam Centers', icon: Building2 },
+                  { id: 'incidents' as const, label: 'Incident Logs', icon: Siren, badge: activeSosCount },
+                ].map((item) => {
+                  const Icon = item.icon
+                  const isActive = activeTab === item.id
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id)
+                        setIsMobileMenuOpen(false)
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-sans font-medium transition cursor-pointer ${
+                        isActive
+                          ? 'bg-[#1E2B7B] text-[#F6D300] font-bold border border-[#F6D300]/40'
+                          : 'text-slate-400 hover:text-white hover:bg-[#11131F]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`size-4 ${isActive ? 'text-[#F6D300]' : 'text-slate-500'}`} />
+                        <span>{item.label}</span>
+                      </div>
+                      {Boolean(item.badge && item.badge > 0) && (
+                        <span className="size-2 rounded-full bg-[#EF4444] animate-ping" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
-            <form onSubmit={handleCreateOfficer} className="space-y-3.5 font-mono text-xs">
-              <div>
-                <label className="mb-1 block font-bold text-slate-300">
-                  Officer Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Kwabena Asante"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white placeholder:text-slate-500 focus:outline-none focus:border-[#1E2B7B]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="mb-1 block font-bold text-slate-300">
-                    Staff ID
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="WAEC-ASH-0105"
-                    value={newStaffId}
-                    onChange={(e) => setNewStaffId(e.target.value)}
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white focus:outline-none focus:border-[#1E2B7B]"
-                  />
+            {/* Profile & Signout at bottom */}
+            <div className="pt-3 border-t border-[#22263C] space-y-2">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false)
+                  setShowAdminProfile(true)
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-sans text-slate-300 hover:text-white hover:bg-[#11131F] cursor-pointer"
+              >
+                <div className="size-7 rounded-full bg-[#1E2B7B] text-white flex items-center justify-center font-bold text-[10px]">
+                  AV
                 </div>
-
-                <div>
-                  <label className="mb-1 block font-bold text-slate-300">
-                    Phone (Login ID)
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+233 24 000 0000"
-                    value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white focus:outline-none focus:border-[#1E2B7B]"
-                  />
+                <div className="text-left">
+                  <div className="font-bold">{session?.name || 'Dr. Mensah Osei'}</div>
+                  <div className="text-[10px] text-[#10B981]">● System Admin</div>
                 </div>
-              </div>
+              </button>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="mb-1 block font-bold text-slate-300">
-                    Secret 4-Digit PIN
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={4}
-                    value={newPin}
-                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 font-bold text-[#F6D300] focus:outline-none focus:border-[#1E2B7B]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block font-bold text-slate-300">
-                    Region
-                  </label>
-                  <select
-                    value={newRegion}
-                    onChange={(e) => setNewRegion(e.target.value)}
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white focus:outline-none focus:border-[#1E2B7B]"
-                  >
-                    <option value="Ashanti Region">Ashanti Region</option>
-                    <option value="Greater Accra">Greater Accra</option>
-                    <option value="Western Region">Western Region</option>
-                    <option value="Central Region">Central Region</option>
-                    <option value="Eastern Region">Eastern Region</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="mb-1 block font-bold text-slate-300">
-                    Assigned Group
-                  </label>
-                  <select
-                    value={newGroup}
-                    onChange={(e) => setNewGroup(e.target.value)}
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white focus:outline-none focus:border-[#1E2B7B]"
-                  >
-                    {Array.from({ length: 10 }, (_, i) => `Group ${i + 1}`).map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block font-bold text-slate-300">
-                    Center Code
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="050102"
-                    value={newCenterCode}
-                    onChange={(e) => setNewCenterCode(e.target.value)}
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white focus:outline-none focus:border-[#1E2B7B]"
-                  />
-                </div>
-              </div>
-
-              {/* Group Leader Checkbox */}
-              <div className="flex items-center gap-2 rounded-xl border border-[#22263C] bg-[#0C0F1D] p-2.5">
-                <input
-                  type="checkbox"
-                  id="leader-toggle"
-                  checked={newIsGroupLeader}
-                  onChange={(e) => setNewIsGroupLeader(e.target.checked)}
-                  className="size-4 accent-[#1E2B7B] cursor-pointer"
-                />
-                <label
-                  htmlFor="leader-toggle"
-                  className="font-bold text-slate-200 cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>Designate as Group Leader</span>
-                  <Star className="size-3 text-[#F6D300] fill-[#F6D300]" />
-                </label>
-              </div>
-
-              <div>
-                <label className="mb-1 block font-bold text-slate-300">
-                  Assigned Examination Center
-                </label>
-                <select
-                  value={newCenter}
-                  onChange={(e) => {
-                    setNewCenter(e.target.value)
-                    const found = EXAM_CENTERS.find((c) => c.name === e.target.value)
-                    if (found) setNewCenterCode(found.code)
-                  }}
-                  className="w-full rounded-xl border border-[#22263C] bg-[#0C0F1D] px-3 py-2 text-white focus:outline-none focus:border-[#1E2B7B]"
-                >
-                  {EXAM_CENTERS.map((c) => (
-                    <option key={c.code} value={c.name}>
-                      {c.name} ({c.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mt-5 flex justify-end gap-2.5 pt-3 border-t border-[#22263C]">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="rounded-xl border border-[#22263C] bg-[#1A1F36] px-4 py-2 font-bold text-slate-300 hover:text-white transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-[#F6D300]/40 px-4 py-2 font-bold text-[#F6D300] shadow-md transition cursor-pointer"
-                >
-                  Confirm & Pre-Provision
-                </button>
-              </div>
-            </form>
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-sans font-medium text-red-400 hover:bg-red-500/10 cursor-pointer"
+              >
+                <LogOut className="size-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* MODAL: REGISTER / PRE-PROVISION FIELD OFFICER */}
+      <PreProvisionOfficerModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handlePreProvisionOfficer}
+        examCenters={EXAM_CENTERS}
+      />
 
       {/* MODAL: RESET PIN */}
-      {showResetPinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-sm rounded-2xl border border-[#22263C] bg-[#11131F] p-6 shadow-2xl text-slate-100 animate-in fade-in duration-200">
-            <h3 className="text-base font-mono font-bold text-white">Reset Officer 4-Digit PIN</h3>
-            <p className="mt-1 text-xs font-mono text-slate-400">
-              Generate a new 4-digit PIN for <strong>{showResetPinModal.name}</strong> ({showResetPinModal.phone}).
-            </p>
-
-            <div className="my-4 rounded-xl border border-[#22263C] bg-[#0C0F1D] p-3.5">
-              <label className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                NEW 4-DIGIT PIN
-              </label>
-              <input
-                type="text"
-                maxLength={4}
-                value={newResetPin}
-                onChange={(e) => setNewResetPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="mt-1 w-full rounded-lg border border-[#22263C] bg-[#11131F] p-2.5 font-mono text-lg text-[#F6D300] font-black tracking-widest text-center focus:outline-none focus:border-[#1E2B7B]"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 font-mono">
-              <button
-                onClick={() => setShowResetPinModal(null)}
-                className="rounded-xl border border-[#22263C] bg-[#1A1F36] px-3.5 py-1.5 text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleResetPin}
-                className="rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-[#F6D300]/40 px-4 py-1.5 text-xs font-bold text-[#F6D300] transition shadow-md cursor-pointer"
-              >
-                Save New PIN
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResetPinModal
+        officer={showResetPinModal}
+        onClose={() => setShowResetPinModal(null)}
+        onSave={handleSaveResetPin}
+      />
 
       {/* MODAL: OFFICER DOSSIER (Inspected by Admin) */}
       {inspectedOfficer && (

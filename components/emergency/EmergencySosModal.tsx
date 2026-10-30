@@ -6,12 +6,9 @@ import {
   Radio,
   PhoneCall,
   ShieldCheck,
-  MapPin,
-  Battery,
   X,
   Volume2,
   AlertTriangle,
-  Lock,
 } from 'lucide-react'
 
 interface EmergencySosModalProps {
@@ -32,8 +29,8 @@ export function EmergencySosModal({
   officerName = 'Kofi Mensah',
   venueName = 'Prempeh College Center A',
   centerCode = '050102',
-  coords = { lat: '6.6924° N', lng: '1.6241° W', acc: '±4.2m' },
-  batteryLevel = '82%',
+  coords = { lat: '6.7028° N', lng: '1.6369° W', acc: '±4.2m' },
+  batteryLevel = '84%',
 }: EmergencySosModalProps) {
   const [isHolding, setIsHolding] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -45,7 +42,7 @@ export function EmergencySosModal({
 
   const HOLD_DURATION = 1500 // 1.5 seconds
 
-  // Web Audio Synthetic Alarm Tone
+  // Web Audio Synthetic Siren/Alert Tone
   const playSirenAlert = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
@@ -109,7 +106,7 @@ export function EmergencySosModal({
       setPinError('')
       onClose()
     } else {
-      setPinError('Invalid 4-digit security PIN. Distress beacon remains active.')
+      setPinError('Invalid 4-digit security PIN. Emergency alert remains active.')
     }
   }
 
@@ -131,7 +128,7 @@ export function EmergencySosModal({
   const strokeOffset = CIRCLE_CIRCUMFERENCE - (CIRCLE_CIRCUMFERENCE * progress) / 100
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#07080D]/90 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-[#07080D]/90 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 font-sans">
       <div
         className={`w-full max-w-md rounded-t-3xl sm:rounded-2xl border p-6 transition-all shadow-2xl ${
           isTriggered
@@ -143,18 +140,18 @@ export function EmergencySosModal({
         <div className="flex items-center justify-between pb-4 border-b border-white/10">
           <div className="flex items-center gap-2">
             <div
-              className={`h-3 w-3 rounded-full ${
+              className={`size-3 rounded-full ${
                 isTriggered ? 'bg-red-500 animate-ping' : 'bg-amber-400'
               }`}
             />
-            <span className="font-mono text-xs font-bold uppercase tracking-wider text-zinc-300">
-              {isTriggered ? '🔴 ACTIVE DISTRESS BROADCAST [LIVE]' : 'EMERGENCY PROTOCOL'}
+            <span className="text-xs font-bold uppercase tracking-wider text-zinc-200">
+              {isTriggered ? '🔴 EMERGENCY TRANSMISSION ACTIVE' : 'EMERGENCY ASSISTANCE'}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-zinc-400 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-              {batteryLevel} BAT
+            <span className="text-xs font-medium text-zinc-400 bg-white/5 px-2.5 py-0.5 rounded-lg border border-white/10">
+              {batteryLevel} Battery
             </span>
             {!isTriggered && (
               <button
@@ -162,7 +159,7 @@ export function EmergencySosModal({
                 onClick={onClose}
                 className="p-1 rounded-full text-zinc-400 hover:text-white transition cursor-pointer"
               >
-                <X className="h-5 w-5" />
+                <X className="size-5" />
               </button>
             )}
           </div>
@@ -174,21 +171,21 @@ export function EmergencySosModal({
         {!isTriggered ? (
           <div className="py-7 flex flex-col items-center text-center space-y-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-mono font-bold mb-2">
-                <AlertTriangle className="size-3" />
-                PRE-ACTIVATION INTERLOCK
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold mb-2">
+                <AlertTriangle className="size-3.5" />
+                EMERGENCY ALERT CONFIRMATION
               </span>
               <h3 className="text-xl font-bold text-white tracking-tight">
-                Hostility / Physical Threat Trigger
+                Immediate Assistance Request
               </h3>
-              <p className="text-xs text-zinc-400 max-w-xs mt-1.5 leading-relaxed">
-                Transmits verified GPS coordinates and center ID directly to Regional Security Command. Use only for threats, hostility, or severe exam disruptions.
+              <p className="text-xs text-zinc-300 max-w-xs mt-1.5 leading-relaxed">
+                Transmits your real-time GPS location and center details directly to the Ashanti Regional Control Room. Use for security emergencies or serious exam incidents.
               </p>
             </div>
 
             {/* Circular Radial Hold Button with Clockwise SVG Ring */}
             <div className="relative flex items-center justify-center size-36 select-none">
-              <svg className="w-36 h-36 transform -rotate-90">
+              <svg className="size-36 transform -rotate-90">
                 {/* Background Ring Track */}
                 <circle
                   cx="72"
@@ -226,19 +223,19 @@ export function EmergencySosModal({
                     : 'bg-red-600 hover:bg-red-500 shadow-red-900/50'
                 }`}
               >
-                <AlertOctagon className="h-8 w-8 text-amber-300 animate-pulse" />
-                <span className="text-xs font-black tracking-wider mt-1">HOLD 1.5s</span>
+                <AlertOctagon className="size-8 text-amber-300 animate-pulse" />
+                <span className="text-xs font-extrabold tracking-wider mt-1">HOLD 1.5s</span>
               </button>
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-mono font-bold text-zinc-300">
+              <p className="text-xs font-bold text-zinc-200">
                 {isHolding
                   ? `Broadcasting in ${((1500 - (progress * 15)) / 1000).toFixed(1)}s...`
-                  : 'Press and maintain contact to deploy'}
+                  : 'Press and maintain contact to dispatch'}
               </p>
-              <p className="text-[11px] text-zinc-500 font-mono">
-                Releasing early cancels deployment
+              <p className="text-xs text-zinc-400">
+                Releasing early cancels the emergency alert
               </p>
             </div>
 
@@ -257,12 +254,12 @@ export function EmergencySosModal({
           <div className="py-4 space-y-4">
             {/* Live Telemetry Card */}
             <div className="rounded-xl bg-red-950/40 border border-red-500/30 p-4 space-y-2.5">
-              <div className="flex items-center justify-between text-xs font-mono text-red-400">
+              <div className="flex items-center justify-between text-xs text-red-400">
                 <span className="flex items-center gap-1.5 font-bold">
-                  <Radio className="h-4 w-4 animate-pulse" /> LIVE TELEMETRY STREAM
+                  <Radio className="size-4 animate-pulse" /> LIVE INCIDENT TELEMETRY
                 </span>
-                <span className="bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                  PACKET #0492
+                <span className="bg-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold">
+                  TRANSMITTING
                 </span>
               </div>
               <div className="text-sm text-zinc-100 font-bold">
@@ -271,10 +268,10 @@ export function EmergencySosModal({
               <div className="text-xs text-zinc-300">
                 Officer: <strong className="text-white">{officerName}</strong>
               </div>
-              <div className="flex items-center justify-between text-xs font-mono text-zinc-400 pt-2 border-t border-red-500/20">
-                <span>LAT: {coords.lat}</span>
-                <span>LNG: {coords.lng}</span>
-                <span className="text-emerald-400 font-bold">{coords.acc} ACC</span>
+              <div className="flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-red-500/20">
+                <span>Lat: {coords.lat}</span>
+                <span>Lng: {coords.lng}</span>
+                <span className="text-emerald-400 font-bold">{coords.acc} Accuracy</span>
               </div>
             </div>
 
@@ -282,8 +279,8 @@ export function EmergencySosModal({
             <div className="flex items-center justify-between p-3 rounded-xl bg-black/60 border border-red-500/20">
               <div className="flex items-center gap-2">
                 <Volume2 className="size-4 text-red-400 animate-pulse" />
-                <span className="text-xs font-mono text-zinc-300 font-bold">
-                  ENCRYPTED AUDIO LINK STREAMING
+                <span className="text-xs text-zinc-200 font-semibold">
+                  Direct Audio Channel Active
                 </span>
               </div>
               <div className="flex items-center gap-1 h-5">
@@ -300,13 +297,13 @@ export function EmergencySosModal({
               </div>
             </div>
 
-            {/* Direct Lines */}
+            {/* Direct Emergency Contact Lines */}
             <div className="grid grid-cols-2 gap-2">
               <a
                 href="tel:191"
                 className="py-3 px-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-900/40 transition active:scale-[0.98]"
               >
-                <PhoneCall className="h-3.5 w-3.5" />
+                <PhoneCall className="size-3.5" />
                 <span>CALL POLICE (191)</span>
               </a>
               <button
@@ -314,7 +311,7 @@ export function EmergencySosModal({
                 onClick={() => setShowStandDown(true)}
                 className="py-3 px-2 rounded-xl bg-[#1C2338] hover:bg-[#252F4A] text-zinc-200 font-semibold text-xs border border-white/10 transition active:scale-[0.98] cursor-pointer"
               >
-                STAND DOWN BEACON
+                CANCEL EMERGENCY ALERT
               </button>
             </div>
 
@@ -322,8 +319,8 @@ export function EmergencySosModal({
             {showStandDown && (
               <div className="p-4 rounded-xl bg-[#090D1A] border border-[#232C47] space-y-3 animate-in fade-in duration-150">
                 <div className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-amber-400" />
-                  <span>Enter Assigned 4-Digit PIN to Cancel Distress:</span>
+                  <ShieldCheck className="size-4 text-amber-400" />
+                  <span>Enter 4-digit security PIN to cancel:</span>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -335,7 +332,7 @@ export function EmergencySosModal({
                       setPinError('')
                     }}
                     placeholder="••••"
-                    className="flex-1 bg-[#12182B] border border-white/15 rounded-lg text-center font-mono text-lg text-white tracking-widest focus:outline-none focus:border-red-500 py-1.5"
+                    className="flex-1 bg-[#12182B] border border-white/15 rounded-lg text-center text-lg text-white tracking-widest focus:outline-none focus:border-red-500 py-1.5 font-bold"
                   />
                   <button
                     type="button"
@@ -346,10 +343,10 @@ export function EmergencySosModal({
                   </button>
                 </div>
                 {pinError && (
-                  <p className="text-[11px] text-red-400 font-mono leading-tight">{pinError}</p>
+                  <p className="text-xs text-red-400 leading-tight">{pinError}</p>
                 )}
-                <p className="text-[10px] text-zinc-500">
-                  Demo PIN: <strong className="text-zinc-400">{officerPin || '0412'}</strong>
+                <p className="text-[11px] text-zinc-400">
+                  Demo PIN: <strong className="text-zinc-300">{officerPin || '0412'}</strong>
                 </p>
               </div>
             )}
