@@ -1,25 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
+import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { SessionData } from '@/lib/auth/session'
 import {
   X,
-  User,
-  Shield,
-  Building2,
-  Mail,
-  Phone,
-  KeyRound,
-  CheckCircle2,
-  Lock,
-  BadgeCheck,
-  Star,
-  MapPin,
-  Users,
+  Pencil,
   Eye,
   EyeOff,
+  CheckCircle2,
+  Star,
 } from 'lucide-react'
 
 interface ProfileModalProps {
@@ -27,234 +17,402 @@ interface ProfileModalProps {
   onClose: () => void
   session: SessionData | null
   onDutyStatus?: string
+  onSave?: (updated: Partial<SessionData>) => void
 }
 
-export function ProfileModal({ isOpen, onClose, session, onDutyStatus }: ProfileModalProps) {
+export function ProfileModal({
+  isOpen,
+  onClose,
+  session,
+  onDutyStatus,
+  onSave,
+}: ProfileModalProps) {
+  const [mounted, setMounted] = useState(false)
   const [showPin, setShowPin] = useState(false)
-  if (!isOpen || !session) return null
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [staffId, setStaffId] = useState('')
+  const [pin, setPin] = useState('')
+  const [bio, setBio] = useState('')
+  const [photo, setPhoto] = useState<string>('')
+  const [isSaved, setIsSaved] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const initials = session.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  const isFieldOfficer = session.role === 'FIELD_OFFICER'
-  const duty = onDutyStatus || (isFieldOfficer ? 'OFF DUTY' : 'HQ ACTIVE')
-  const region = session.region || 'Ashanti Region'
-  const group = session.group || 'Group 1'
+  // Initialize form state when session changes or modal opens
+  useEffect(() => {
+    if (session) {
+      const parts = (session.name || '').trim().split(' ')
+      setFirstName(parts[0] || '')
+      setLastName(parts.slice(1).join(' ') || '')
+      setEmail(session.email || '')
+      setPhone(session.phone || '')
+      setStaffId(session.staffId || '')
+      setPin(session.pin || '1234')
+      setPhoto(session.photo || '')
+      setBio(
+        session.role === 'ADMIN'
+          ? 'Regional Operations Director & Surveillance Coordinator for WAEC Ashanti Region.'
+          : 'Official Field Examination Officer assigned to regional depot security and materials escort.'
+      )
+      setIsSaved(false)
+    }
+  }, [session, isOpen])
+
+  if (!isOpen || !session || !mounted) return null
+
+  const initials = `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase() || 'OP'
   const isLeader = Boolean(session.isGroupLeader)
+  const roleName = session.role === 'ADMIN' ? 'Headquarters Admin' : 'Field Officer'
+  const statusLabel = onDutyStatus || (session.status === 'ACTIVE' ? 'Active' : 'Offline')
 
-  return (
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPhoto(reader.result)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault()
+    const fullName = `${firstName} ${lastName}`.trim()
+
+    if (onSave) {
+      onSave({
+        name: fullName,
+        email,
+        phone,
+        pin,
+        photo,
+      })
+    }
+
+    // Save to local storage session if it's the current user
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('waec_mos_session')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed.userId === session.userId) {
+            const updated = {
+              ...parsed,
+              name: fullName,
+              email,
+              phone,
+              pin,
+              photo,
+            }
+            localStorage.setItem('waec_mos_session', JSON.stringify(updated))
+          }
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    setIsSaved(true)
+    setTimeout(() => {
+      setIsSaved(false)
+      onClose()
+    }, 900)
+  }
+
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[#303654] bg-[#11131f] shadow-[0_0_60px_rgba(0,0,0,0.9)]"
+        className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.95)] select-none"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Ribbon with WAEC Gold Accent */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#1e2b7b] via-[#f6d300] to-[#1e2b7b]" />
-
-        {/* Modal Top Bar */}
-        <div className="flex items-center justify-between border-b border-[#22263c] px-5 py-3.5 bg-[#0d0f18]/90">
-          <div className="flex items-center gap-2.5">
-            <div className="relative flex size-8 items-center justify-center overflow-hidden rounded-lg border border-[#303654] bg-[#15192b]">
-              <Image
-                src="/images/waec-logo.jpg"
-                alt="WAEC"
-                width={32}
-                height={32}
-                className="size-full object-cover"
-              />
-            </div>
-            <div>
-              <h2 className="text-xs sm:text-sm font-black tracking-wider text-white uppercase">
-                Official Personnel Dossier
-              </h2>
-              <p className="text-[9px] text-slate-400">WAEC Monitoring & Operations System · V1</p>
-            </div>
-          </div>
-
+        {/* Modal Top Title Bar matching screenshot */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <h2 className="text-xl font-bold tracking-tight text-white font-sans">
+            My Profile
+          </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-lg border border-[#303654] text-slate-400 transition hover:bg-[#15192b] hover:text-white"
+            aria-label="Close"
+            className="flex size-8 items-center justify-center rounded-full bg-[#181D2E] text-slate-400 hover:text-white hover:bg-[#222942] transition-colors cursor-pointer"
           >
-            <X size={15} />
+            <X className="size-4" />
           </button>
         </div>
 
-        {/* Body Content */}
-        <div className="max-h-[82vh] overflow-y-auto p-4 sm:p-6 space-y-4">
-          {/* Officer Hero Banner */}
-          <div className="relative overflow-hidden rounded-2xl border border-[#22263c] bg-[#15192b] p-4 text-center sm:text-left flex flex-col sm:flex-row items-center gap-4">
-            {/* Background Watermark Crest */}
-            <div className="pointer-events-none absolute right-0 top-0 size-32 opacity-10">
-              <Image src="/images/waec-logo.jpg" alt="WAEC" fill className="object-contain" />
+        {/* Scrollable Form Container */}
+        <form onSubmit={handleSave} className="max-h-[82vh] overflow-y-auto px-6 pb-6 space-y-5">
+          {/* Main Card Surface with Decorative Banner + Overlapping Avatar */}
+          <div className="rounded-2xl border border-[#22263C] bg-[#121626] overflow-hidden">
+            {/* Banner: Abstract Deep Blue & Cyan Pattern Header */}
+            <div className="relative h-28 sm:h-32 w-full bg-gradient-to-r from-[#1E2B7B] via-[#2A3B9E] to-[#1258A2] overflow-hidden flex items-center justify-between px-6">
+              <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
+              <div className="absolute right-4 top-4 flex gap-1 opacity-25">
+                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
+                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
+                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
+                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
+              </div>
+              <div className="absolute -left-6 -bottom-6 size-24 rounded-full border-4 border-white/10 pointer-events-none" />
             </div>
 
-            <div className="relative flex size-16 shrink-0 items-center justify-center rounded-2xl border-2 border-[#f6d300] bg-[#1e2b7b] text-xl font-black text-[#f6d300] shadow-[0_0_20px_rgba(246,211,0,.25)]">
-              {session.photo ? (
-                <Image src={session.photo} alt={session.name} fill className="object-cover rounded-xl" />
-              ) : (
-                initials
-              )}
-              {isLeader && (
+            {/* Centered Overlapping Avatar (Uploadable & Replaceable) */}
+            <div className="relative flex flex-col items-center -mt-12 sm:-mt-14 pb-4">
+              <div className="relative group">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoChange}
+                />
+
+                {/* Circular Avatar */}
                 <div
-                  title="Designated Group Leader"
-                  className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-[#f6d300] text-black shadow-md"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Click to change profile picture"
+                  className="size-24 sm:size-28 rounded-full border-4 border-[#121626] bg-[#1E2B7B] shadow-2xl flex items-center justify-center overflow-hidden text-2xl font-bold text-[#F6D300] cursor-pointer relative"
                 >
-                  <Star size={12} className="fill-black" />
+                  {photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photo}
+                      alt={session.name}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[10px] text-white font-medium">
+                    <Pencil className="size-4 mb-0.5 text-[#F6D300]" />
+                    <span>Upload</span>
+                  </div>
                 </div>
-              )}
-              <div className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-emerald-500 text-black">
-                <BadgeCheck size={14} />
-              </div>
-            </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h3 className="text-base font-black text-white">{session.name}</h3>
-                <span className="rounded bg-[#1e2b7b] px-2 py-0.5 text-[9px] font-bold text-[#8290ff]">
-                  {session.role === 'ADMIN' ? 'HQ ADMINISTRATOR' : 'FIELD OPERATIONS OFFICER'}
-                </span>
-              </div>
-
-              {/* Group & Region Tagline */}
-              <div className="mt-1 flex flex-wrap items-center justify-center sm:justify-start gap-1.5 text-[11px]">
-                <span className="inline-flex items-center gap-1 rounded bg-[#0d0f18] px-2 py-0.5 font-bold text-[#f6d300] border border-[#303654]">
-                  <Users size={11} />
-                  <span>{group}</span>
-                  {isLeader && <span className="text-[10px]">★ Leader</span>}
-                </span>
-
-                <span className="inline-flex items-center gap-1 rounded bg-[#0d0f18] px-2 py-0.5 text-slate-300 border border-[#303654]">
-                  <MapPin size={11} className="text-[#8290ff]" />
-                  <span>{region}</span>
-                </span>
-              </div>
-
-              <div className="mt-1.5 flex items-center justify-center sm:justify-start gap-2 text-[10px] text-slate-400 font-mono">
-                <span>STAFF ID: <strong className="text-white">{session.staffId}</strong></span>
-                <span>•</span>
-                <span className="text-emerald-400 font-bold">{session.status}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Detailed Info Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-            {/* Verified Phone Number */}
-            <div className="rounded-xl border border-[#22263c] bg-[#0d0f18] p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                  <Phone size={12} className="text-[#f6d300]" />
-                  <span>Verified Auth Phone</span>
-                </div>
-                <span className="rounded bg-emerald-500/10 px-1.5 py-0.2 text-[8px] font-bold text-emerald-400">
-                  PRE-PROVISIONED
-                </span>
-              </div>
-              <div className="mt-1.5 font-mono text-xs font-bold text-white">
-                {session.phone || '+233 24 412 8900'}
-              </div>
-              <div className="text-[9px] text-slate-500">Primary login credential</div>
-            </div>
-
-            {/* Secret 4-Digit PIN */}
-            <div className="rounded-xl border border-[#22263c] bg-[#0d0f18] p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                  <Lock size={12} className="text-[#8290ff]" />
-                  <span>4-Digit Secret PIN</span>
-                </div>
+                {/* Edit Pencil Badge Button */}
                 <button
                   type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="text-slate-400 hover:text-white"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload profile picture"
+                  className="absolute bottom-0 right-1 size-7 rounded-full bg-[#1E2B7B] border-2 border-[#121626] text-white hover:text-[#F6D300] hover:bg-[#28389E] flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer"
                 >
-                  {showPin ? <EyeOff size={12} /> : <Eye size={12} />}
+                  <Pencil className="size-3.5" />
                 </button>
               </div>
-              <div className="mt-1.5 font-mono text-xs font-black text-[#f6d300] tracking-widest">
-                {showPin ? (session.pin || '0412') : '••••'}
-              </div>
-              <div className="text-[9px] text-slate-500">Used with phone for instant field login</div>
-            </div>
 
-            {/* Work Email */}
-            <div className="rounded-xl border border-[#22263c] bg-[#0d0f18] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                <Mail size={12} className="text-[#8290ff]" />
-                <span>Official Work Email</span>
-              </div>
-              <div className="mt-1.5 font-mono text-xs font-semibold text-white truncate">
-                {session.email}
-              </div>
-            </div>
-
-            {/* Duty Status */}
-            <div className="rounded-xl border border-[#22263c] bg-[#0d0f18] p-3">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                <Shield size={12} className="text-emerald-400" />
-                <span>Current Shift State</span>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-black ${
-                    duty.includes('ON')
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'
-                  }`}
-                >
-                  <span
-                    className={`size-1.5 rounded-full ${
-                      duty.includes('ON') ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
-                    }`}
-                  />
-                  {duty}
-                </span>
-              </div>
-            </div>
-
-            {/* Primary Examination Venue */}
-            <div className="sm:col-span-2 rounded-xl border border-[#22263c] bg-[#0d0f18] p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
-                  <Building2 size={12} className="text-[#8290ff]" />
-                  <span>Primary Assigned Venue</span>
+              {/* Name & Role Tag below avatar */}
+              <div className="text-center mt-2.5">
+                <div className="flex items-center justify-center gap-1.5 font-bold text-base text-white">
+                  <span>{firstName} {lastName}</span>
+                  {isLeader && (
+                    <span title="Leader" className="text-[#F6D300]">
+                      <Star className="size-3.5 fill-[#F6D300]" />
+                    </span>
+                  )}
                 </div>
-                <span className="font-mono text-[10px] font-bold text-[#f6d300]">
-                  CENTER {session.assignedCenterCode || '050102'}
-                </span>
+                <div className="flex items-center justify-center gap-2 mt-0.5 text-xs text-slate-400">
+                  <span>{roleName}</span>
+                  <span>•</span>
+                  <span className="text-emerald-400 font-medium flex items-center gap-1">
+                    <span className="size-1.5 rounded-full bg-emerald-400" />
+                    {statusLabel}
+                  </span>
+                </div>
               </div>
-              <div className="mt-1.5 text-xs font-bold text-white">{session.assignedCenter}</div>
-              <div className="text-[10px] text-slate-400">{region} • Geofence Radius 150m</div>
+            </div>
+
+            {/* 2-Column Clean Input Fields Form (Layout from Reference Image) */}
+            <div className="p-4 sm:p-6 pt-2 space-y-4 border-t border-[#22263C]/80">
+              {/* Row 1: First Name & Last Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First Name"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last Name"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Staff ID & Email Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Staff ID
+                  </label>
+                  <input
+                    type="text"
+                    value={staffId}
+                    readOnly
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17]/60 px-3.5 py-2.5 text-xs text-slate-400 cursor-not-allowed font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@waec.org"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors font-sans"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Phone Number & Login PIN (Assigned Center Removed) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+233 24 000 0000"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors font-sans"
+                  />
+                </div>
+
+                {/* Login PIN with Interactive Eye Toggle Button */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Login PIN
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      {showPin ? <EyeOff className="size-3 text-sky-400" /> : <Eye className="size-3" />}
+                      <span className={showPin ? 'text-sky-400 font-medium' : ''}>
+                        {showPin ? 'Hide' : 'Show'}
+                      </span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPin ? 'text' : 'password'}
+                      maxLength={6}
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="••••"
+                      className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-xs font-sans font-bold text-[#F6D300] placeholder:text-slate-500 tracking-widest focus:outline-hidden focus:border-sky-400 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                      title={showPin ? 'Hide PIN' : 'Show PIN'}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {showPin ? <EyeOff className="size-4 text-sky-400" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Account Status */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Account Status
+                </label>
+                <div className="flex items-center h-10 px-3.5 rounded-xl border border-[#22263C] bg-[#0A0D17]/60 text-xs font-medium text-emerald-400 gap-2">
+                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Verified Active</span>
+                </div>
+              </div>
+
+              {/* Row 5: Notes / Bio (0/200 characters) matching screenshot */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  About / Notes
+                </label>
+                <textarea
+                  rows={3}
+                  maxLength={200}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Add brief notes about your role or station..."
+                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] p-3 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors resize-none"
+                />
+                <div className="text-right text-[10px] text-slate-500 mt-1 font-sans">
+                  {bio.length}/200 characters
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Security Notice */}
-          <div className="rounded-xl border border-[#303654] bg-[#0d0f18] p-3 text-[11px] text-slate-400">
-            <span className="font-bold text-white">Closed Security Governance: </span>
-            Field deployment profiles and group assignments are managed exclusively by WAEC National Headquarters Operations Command.
-          </div>
-        </div>
+          {/* Bottom Action Buttons: Cancel & Save Changes */}
+          <div className="flex items-center justify-between pt-2">
+            {isSaved ? (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                <CheckCircle2 className="size-4" />
+                <span>Changes saved successfully!</span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-slate-500">
+                WAEC Official Operations Account
+              </span>
+            )}
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-[#22263c] px-5 py-3 bg-[#0d0f18]/90">
-          <span className="font-mono text-[9px] text-slate-500">
-            MOS-ID: {session.userId.slice(0, 8)} • WAEC GHANA
-          </span>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-[#303654] bg-[#15192b] px-3.5 py-1 text-xs font-bold text-slate-300 transition hover:bg-[#22263c] hover:text-white"
-          >
-            Close Dossier
-          </button>
-        </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl border border-[#22263C] bg-[#121626] hover:bg-[#181D2E] text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }

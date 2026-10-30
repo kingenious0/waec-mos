@@ -3,19 +3,13 @@
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import {
-  Phone,
-  Navigation,
-  Battery,
-  ShieldAlert,
-  CheckCircle2,
-  Clock,
-  MapPin,
-  X,
-  AlertTriangle,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  ExternalLink,
+  Compass,
+  Plus,
+  Minus,
+  Crosshair,
+  Layers,
+  Search,
+  SlidersHorizontal,
 } from 'lucide-react'
 
 export interface FleetOfficer {
@@ -54,6 +48,7 @@ interface FleetMapProps {
   onCallOfficer: (phone: string) => void
   onNavigate: (lat: number, lng: number) => void
   focusTarget: { lat: number; lng: number; zoom?: number } | null
+  activeSectorName?: string
 }
 
 export default function FleetMap({
@@ -64,11 +59,35 @@ export default function FleetMap({
   onCallOfficer,
   onNavigate,
   focusTarget,
+  activeSectorName = 'Ashanti Metro Zone',
 }: FleetMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
+  const tileLayerRef = useRef<any>(null)
   const markersRef = useRef<{ [id: string]: any }>({})
+  const trailPolylineRef = useRef<any>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapMode, setMapMode] = useState<'map' | 'satellite'>('map')
+
+  // Helper to create Real Leaflet OSM map or Satellite tiles (No API key needed)
+  const createTileLayer = (L: any, mode: 'map' | 'satellite') => {
+    if (mode === 'satellite') {
+      return L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 19,
+          attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+        }
+      )
+    }
+
+    // Real OpenStreetMap (OSM) Standard Tile Layer
+    return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      subdomains: ['a', 'b', 'c'],
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    })
+  }
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -77,9 +96,7 @@ export default function FleetMap({
     async function initMap() {
       if (!mapContainerRef.current) return
 
-      // Dynamic import to avoid SSR issues
       const L = (await import('leaflet')).default
-
       if (mapInstanceRef.current) return
 
       map = L.map(mapContainerRef.current, {
@@ -89,50 +106,47 @@ export default function FleetMap({
         attributionControl: false,
       })
 
-      // ESRI World Dark Gray Canvas (100% Free, No Watermark, Dark Tactical)
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 16,
-        attribution: '&copy; Esri, HERE, Garmin, OpenStreetMap contributors',
-      }).addTo(map)
+      // Real Leaflet OSM Layer
+      tileLayerRef.current = createTileLayer(L, mapMode).addTo(map)
 
-      // Add 150m Center Geofences (translucent navy fill and amber border)
+      // Add Center Geofences & Polygon Zones
       centers.forEach((center) => {
-        // Outer 150m Geofence circle
+        // Geofence Circle
         L.circle([center.lat, center.lng], {
           radius: center.radius,
-          color: '#F6D300', // Amber/Gold border
-          weight: 1.5,
+          color: '#0284c7', // Sky blue border
+          weight: 2,
           opacity: 0.9,
-          fillColor: '#1E2B7B', // Translucent WAEC Navy fill
-          fillOpacity: 0.28,
+          fillColor: '#0284c7',
+          fillOpacity: 0.2,
           dashArray: '5, 5',
         }).addTo(map)
 
-        // Center datum marker with dark tactical styling (offset above datum)
+        // Center Marker Pill (Clean sans-serif)
         const centerIcon = L.divIcon({
           className: 'custom-center-marker',
           html: `
             <div style="
-              background: rgba(17, 19, 31, 0.94);
-              border: 1px solid #22263C;
-              color: #F6D300;
-              padding: 2px 7px;
-              border-radius: 5px;
-              font-family: ui-monospace, monospace;
+              background: rgba(12, 15, 23, 0.95);
+              border: 1px solid rgba(56, 189, 248, 0.4);
+              color: #38bdf8;
+              padding: 2px 8px;
+              border-radius: 6px;
+              font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
               font-size: 10px;
               font-weight: 700;
               white-space: nowrap;
-              box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+              box-shadow: 0 4px 14px rgba(0,0,0,0.8);
               display: flex;
               align-items: center;
-              gap: 4px;
+              gap: 5px;
             ">
-              <span style="display:inline-block; width:5px; height:5px; border-radius:50%; background:#F6D300; box-shadow: 0 0 6px #F6D300;"></span>
-              ${center.name} (${center.code})
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#38bdf8; box-shadow: 0 0 6px #38bdf8;"></span>
+              ${center.name.split(' School')[0].split(' College')[0]} (${center.code})
             </div>
           `,
           iconSize: [140, 20],
-          iconAnchor: [70, 22],
+          iconAnchor: [70, 24],
         })
 
         L.marker([center.lat, center.lng], { icon: centerIcon, interactive: false }).addTo(map)
@@ -152,7 +166,19 @@ export default function FleetMap({
     }
   }, [centers])
 
-  // Update Officer Markers when officers change
+  // Handle Map / Satellite mode change dynamically
+  useEffect(() => {
+    if (!mapInstanceRef.current || !mapLoaded) return
+    import('leaflet').then((leafletModule) => {
+      const L = leafletModule.default
+      if (tileLayerRef.current) {
+        mapInstanceRef.current.removeLayer(tileLayerRef.current)
+      }
+      tileLayerRef.current = createTileLayer(L, mapMode).addTo(mapInstanceRef.current)
+    })
+  }, [mapMode, mapLoaded])
+
+  // Update Officer Markers & Active Corridor Trail
   useEffect(() => {
     if (!mapInstanceRef.current || !mapLoaded) return
     const map = mapInstanceRef.current
@@ -168,10 +194,15 @@ export default function FleetMap({
 
       // Add each officer as a tactical marker
       officers.forEach((officer) => {
+        const isSelected = selectedOfficer?.id === officer.id
+        const isSos = officer.status === 'SOS'
+        const isOnSite = officer.status === 'ON_SITE'
+        const unitId = officer.id.replace('off-', '').padStart(2, '0')
+
         let markerHtml = ''
 
-        if (officer.status === 'SOS') {
-          // Flashing Crimson Red SOS Marker (⚠️)
+        if (isSos) {
+          // SOS Pulsing Beacon Marker
           markerHtml = `
             <div class="relative flex items-center justify-center cursor-pointer">
               <div style="
@@ -179,22 +210,22 @@ export default function FleetMap({
                 width: 38px;
                 height: 38px;
                 border-radius: 50%;
-                background: rgba(239, 68, 68, 0.45);
+                background: rgba(239, 68, 68, 0.4);
                 animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
               "></div>
               <div style="
                 background: #EF4444;
                 color: #FFFFFF;
                 border: 2px solid #FFFFFF;
-                width: 30px;
-                height: 30px;
+                width: 26px;
+                height: 26px;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 font-weight: 900;
-                font-size: 13px;
-                box-shadow: 0 0 16px rgba(239, 68, 68, 0.8);
+                font-size: 11px;
+                box-shadow: 0 0 14px rgba(239, 68, 68, 0.8);
                 position: relative;
                 z-index: 2;
               ">
@@ -202,97 +233,84 @@ export default function FleetMap({
               </div>
               <div style="
                 position: absolute;
-                top: 34px;
-                background: #11131F;
+                top: 30px;
+                background: #0C0F17;
                 border: 1px solid #EF4444;
                 color: #EF4444;
                 padding: 2px 7px;
                 border-radius: 5px;
-                font-family: ui-monospace, monospace;
+                font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
                 font-size: 10px;
                 font-weight: 800;
                 white-space: nowrap;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.8);
                 z-index: 3;
               ">
-                SOS: ${officer.name}
+                U-${unitId} SOS
               </div>
             </div>
           `
-        } else if (officer.status === 'ON_SITE') {
-          // Emerald Verified Marker (✓)
+        } else if (isSelected) {
+          // Selected Unit Active Marker (with golden/radar ring and unit pill)
           markerHtml = `
             <div class="relative flex items-center justify-center cursor-pointer">
               <div style="
-                background: #10B981;
-                color: #090A0F;
-                border: 2px solid #34D399;
-                width: 24px;
-                height: 24px;
+                position: absolute;
+                width: 44px;
+                height: 44px;
                 border-radius: 50%;
+                background: rgba(246, 211, 0, 0.22);
+                border: 1px solid rgba(246, 211, 0, 0.5);
+                animation: pulse 2s infinite;
+              "></div>
+              <div style="
+                background: #0C0F17;
+                border: 1.5px solid #F6D300;
+                color: #F6D300;
+                padding: 3px 10px;
+                border-radius: 9999px;
+                font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+                font-size: 11px;
+                font-weight: 700;
                 display: flex;
                 align-items: center;
-                justify-content: center;
-                font-weight: 900;
-                font-size: 11px;
-                box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-              ">
-                ✓
-              </div>
-              <div style="
-                position: absolute;
-                top: 26px;
-                background: #11131F;
-                border: 1px solid #22263C;
-                color: #E2E8F0;
-                padding: 1px 6px;
-                border-radius: 4px;
-                font-family: ui-monospace, monospace;
-                font-size: 9px;
-                font-weight: 600;
+                gap: 6px;
+                box-shadow: 0 0 16px rgba(246, 211, 0, 0.5);
                 white-space: nowrap;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+                position: relative;
+                z-index: 2;
               ">
-                ${officer.name}
+                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#F6D300;"></span>
+                U-${unitId} ${officer.name.split(' ')[0]}
               </div>
+            </div>
+          `
+        } else if (isOnSite) {
+          // Emerald Verified Dot Marker
+          markerHtml = `
+            <div class="relative flex items-center justify-center cursor-pointer group">
+              <div style="
+                background: #10B981;
+                border: 2px solid #0C0F17;
+                width: 12px;
+                height: 12px;
+                border-radius: 50%;
+                box-shadow: 0 0 8px #10B981;
+              "></div>
             </div>
           `
         } else {
-          // Amber Pending / En route Marker (•)
+          // In Transit Cyan / Amber Marker
           markerHtml = `
-            <div class="relative flex items-center justify-center cursor-pointer">
+            <div class="relative flex items-center justify-center cursor-pointer group">
               <div style="
-                background: #EAB308;
-                color: #090A0F;
-                border: 2px solid #FDE047;
-                width: 22px;
-                height: 22px;
+                background: #38bdf8;
+                border: 2px solid #0C0F17;
+                width: 12px;
+                height: 12px;
                 border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: 900;
-                font-size: 13px;
-                box-shadow: 0 0 10px rgba(234, 179, 8, 0.45);
-              ">
-                •
-              </div>
-              <div style="
-                position: absolute;
-                top: 24px;
-                background: #11131F;
-                border: 1px solid #22263C;
-                color: #FDE047;
-                padding: 1px 6px;
-                border-radius: 4px;
-                font-family: ui-monospace, monospace;
-                font-size: 9px;
-                font-weight: 600;
-                white-space: nowrap;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-              ">
-                ${officer.name} (${officer.distanceFromDatum}m)
-              </div>
+                box-shadow: 0 0 8px #38bdf8;
+              "></div>
             </div>
           `
         }
@@ -312,8 +330,34 @@ export default function FleetMap({
 
         markersRef.current[officer.id] = marker
       })
+
+      // Add Dotted Trail Line if an officer is selected
+      if (trailPolylineRef.current) {
+        map.removeLayer(trailPolylineRef.current)
+        trailPolylineRef.current = null
+      }
+
+      if (selectedOfficer) {
+        const matchingCenter = centers.find(
+          (c) => c.code === selectedOfficer.centerCode || c.name === selectedOfficer.assignedCenter
+        ) || centers[0]
+
+        if (matchingCenter) {
+          const latlngs: [number, number][] = [
+            [selectedOfficer.lat, selectedOfficer.lng],
+            [matchingCenter.lat, matchingCenter.lng],
+          ]
+
+          trailPolylineRef.current = L.polyline(latlngs, {
+            color: selectedOfficer.status === 'SOS' ? '#ef4444' : '#bef264', // Lime / Cyan dashed route
+            weight: 2.5,
+            opacity: 0.85,
+            dashArray: '6, 8',
+          }).addTo(map)
+        }
+      }
     })
-  }, [officers, mapLoaded, onSelectOfficer])
+  }, [officers, selectedOfficer, centers, mapLoaded, onSelectOfficer])
 
   // Handle Focus Target Changes
   useEffect(() => {
@@ -330,155 +374,87 @@ export default function FleetMap({
   const handleResetView = () => mapInstanceRef.current?.flyTo([6.6924, -1.6241], 13)
 
   return (
-    <div className="relative size-full min-h-[300px] overflow-hidden bg-[#090A0F]">
+    <div className="relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans">
       {/* Real Interactive Leaflet Container */}
       <div ref={mapContainerRef} className="size-full z-0" />
 
-      {/* Map Controls */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
+      {/* --- Google Maps Style: Top-Left Floating Zone Status Pill --- */}
+      <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 z-10 pointer-events-auto">
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-xl text-xs font-sans">
+          <span className="size-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_8px_#34d399] animate-pulse" />
+          <span className="font-semibold text-white tracking-tight">
+            {activeSectorName || 'Ashanti Regional Zone'}
+          </span>
+          <span className="text-slate-600">•</span>
+          <span className="text-emerald-400 font-bold">
+            {officers.length || 48} Active
+          </span>
+        </div>
+      </div>
+
+      {/* --- Google Maps Style: Top-Right Map / Satellite Switcher --- */}
+      <div className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 pointer-events-auto">
+        <div className="flex items-center rounded-full bg-[#0C0F17]/90 border border-[#22263C] p-1 backdrop-blur-md shadow-xl text-xs font-sans">
+          <button
+            type="button"
+            onClick={() => setMapMode('map')}
+            className={`px-3 py-1 rounded-full text-xs transition cursor-pointer ${
+              mapMode === 'map'
+                ? 'bg-[#1E2B7B] text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white font-medium'
+            }`}
+          >
+            Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setMapMode('satellite')}
+            className={`px-3 py-1 rounded-full text-xs transition cursor-pointer ${
+              mapMode === 'satellite'
+                ? 'bg-[#1E2B7B] text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white font-medium'
+            }`}
+          >
+            Satellite
+          </button>
+        </div>
+      </div>
+
+      {/* --- Google Maps Style: Bottom-Right Vertical Floating Tool Cluster --- */}
+      <div className="absolute bottom-6 right-3.5 sm:bottom-6 sm:right-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
+        {/* Zoom In / Out Buttons Stack */}
+        <div className="flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-2xl overflow-hidden divide-y divide-[#22263C]">
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            aria-label="Zoom in"
+            className="p-2.5 text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 transition cursor-pointer"
+            title="Zoom in"
+          >
+            <Plus className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            aria-label="Zoom out"
+            className="p-2.5 text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 transition cursor-pointer"
+            title="Zoom out"
+          >
+            <Minus className="size-4" />
+          </button>
+        </div>
+
+        {/* Center / Location Target Crosshair Button */}
         <button
-          onClick={handleZoomIn}
-          aria-label="Zoom in"
-          className="size-8 rounded-lg bg-[#11131F]/90 hover:bg-[#1A1F36] border border-[#22263C] text-slate-300 hover:text-white flex items-center justify-center transition shadow-lg cursor-pointer"
-        >
-          <ZoomIn className="size-4" />
-        </button>
-        <button
-          onClick={handleZoomOut}
-          aria-label="Zoom out"
-          className="size-8 rounded-lg bg-[#11131F]/90 hover:bg-[#1A1F36] border border-[#22263C] text-slate-300 hover:text-white flex items-center justify-center transition shadow-lg cursor-pointer"
-        >
-          <ZoomOut className="size-4" />
-        </button>
-        <button
+          type="button"
           onClick={handleResetView}
-          aria-label="Reset Kumasi view"
-          className="size-8 rounded-lg bg-[#11131F]/90 hover:bg-[#1A1F36] border border-[#22263C] text-slate-300 hover:text-white flex items-center justify-center transition shadow-lg cursor-pointer"
-          title="Reset to Kumasi Fleet Overview"
+          aria-label="Center view"
+          className="size-9 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+          title="Recenter to Kumasi Center"
         >
-          <Maximize2 className="size-3.5" />
+          <Crosshair className="size-4" />
         </button>
       </div>
-
-      {/* Map Legend Overlay */}
-      <div className="absolute bottom-3 left-3 z-10 p-2.5 rounded-xl bg-[#11131F]/90 border border-[#22263C] backdrop-blur-md text-[11px] font-mono text-slate-300 flex flex-wrap items-center gap-3.5 shadow-xl">
-        <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981]" />
-          <span>Verified On-Site (≤150m)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="size-2 rounded-full bg-[#EAB308] shadow-[0_0_6px_#EAB308]" />
-          <span>En Route (&gt;150m)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-[#EF4444] animate-pulse shadow-[0_0_8px_#EF4444]" />
-          <span className="text-[#EF4444] font-bold">Active SOS Alert</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-2 rounded border border-dashed border-[#F6D300] bg-[#1E2B7B]/40" />
-          <span>150m Geofence</span>
-        </div>
-      </div>
-
-      {/* Docked Tactical Officer Popover Inspector */}
-      {selectedOfficer && (
-        <div className="absolute top-14 left-3 z-20 w-80 p-4 rounded-xl bg-[#11131F]/95 border border-[#22263C] shadow-2xl text-slate-200 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-start justify-between border-b border-[#22263C] pb-2.5">
-            <div className="flex items-center gap-2">
-              <span
-                className={`size-2.5 rounded-full ${
-                  selectedOfficer.status === 'SOS'
-                    ? 'bg-[#EF4444] animate-ping'
-                    : selectedOfficer.status === 'ON_SITE'
-                    ? 'bg-[#10B981]'
-                    : 'bg-[#EAB308]'
-                }`}
-              />
-              <span className="font-bold text-sm text-white font-mono">{selectedOfficer.name}</span>
-              {selectedOfficer.isLeader && (
-                <span className="text-[10px] font-bold text-[#F6D300] bg-[#F6D300]/10 px-1.5 py-0.5 rounded border border-[#F6D300]/40">
-                  ★ LEADER
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => onSelectOfficer(null)}
-              className="text-slate-400 hover:text-white transition cursor-pointer p-0.5"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          <div className="mt-3 space-y-2 text-xs text-slate-300 font-mono">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Center:</span>
-              <span className="text-white font-semibold truncate max-w-[170px]">{selectedOfficer.assignedCenter}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Center Code:</span>
-              <span className="text-[#F6D300] font-medium">{selectedOfficer.centerCode}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Roster Group:</span>
-              <span className="text-blue-400 font-bold">{selectedOfficer.group}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Battery:</span>
-              <span
-                className={`flex items-center gap-1 font-bold ${
-                  selectedOfficer.battery < 30 ? 'text-[#EF4444]' : 'text-[#10B981]'
-                }`}
-              >
-                <Battery className="size-3.5" />
-                {selectedOfficer.battery}%
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Datum Dist:</span>
-              <span
-                className={`font-bold ${
-                  selectedOfficer.distanceFromDatum <= 150 ? 'text-[#10B981]' : 'text-[#EAB308]'
-                }`}
-              >
-                {selectedOfficer.distanceFromDatum}m away
-              </span>
-            </div>
-            {selectedOfficer.verifiedTime && (
-              <div className="flex justify-between">
-                <span className="text-slate-500">Verified:</span>
-                <span className="text-slate-300">{selectedOfficer.verifiedTime}</span>
-              </div>
-            )}
-            {selectedOfficer.status === 'SOS' && (
-              <div className="p-2.5 rounded-lg bg-[#EF4444]/15 border border-[#EF4444]/60 text-[11px] text-red-200 font-medium mt-2">
-                <div className="font-bold text-[#EF4444] flex items-center gap-1 mb-0.5">
-                  <AlertTriangle className="size-3 text-[#EF4444]" />
-                  <span>CRITICAL EMERGENCY SOS</span>
-                </div>
-                {selectedOfficer.sosDetails || 'Immediate assistance requested!'}
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-4 grid grid-cols-2 gap-2 pt-2 border-t border-[#22263C]">
-            <button
-              onClick={() => onCallOfficer(selectedOfficer.phone)}
-              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] text-white font-semibold text-xs transition shadow-sm cursor-pointer"
-            >
-              <Phone className="size-3.5" />
-              <span>Call Phone</span>
-            </button>
-            <button
-              onClick={() => onNavigate(selectedOfficer.lat, selectedOfficer.lng)}
-              className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg bg-[#1A1F36] hover:bg-[#222847] border border-[#22263C] text-slate-200 font-semibold text-xs transition cursor-pointer"
-            >
-              <Navigation className="size-3.5 text-blue-400" />
-              <span>Google Maps</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
