@@ -19,7 +19,7 @@ export default function RootPage() {
         router.replace('/field')
       }
     } else {
-      router.replace('/signup')
+      router.replace('/login')
     }
   }, [router])
 

@@ -1,14 +1,16 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Menu,
   Bell,
   Search,
   User,
   SlidersHorizontal,
+  LogOut,
 } from 'lucide-react'
 import type { SessionData } from '@/lib/auth/session'
+import { NotificationsPopover } from '@/components/admin/notifications/NotificationsPopover'
 
 interface AdminTopNavProps {
   activeCount: number
@@ -17,6 +19,11 @@ interface AdminTopNavProps {
   onSearchChange: (query: string) => void
   onToggleMobileMenu?: () => void
   onOpenProfile?: () => void
+  onSignOut?: () => void
+  onFocusSos?: () => void
+  onCallEmergency?: () => void
+  onOpenIncidents?: () => void
+  onOpenSettings?: () => void
   session?: SessionData | null
   unreadAlertsCount?: number
 }
@@ -28,11 +35,17 @@ export function AdminTopNav({
   onSearchChange,
   onToggleMobileMenu,
   onOpenProfile,
+  onSignOut,
+  onFocusSos,
+  onCallEmergency,
+  onOpenIncidents,
+  onOpenSettings,
   session,
   unreadAlertsCount = 1,
 }: AdminTopNavProps) {
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   return (
-    <header className="h-14 border-b border-border bg-[#0B0D14] px-4 flex items-center justify-between shrink-0 select-none z-20">
+    <header className="h-14 border-b border-border bg-[#0B0D14] px-4 flex items-center justify-between shrink-0 select-none z-20 relative">
       {/* --- MOBILE HEADER VIEW (< 1024px) --- */}
       <div className="flex lg:hidden items-center justify-between w-full">
         <div className="flex items-center gap-3">
@@ -60,11 +73,18 @@ export function AdminTopNav({
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          {/* Notification Bell (Mobile) */}
           <button
             type="button"
+            data-bell-trigger="true"
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             aria-label="Alerts"
-            className="relative p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted/40 cursor-pointer"
+            className={`relative p-2 rounded-full cursor-pointer transition-colors ${
+              isNotificationsOpen
+                ? 'bg-muted/80 text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+            }`}
           >
             <Bell className="size-4" />
             {unreadAlertsCount > 0 && (
@@ -80,6 +100,18 @@ export function AdminTopNav({
           >
             <User className="size-4" />
           </button>
+
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              aria-label="Sign Out"
+              title="Sign Out / Switch Account"
+              className="p-2 text-red-400 hover:text-red-300 rounded-full hover:bg-red-500/10 transition-colors cursor-pointer"
+            >
+              <LogOut className="size-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -113,11 +145,17 @@ export function AdminTopNav({
             </kbd>
           </div>
 
-          {/* Notification Bell */}
+          {/* Notification Bell (Desktop) */}
           <button
             type="button"
+            data-bell-trigger="true"
+            onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             aria-label="Alerts"
-            className="relative p-2 text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/40 cursor-pointer transition-colors"
+            className={`relative p-2 rounded-lg cursor-pointer transition-colors ${
+              isNotificationsOpen
+                ? 'bg-muted/80 text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+            }`}
           >
             <Bell className="size-4" />
             {unreadAlertsCount > 0 && (
@@ -134,8 +172,31 @@ export function AdminTopNav({
           >
             OP
           </button>
+
+          {/* Desktop Sign Out Button */}
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              title="Sign Out / Switch Account"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-medium transition cursor-pointer"
+            >
+              <LogOut className="size-3.5" />
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Unified Notifications Popover */}
+      <NotificationsPopover
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onFocusSos={onFocusSos}
+        onCallEmergency={onCallEmergency}
+        onOpenIncidents={onOpenIncidents}
+        onOpenSettings={onOpenSettings}
+      />
     </header>
   )
 }

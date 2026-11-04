@@ -10,15 +10,17 @@ import {
   ChevronRight,
   Settings,
   Shield,
+  LogOut,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents') => void
+  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
+  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings') => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   sosCount: number
   adminName?: string
+  onSignOut?: () => void
 }
 
 export function AdminSidebar({
@@ -28,6 +30,7 @@ export function AdminSidebar({
   onToggleCollapse,
   sosCount,
   adminName = 'Dr. Mensah Osei',
+  onSignOut,
 }: AdminSidebarProps) {
   const navItems = [
     {
@@ -136,32 +139,80 @@ export function AdminSidebar({
       </div>
 
       {/* Sidebar Footer */}
-      <div className="border-t border-border/80 p-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center shrink-0">
-            MO
-          </div>
-          {!isCollapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs font-medium text-foreground truncate">
-                {adminName}
-              </span>
-              <div className="flex items-center gap-1.5 text-[10px] text-status-ok font-medium">
-                <span className="size-1.5 rounded-full bg-status-ok" />
-                <span>Online</span>
-              </div>
+      <div className="border-t border-border/80 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+              MO
             </div>
+            {!isCollapsed && (
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-medium text-foreground truncate">
+                  {adminName}
+                </span>
+                <div className="flex items-center gap-1.5 text-[10px] text-status-ok font-medium">
+                  <span className="size-1.5 rounded-full bg-status-ok" />
+                  <span>Online</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={() => onSelectTab('settings')}
+              title="System Settings"
+              aria-label="Settings"
+              className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              <Settings className="size-3.5" />
+            </button>
           )}
         </div>
 
-        {!isCollapsed && (
+        {isCollapsed && (
           <button
             type="button"
+            onClick={() => onSelectTab('settings')}
+            title="System Settings"
             aria-label="Settings"
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
+            className={`w-full flex items-center justify-center p-1.5 rounded-md transition-colors cursor-pointer ${
+              activeTab === 'settings'
+                ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
           >
-            <Settings className="size-3.5" />
+            <Settings className="size-4" />
           </button>
+        )}
+
+        {onSignOut && (
+          isCollapsed ? (
+            <button
+              type="button"
+              onClick={onSignOut}
+              title="Sign Out"
+              aria-label="Sign Out"
+              className="w-full flex items-center justify-center p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer"
+            >
+              <LogOut className="size-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSignOut}
+              title="Sign Out / Switch Account"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 transition-colors cursor-pointer"
+            >
+              <LogOut className="size-3.5 shrink-0" />
+              <span>Sign Out</span>
+            </button>
+          )
         )}
       </div>
     </aside>

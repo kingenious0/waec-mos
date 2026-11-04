@@ -9,8 +9,8 @@ import {
 } from 'lucide-react'
 
 interface MobileBottomNavProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents') => void
+  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
+  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings') => void
   sosCount: number
 }
 

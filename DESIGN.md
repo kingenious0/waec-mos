@@ -66,11 +66,10 @@ Same status tokens: ok (inside geofence), warn (outside geofence), sos (distress
 
 ## 4. Typography
 
-Load with `next/font` in `app/layout.tsx` (currently no fonts are loaded):
-- **Inter** → `--font-sans`, all UI text
-- **JetBrains Mono** → `--font-mono`, data only
-
-Mono is allowed ONLY on: battery %, timestamps, coordinates, distance in metres, staff IDs, incident numbers (`INC-2026-0042`), numeric stat values. Add `tabular-nums` to all numeric displays so columns do not jitter on live updates.
+Load with `next/font` in `app/layout.tsx`:
+- **Inter** → `--font-sans`, all UI text and data (Inter only, no monospace anywhere in the project).
+- JetBrains Mono is removed from the project.
+- Use `tabular-nums` on all numbers (battery %, timestamps, distances, codes) so columns do not jitter on live updates.
 
 | Role | Class |
 |---|---|
@@ -78,7 +77,7 @@ Mono is allowed ONLY on: battery %, timestamps, coordinates, distance in metres,
 | Panel title | `text-sm font-semibold` |
 | Body / row primary | `text-sm font-medium` |
 | Secondary / meta | `text-xs text-muted-foreground` |
-| Stat value | `text-2xl font-semibold tabular-nums font-mono` |
+| Stat value | `text-2xl font-semibold tabular-nums` |
 | Section label | `text-xs font-medium uppercase tracking-wide text-muted-foreground` |
 
 Never go below `text-xs` (12px). Max two font weights per screen (500, 600).

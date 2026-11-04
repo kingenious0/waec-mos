@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { getCurrentClientSession, SessionData } from '@/lib/auth/session'
+import { getCurrentClientSession, SessionData, clearClientSession } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
 import { PreProvisionOfficerModal, PreProvisionData } from '@/components/admin/modals/PreProvisionOfficerModal'
 import { ResetPinModal } from '@/components/admin/modals/ResetPinModal'
@@ -36,6 +36,7 @@ import {
   Siren,
   KeyRound,
   User,
+  Settings,
 } from 'lucide-react'
 import { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
@@ -43,6 +44,7 @@ import { AdminSidebar } from '@/components/admin/sidebar/AdminSidebar'
 import { AdminTopNav } from '@/components/admin/header/AdminTopNav'
 import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTelematicsDrawer'
 import { MobileBottomNav } from '@/components/admin/mobile/MobileBottomNav'
+import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 
 // Dynamic import for Leaflet FleetMap to prevent SSR issues
 const FleetMap = dynamic(() => import('@/components/admin/FleetMap'), {
@@ -852,8 +854,8 @@ export default function AdminPage() {
   const router = useRouter()
   const [session, setSession] = useState<SessionData | null>(null)
 
-  // Current active navigation tab: 'map' | 'directory' | 'centers' | 'incidents'
-  const [activeTab, setActiveTab] = useState<'map' | 'directory' | 'centers' | 'incidents'>('map')
+  // Current active navigation tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
+  const [activeTab, setActiveTab] = useState<'map' | 'directory' | 'centers' | 'incidents' | 'settings'>('map')
 
   // Fleet Telematics state
   const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>(INITIAL_FLEET_OFFICERS)
@@ -876,6 +878,8 @@ export default function AdminPage() {
         return 'Exam Centers'
       case 'incidents':
         return 'Incident Logs'
+      case 'settings':
+        return 'Settings'
       default:
         return 'Live Fleet Map'
     }
@@ -915,30 +919,14 @@ export default function AdminPage() {
 
   // Check auth session
   useEffect(() => {
-    let s = getCurrentClientSession()
-    if (!s || s.role !== 'ADMIN') {
-      const defaultAdminSession: SessionData = {
-        userId: 'usr-admin-1',
-        staffId: 'WAEC-HQ-001',
-        email: 'm.osei@waec.org',
-        name: 'Dr. Mensah Osei',
-        phone: '+233244101000',
-        pin: '1234',
-        role: 'ADMIN',
-        status: 'ACTIVE',
-        region: 'Ashanti Region',
-        group: 'HQ Executive',
-        isGroupLeader: true,
-        assignedCenter: 'Kumasi Regional Office',
-        assignedCenterCode: '050000',
-        mustChangePassword: false,
-      }
-      s = defaultAdminSession
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('waec_mos_session', JSON.stringify(defaultAdminSession))
-        document.cookie = `waec_role=ADMIN; path=/; max-age=86400; SameSite=Lax`
-        document.cookie = `waec_user=usr-admin-1; path=/; max-age=86400; SameSite=Lax`
-      }
+    const s = getCurrentClientSession()
+    if (!s) {
+      router.push('/login')
+      return
+    }
+    if (s.role !== 'ADMIN') {
+      router.push('/field')
+      return
     }
     setSession(s)
     loadOfficers()
@@ -988,11 +976,7 @@ export default function AdminPage() {
   }
 
   const handleSignOut = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('waec_mos_session')
-      document.cookie = 'waec_role=; path=/; max-age=0'
-      document.cookie = 'waec_user=; path=/; max-age=0'
-    }
+    clearClientSession()
     router.push('/login')
   }
 
@@ -1131,6 +1115,7 @@ export default function AdminPage() {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         sosCount={activeSosCount}
         adminName={session?.name || 'Dr. Mensah Osei'}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Operations Split: Top Nav + Dynamic Tab Stage */}
@@ -1145,6 +1130,23 @@ export default function AdminPage() {
           onOpenProfile={() => setShowAdminProfile(true)}
           session={session}
           unreadAlertsCount={activeSosCount}
+          onSignOut={handleSignOut}
+          onFocusSos={() => {
+            const samuel = fleetOfficers.find((o) => o.name.toLowerCase().includes('samuel') || o.status === 'SOS')
+            if (samuel) {
+              setSelectedOfficer(samuel)
+            }
+            setActiveTab('map')
+            setFeedback('Focused on Officer Samuel Quaye (Critical SOS)')
+          }}
+          onCallEmergency={() => {
+            setFeedback('Emergency Call: Dialing Police Command 191...')
+            if (typeof window !== 'undefined') {
+              window.open('tel:191')
+            }
+          }}
+          onOpenIncidents={() => setActiveTab('incidents')}
+          onOpenSettings={() => setActiveTab('settings')}
         />
 
         {/* Floating Feedback Notification Toast */}
@@ -1748,6 +1750,11 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* TAB 5: SYSTEM SETTINGS VIEW */}
+          {activeTab === 'settings' && (
+            <SystemSettingsTab onFeedback={setFeedback} />
+          )}
         </main>
 
         {/* Mobile Fixed 4-Tab Bottom Navigation Bar (< 1024px) */}
@@ -1793,6 +1800,7 @@ export default function AdminPage() {
                   { id: 'directory' as const, label: 'Monitor Directory', icon: Users },
                   { id: 'centers' as const, label: 'Exam Centers', icon: Building2 },
                   { id: 'incidents' as const, label: 'Incident Logs', icon: Siren, badge: activeSosCount },
+                  { id: 'settings' as const, label: 'Settings', icon: Settings },
                 ].map((item) => {
                   const Icon = item.icon
                   const isActive = activeTab === item.id
@@ -1899,6 +1907,8 @@ export default function AdminPage() {
         onClose={() => setShowAdminProfile(false)}
         session={session}
         onDutyStatus="HQ ACTIVE"
+        onSave={(updated) => setSession((prev) => (prev ? { ...prev, ...updated } : null))}
+        onLogout={handleSignOut}
       />
     </div>
   )

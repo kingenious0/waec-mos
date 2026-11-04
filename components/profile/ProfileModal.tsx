@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { SessionData } from '@/lib/auth/session'
+import { SessionData, clearClientSession } from '@/lib/auth/session'
 import {
   X,
   Pencil,
@@ -10,6 +10,7 @@ import {
   EyeOff,
   CheckCircle2,
   Star,
+  LogOut,
 } from 'lucide-react'
 
 interface ProfileModalProps {
@@ -18,6 +19,7 @@ interface ProfileModalProps {
   session: SessionData | null
   onDutyStatus?: string
   onSave?: (updated: Partial<SessionData>) => void
+  onLogout?: () => void
 }
 
 export function ProfileModal({
@@ -26,6 +28,7 @@ export function ProfileModal({
   session,
   onDutyStatus,
   onSave,
+  onLogout,
 }: ProfileModalProps) {
   const [mounted, setMounted] = useState(false)
   const [showPin, setShowPin] = useState(false)
@@ -382,16 +385,34 @@ export function ProfileModal({
 
           {/* Bottom Action Buttons: Cancel & Save Changes */}
           <div className="flex items-center justify-between pt-2">
-            {isSaved ? (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                <CheckCircle2 className="size-4" />
-                <span>Changes saved successfully!</span>
-              </div>
-            ) : (
-              <span className="text-[11px] text-slate-500">
-                WAEC Official Operations Account
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onLogout) {
+                    onLogout()
+                  } else {
+                    clearClientSession()
+                    window.location.href = '/login'
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+              >
+                <LogOut className="size-3.5" />
+                <span>Log Out</span>
+              </button>
+
+              {isSaved ? (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 className="size-4" />
+                  <span>Changes saved!</span>
+                </div>
+              ) : (
+                <span className="hidden sm:inline text-[11px] text-slate-500">
+                  WAEC Official Operations Account
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-3">
               <button

@@ -321,6 +321,62 @@ export default function LoginPage() {
               </Button>
             </form>
 
+            {/* Quick Demo Credentials Autofill Helper */}
+            <div className="pt-1 pb-1">
+              <div className="p-3 rounded-xl bg-[#121626]/80 border border-white/5 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                  <span className="font-semibold text-zinc-300">Quick Test Credentials</span>
+                  <span className="text-[10px] text-zinc-500">Click to autofill</span>
+                </div>
+                {role === 'OFFICER' ? (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhone('0244128900')
+                        setPin('0412')
+                        setErrorMsg('')
+                      }}
+                      className="p-2 rounded-lg bg-[#181D33] hover:bg-[#202744] border border-white/10 text-left transition cursor-pointer"
+                    >
+                      <div className="font-semibold text-white text-[11px] truncate">Kofi Mensah</div>
+                      <div className="text-[10px] text-zinc-400 font-mono">0244128900 • 0412</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhone('0241002345')
+                        setPin('1234')
+                        setErrorMsg('')
+                      }}
+                      className="p-2 rounded-lg bg-[#181D33] hover:bg-[#202744] border border-white/10 text-left transition cursor-pointer"
+                    >
+                      <div className="font-semibold text-white text-[11px] truncate">Akua Owusu</div>
+                      <div className="text-[10px] text-zinc-400 font-mono">0241002345 • 1234</div>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIdentifier('admin@waec.org')
+                        setPassword('Admin@123')
+                        setErrorMsg('')
+                      }}
+                      className="w-full p-2 rounded-lg bg-[#181D33] hover:bg-[#202744] border border-white/10 text-left transition cursor-pointer flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="font-semibold text-white text-[11px]">Dr. James Addo (HQ Command)</div>
+                        <div className="text-[10px] text-zinc-400 font-mono">admin@waec.org • Admin@123</div>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-[#1E2B7B] text-[#F6D300] font-semibold">Autofill</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Clean Verification Callout */}
             <div className="pt-2 text-center">
               <p className="text-xs text-zinc-400">
