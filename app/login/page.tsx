@@ -1,20 +1,23 @@
 'use client'
 
 import React, { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { setClientSession } from '@/lib/auth/session'
-import { GradientMesh } from '@/components/ui/login-page-utils/gradient-mesh'
-import { Input } from '@/components/ui/input'
+import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
+import { NationalOperationsShowcase } from '@/components/auth/NationalOperationsShowcase'
+import { PinInput } from '@/components/auth/PinInput'
 import { Button } from '@/components/ui/button'
 import {
-  Phone,
+  ArrowRight,
+  Shield,
+  AlertCircle,
   Eye,
   EyeOff,
-  AlertCircle,
-  Lock,
   Mail,
+  Lock,
+  Check,
+  Sparkles,
 } from 'lucide-react'
 
 export default function LoginPage() {
@@ -25,6 +28,7 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [pin, setPin] = useState('')
   const [showPin, setShowPin] = useState(false)
+  const [keepSignedIn, setKeepSignedIn] = useState(true)
 
   // Admin credentials (Email/Staff ID + Password)
   const [identifier, setIdentifier] = useState('')
@@ -41,8 +45,10 @@ export default function LoginPage() {
     let payload: Record<string, string> = {}
 
     if (role === 'OFFICER') {
+      const cleanPhone = phone.trim()
       const cleanPin = pin.trim()
-      if (!phone.trim()) {
+
+      if (!cleanPhone) {
         setErrorMsg('Please enter your registered phone number.')
         return
       }
@@ -50,7 +56,9 @@ export default function LoginPage() {
         setErrorMsg('Please enter your 4-digit security PIN.')
         return
       }
-      payload = { phone: phone.trim(), pin: cleanPin, mode: 'OFFICER' }
+
+      // If phone starts with 0 or doesn't have country code, keep raw for server normalizer
+      payload = { phone: cleanPhone, pin: cleanPin, mode: 'OFFICER' }
     } else {
       if (!identifier.trim() || !password) {
         setErrorMsg('Please enter your Staff ID or Council email, and password.')
@@ -91,60 +99,62 @@ export default function LoginPage() {
     }
   }
 
+  // Quick autofill demo accounts
+  const handleAutofillOfficer = (testPhone: string, testPin: string) => {
+    setRole('OFFICER')
+    // Strip leading country code if user wants standard display
+    const formatted = testPhone.replace('+233', '').replace(/\s+/g, '')
+    setPhone(formatted)
+    setPin(testPin)
+    setErrorMsg('')
+  }
+
+  const handleAutofillAdmin = () => {
+    setRole('ADMIN')
+    setIdentifier('admin@waec.org')
+    setPassword('Admin@123')
+    setErrorMsg('')
+  }
+
   return (
-    <div className="grid min-h-svh lg:grid-cols-2 bg-[#090B14] text-zinc-100 selection:bg-[#1E2B7B] selection:text-white">
+    <div className="grid min-h-screen lg:grid-cols-2 bg-[#080B16] text-zinc-100 selection:bg-[#375DFB] selection:text-white">
       {/* LEFT COLUMN: AUTHENTICATION FORM */}
-      <div className="flex flex-col justify-between p-6 sm:p-12 lg:p-16 max-w-xl mx-auto w-full">
+      <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-16 max-w-xl mx-auto w-full">
         {/* Header Branding */}
         <header>
-          <Link href="/login" className="inline-flex items-center gap-3">
-            <div className="size-10 overflow-hidden rounded-xl border border-white/10 bg-[#0E1326] p-1 flex items-center justify-center shadow-md">
-              <Image
-                src="/images/waec-logo.jpg"
-                alt="WAEC Crest"
-                width={36}
-                height={36}
-                className="size-full object-cover rounded-lg"
-                priority
-              />
-            </div>
-            <div>
-              <div className="font-semibold text-white tracking-tight text-base">WAEC MOS</div>
-              <p className="text-xs text-zinc-400">Monitoring & Operations Suite</p>
-            </div>
-          </Link>
+          <WaecMosLogo href="/login" size="md" />
         </header>
 
         {/* Main Content Area */}
-        <main className="py-10">
+        <main className="py-8 sm:py-10">
           <div className="space-y-6">
             {/* Title & Description */}
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
-                Sign in
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Welcome back
               </h1>
               <p className="text-sm text-zinc-400 leading-relaxed">
                 {role === 'OFFICER'
-                  ? 'Enter your registered phone number and 4-digit PIN to access your duty station.'
-                  : 'Enter your Staff ID or Council email to access the administrative dashboard.'}
+                  ? 'Sign in with the phone number and 4-digit PIN issued by your regional controller.'
+                  : 'Sign in with your Staff ID or Council email issued by National Operations HQ.'}
               </p>
             </div>
 
-            {/* Clean Segmented Tab Switcher */}
-            <div className="grid grid-cols-2 p-1 rounded-xl bg-[#121626] border border-white/5 text-xs font-medium">
+            {/* Segmented Control Switcher */}
+            <div className="grid grid-cols-2 p-1 rounded-xl bg-[#121626] border border-white/5 text-sm font-medium">
               <button
                 type="button"
                 onClick={() => {
                   setRole('OFFICER')
                   setErrorMsg('')
                 }}
-                className={`py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                className={`py-2.5 px-3 rounded-lg transition-all cursor-pointer text-center ${
                   role === 'OFFICER'
-                    ? 'bg-[#1E2B7B] text-white font-semibold shadow-sm'
+                    ? 'bg-[#375DFB] text-white font-semibold shadow-md shadow-[#375DFB]/20'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                Field Officer
+                Field officer
               </button>
               <button
                 type="button"
@@ -152,9 +162,9 @@ export default function LoginPage() {
                   setRole('ADMIN')
                   setErrorMsg('')
                 }}
-                className={`py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                className={`py-2.5 px-3 rounded-lg transition-all cursor-pointer text-center ${
                   role === 'ADMIN'
-                    ? 'bg-[#1E2B7B] text-white font-semibold shadow-sm'
+                    ? 'bg-[#375DFB] text-white font-semibold shadow-md shadow-[#375DFB]/20'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
@@ -166,89 +176,92 @@ export default function LoginPage() {
             {errorMsg && (
               <div
                 role="alert"
-                className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5"
+                className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5 animate-in fade-in duration-200"
               >
                 <AlertCircle className="size-4 shrink-0 text-red-400 mt-0.5" />
                 <span className="leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
-            {/* Clean Login Form */}
+            {/* Form */}
             <form onSubmit={handleLogin} className="space-y-4">
               {role === 'OFFICER' ? (
                 <>
+                  {/* Field Officer: Phone number */}
                   <div className="space-y-1.5">
                     <label htmlFor="phone" className="text-xs font-medium text-zinc-300">
                       Phone number
                     </label>
-                    <div className="relative">
-                      <Input
+                    <div className="flex items-center rounded-xl bg-[#0D1224] border border-white/10 focus-within:border-[#375DFB] focus-within:ring-1 focus-within:ring-[#375DFB] focus-within:bg-[#121833] transition overflow-hidden">
+                      {/* Country prefix badge */}
+                      <span className="px-3.5 py-3 text-xs sm:text-sm font-semibold text-zinc-200 border-r border-white/10 select-none shrink-0 tracking-wide">
+                        GH +233
+                      </span>
+                      {/* Phone digits input */}
+                      <input
                         id="phone"
                         type="tel"
+                        inputMode="tel"
                         value={phone}
                         onChange={(e) => {
                           setPhone(e.target.value)
                           setErrorMsg('')
                         }}
-                        placeholder="024 000 0000"
+                        placeholder="24 000 0000"
                         autoComplete="tel"
-                        className="bg-[#121626] border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-[#1E2B7B] pl-9 h-11"
+                        className="w-full px-3.5 py-3 bg-transparent text-white placeholder:text-zinc-500 text-sm sm:text-base focus:outline-none"
                         required
                       />
-                      <Phone className="size-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="pin" className="text-xs font-medium text-zinc-300">
-                        4-digit PIN
-                      </label>
-                      <Link
-                        href="/signup"
-                        className="text-xs text-zinc-400 hover:text-zinc-200 transition"
+                  {/* Field Officer: 4-digit PIN */}
+                  <PinInput
+                    value={pin}
+                    onChange={(val) => {
+                      setPin(val)
+                      setErrorMsg('')
+                    }}
+                    showPin={showPin}
+                    onToggleShowPin={() => setShowPin(!showPin)}
+                    error={Boolean(errorMsg && errorMsg.includes('PIN'))}
+                  />
+
+                  {/* Keep me signed in & Forgot PIN */}
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => setKeepSignedIn(!keepSignedIn)}
+                        className={`size-4 rounded flex items-center justify-center transition border ${
+                          keepSignedIn
+                            ? 'bg-[#375DFB] border-[#375DFB] text-white'
+                            : 'border-white/20 bg-[#0D1224]'
+                        }`}
                       >
-                        Forgot PIN?
-                      </Link>
-                    </div>
-                    <div className="relative">
-                      <Input
-                        id="pin"
-                        type={showPin ? 'text' : 'password'}
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={4}
-                        value={pin}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '')
-                          setPin(val)
-                          setErrorMsg('')
-                        }}
-                        placeholder="••••"
-                        autoComplete="one-time-code"
-                        className="bg-[#121626] border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-[#1E2B7B] pl-9 pr-10 h-11 tracking-widest font-mono text-base"
-                        required
-                      />
-                      <Lock className="size-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <button
-                        type="button"
-                        onClick={() => setShowPin(!showPin)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition"
-                        aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
-                      >
-                        {showPin ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
+                        {keepSignedIn && <Check className="size-3" strokeWidth={3} />}
+                      </div>
+                      <span className="text-xs text-zinc-300 font-medium">
+                        Keep me signed in
+                      </span>
+                    </label>
+
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-[#8B9FFB] hover:text-white transition"
+                    >
+                      Forgot PIN?
+                    </Link>
                   </div>
                 </>
               ) : (
                 <>
+                  {/* Administrator: Staff ID or Email */}
                   <div className="space-y-1.5">
                     <label htmlFor="identifier" className="text-xs font-medium text-zinc-300">
                       Staff ID or email
                     </label>
                     <div className="relative">
-                      <Input
+                      <input
                         id="identifier"
                         type="text"
                         value={identifier}
@@ -258,27 +271,39 @@ export default function LoginPage() {
                         }}
                         placeholder="admin@waec.org"
                         autoComplete="username"
-                        className="bg-[#121626] border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-[#1E2B7B] pl-9 h-11"
+                        className="w-full h-12 rounded-xl bg-[#0D1224] border border-white/10 pl-10 pr-3.5 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-[#375DFB] focus:ring-1 focus:ring-[#375DFB] transition"
                         required
                       />
-                      <Mail className="size-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
 
+                  {/* Administrator: Password */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label htmlFor="password" className="text-xs font-medium text-zinc-300">
                         Password
                       </label>
-                      <Link
-                        href="/forgot-password"
-                        className="text-xs text-zinc-400 hover:text-zinc-200 transition"
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition"
                       >
-                        Forgot password?
-                      </Link>
+                        {showPassword ? (
+                          <>
+                            <EyeOff className="size-3.5 text-zinc-400" />
+                            <span>Hide</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="size-3.5 text-zinc-400" />
+                            <span>Show</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                     <div className="relative">
-                      <Input
+                      <input
                         id="password"
                         type={showPassword ? 'text' : 'password'}
                         value={password}
@@ -288,106 +313,141 @@ export default function LoginPage() {
                         }}
                         placeholder="••••••••"
                         autoComplete="current-password"
-                        className="bg-[#121626] border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-[#1E2B7B] pl-9 pr-10 h-11"
+                        className="w-full h-12 rounded-xl bg-[#0D1224] border border-white/10 pl-10 pr-3.5 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-[#375DFB] focus:ring-1 focus:ring-[#375DFB] transition"
                         required
                       />
-                      <Lock className="size-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
+                      <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
+                  </div>
+
+                  {/* Keep me signed in & Forgot Password */}
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => setKeepSignedIn(!keepSignedIn)}
+                        className={`size-4 rounded flex items-center justify-center transition border ${
+                          keepSignedIn
+                            ? 'bg-[#375DFB] border-[#375DFB] text-white'
+                            : 'border-white/20 bg-[#0D1224]'
+                        }`}
+                      >
+                        {keepSignedIn && <Check className="size-3" strokeWidth={3} />}
+                      </div>
+                      <span className="text-xs text-zinc-300 font-medium">
+                        Keep me signed in
+                      </span>
+                    </label>
+
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-[#8B9FFB] hover:text-white transition"
+                    >
+                      Forgot password?
+                    </Link>
                   </div>
                 </>
               )}
 
-              <Button
+              {/* Action Button: Sign in -> */}
+              <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 bg-[#1E2B7B] hover:bg-[#25369A] text-white font-medium text-sm transition cursor-pointer"
+                className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] active:bg-[#2043E0] text-white font-semibold text-sm sm:text-base shadow-lg shadow-[#375DFB]/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Signing in...
+                    <span>Signing in...</span>
                   </span>
                 ) : (
-                  'Sign in'
+                  <>
+                    <span>Sign in</span>
+                    <ArrowRight className="size-4" />
+                  </>
                 )}
-              </Button>
+              </button>
             </form>
 
-            {/* Quick Demo Credentials Autofill Helper */}
-            <div className="pt-1 pb-1">
-              <div className="p-3 rounded-xl bg-[#121626]/80 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                  <span className="font-semibold text-zinc-300">Quick Test Credentials</span>
-                  <span className="text-[10px] text-zinc-500">Click to autofill</span>
-                </div>
-                {role === 'OFFICER' ? (
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPhone('0244128900')
-                        setPin('0412')
-                        setErrorMsg('')
-                      }}
-                      className="p-2 rounded-lg bg-[#181D33] hover:bg-[#202744] border border-white/10 text-left transition cursor-pointer"
-                    >
-                      <div className="font-semibold text-white text-[11px] truncate">Kofi Mensah</div>
-                      <div className="text-[10px] text-zinc-400 font-mono">0244128900 • 0412</div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPhone('0241002345')
-                        setPin('1234')
-                        setErrorMsg('')
-                      }}
-                      className="p-2 rounded-lg bg-[#181D33] hover:bg-[#202744] border border-white/10 text-left transition cursor-pointer"
-                    >
-                      <div className="font-semibold text-white text-[11px] truncate">Akua Owusu</div>
-                      <div className="text-[10px] text-zinc-400 font-mono">0241002345 • 1234</div>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIdentifier('admin@waec.org')
-                        setPassword('Admin@123')
-                        setErrorMsg('')
-                      }}
-                      className="w-full p-2 rounded-lg bg-[#181D33] hover:bg-[#202744] border border-white/10 text-left transition cursor-pointer flex items-center justify-between"
-                    >
-                      <div>
-                        <div className="font-semibold text-white text-[11px]">Dr. James Addo (HQ Command)</div>
-                        <div className="text-[10px] text-zinc-400 font-mono">admin@waec.org • Admin@123</div>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-[#1E2B7B] text-[#F6D300] font-semibold">Autofill</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+            {/* Official WAEC Security Notice Box */}
+            <div className="p-3.5 sm:p-4 rounded-xl bg-[#141824] border border-amber-500/20 text-xs text-zinc-300 flex items-start gap-3">
+              <Shield className="size-4 text-[#FACC15] shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                Official WAEC devices only. Your location is shared while you are on duty.
+              </p>
             </div>
 
-            {/* Clean Verification Callout */}
-            <div className="pt-2 text-center">
+            {/* Roster Status Link */}
+            <div className="pt-1 text-center">
               <p className="text-xs text-zinc-400">
                 New deployment or need verification?{' '}
                 <Link
                   href="/signup"
-                  className="text-zinc-200 font-medium underline underline-offset-4 hover:text-white transition"
+                  className="font-semibold text-[#8B9FFB] hover:text-white hover:underline transition"
                 >
                   Check roster status
                 </Link>
               </p>
+            </div>
+
+            {/* Quick Demo Credentials Autofill Helper (Discreet & Useful) */}
+            <div className="pt-2">
+              <div className="p-3 rounded-xl bg-[#101426]/70 border border-white/5 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                  <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                    <Sparkles className="size-3 text-[#F6C90E]" />
+                    <span>Quick Test Accounts</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500">Click to fill</span>
+                </div>
+
+                {role === 'OFFICER' ? (
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleAutofillOfficer('244128900', '0412')}
+                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
+                    >
+                      <div className="font-semibold text-white text-[11px] truncate">
+                        Kofi Mensah
+                      </div>
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        024 412 8900 • 0412
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAutofillOfficer('241002345', '1234')}
+                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
+                    >
+                      <div className="font-semibold text-white text-[11px] truncate">
+                        Akua Owusu
+                      </div>
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        024 100 2345 • 1234
+                      </div>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleAutofillAdmin}
+                    className="w-full p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-semibold text-white text-[11px]">
+                        Dr. James Addo (HQ Command)
+                      </div>
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        admin@waec.org • Admin@123
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#375DFB] text-white font-semibold">
+                      Autofill
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </main>
@@ -398,82 +458,8 @@ export default function LoginPage() {
         </footer>
       </div>
 
-      {/* RIGHT COLUMN: INSTITUTIONAL SHOWCASE WITH OFFICIAL EMBLEM */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 overflow-hidden min-h-full border-l border-white/5 bg-[#070A1E]">
-        {/* Deep Council Navy Fluid Mesh Canvas */}
-        <GradientMesh
-          colors={['#050817', '#0C153B', '#162463']}
-          distortion={5}
-          swirl={0.18}
-          speed={0.6}
-          rotation={90}
-          waveAmp={0.18}
-          waveFreq={14}
-          waveSpeed={0.18}
-          grain={0.03}
-        />
-
-        {/* Ambient Subtle Vignette & Glow */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090B14]/90 via-transparent to-[#090B14]/50 pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-96 bg-[#F6D300]/8 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Top Header */}
-        <div className="relative z-10 flex items-center justify-between text-xs font-medium text-zinc-400">
-          <span className="tracking-widest uppercase text-[11px] text-[#F6D300]/90 font-mono">
-            Official Examination Portal
-          </span>
-          <span className="text-zinc-400 font-mono text-[11px]">Est. 1952</span>
-        </div>
-
-        {/* Center Institutional Emblem & Message */}
-        <div className="relative z-10 my-auto py-12 flex flex-col items-center text-center max-w-lg mx-auto">
-          {/* Official WAEC Crest Medallion */}
-          <div className="relative mb-6 group">
-            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-[#F6D300]/30 to-[#1E2B7B]/30 blur-md opacity-75 group-hover:opacity-100 transition" />
-            <div className="relative size-28 sm:size-32 rounded-2xl bg-white p-3 shadow-2xl shadow-black/60 border border-white/40 flex items-center justify-center">
-              <Image
-                src="/images/waec-logo.jpg"
-                alt="Official WAEC Crest"
-                width={120}
-                height={120}
-                className="size-full object-contain"
-                priority
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="text-xs font-semibold tracking-widest text-[#F6D300] uppercase font-mono">
-              The West African Examinations Council
-            </div>
-            <h2 className="text-3xl font-bold text-white tracking-tight leading-snug">
-              Monitoring & Operations Suite
-            </h2>
-            <p className="text-sm text-zinc-300 leading-relaxed max-w-md pt-1">
-              Real-time attendance verification, center telemetry, and coordinated incident response across accredited examination venues.
-            </p>
-          </div>
-
-          {/* Member Nations Pill */}
-          <div className="mt-8 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-[11px] font-mono text-zinc-400 backdrop-blur-sm">
-            <span>Ghana</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Nigeria</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Sierra Leone</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>The Gambia</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Liberia</span>
-          </div>
-        </div>
-
-        {/* Bottom Regional Zonal Info */}
-        <div className="relative z-10 flex items-center justify-between text-xs text-zinc-400 font-mono border-t border-white/10 pt-4">
-          <span>Ashanti Regional Operations Command</span>
-          <span>Kumasi, Ghana</span>
-        </div>
-      </div>
+      {/* RIGHT COLUMN: NATIONAL OPERATIONS GRID SHOWCASE */}
+      <NationalOperationsShowcase />
     </div>
   )
 }

@@ -59,796 +59,9 @@ const FleetMap = dynamic(() => import('@/components/admin/FleetMap'), {
   ),
 })
 
-// Official Examination Centers in Kumasi, Ghana
-export const EXAM_CENTERS: ExamCenter[] = [
-  {
-    name: 'Prempeh College Center A',
-    code: '050102',
-    lat: 6.7028,
-    lng: -1.6369,
-    radius: 150,
-    depotLocked: true,
-    totalMonitors: 22,
-  },
-  {
-    name: 'Yaa Asantewaa Girls Center 2',
-    code: '050510',
-    lat: 6.6912,
-    lng: -1.6521,
-    radius: 150,
-    depotLocked: true,
-    totalMonitors: 8,
-  },
-  {
-    name: 'Kumasi High School Center 1',
-    code: '050211',
-    lat: 6.6663,
-    lng: -1.5975,
-    radius: 150,
-    depotLocked: true,
-    totalMonitors: 14,
-  },
-  {
-    name: 'Opoku Ware School Center A',
-    code: '050304',
-    lat: 6.6806,
-    lng: -1.6389,
-    radius: 150,
-    depotLocked: true,
-    totalMonitors: 12,
-  },
-]
-
-// 48 Total Field Officers across 10 Groups (42 Verified On-Site, 5 En Route, 1 Active SOS)
-const INITIAL_FLEET_OFFICERS: FleetOfficer[] = [
-  // --- GROUP 1 (Kumasi Metro Central) ---
-  {
-    id: 'off-1',
-    name: 'Kofi Mensah',
-    phone: '+233244101001',
-    staffId: 'WAEC-ASH-0101',
-    group: 'Group 1',
-    isLeader: true,
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:54 GMT',
-    distanceFromDatum: 24,
-    battery: 84,
-    lat: 6.7029,
-    lng: -1.6368,
-  },
-  {
-    id: 'off-2',
-    name: 'Akua Owusu',
-    phone: '+233244101002',
-    staffId: 'WAEC-ASH-0102',
-    group: 'Group 1',
-    assignedCenter: 'Prempeh College Center B',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:02 GMT',
-    distanceFromDatum: 45,
-    battery: 91,
-    lat: 6.7025,
-    lng: -1.6372,
-  },
-  {
-    id: 'off-3',
-    name: 'Emmanuel Boateng',
-    phone: '+233244101003',
-    staffId: 'WAEC-ASH-0103',
-    group: 'Group 1',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'PENDING',
-    distanceFromDatum: 450,
-    battery: 76,
-    lat: 6.6698,
-    lng: -1.5945,
-  },
-  {
-    id: 'off-4',
-    name: 'Samuel Quaye',
-    phone: '+233244101004',
-    staffId: 'WAEC-ASH-0104',
-    group: 'Group 1',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'SOS',
-    verifiedTime: '07:48 GMT',
-    distanceFromDatum: 18,
-    battery: 24,
-    lat: 6.6807,
-    lng: -1.6388,
-    sosDetails: 'Unauthorized perimeter breach attempt near Exam Hall 3. Requesting immediate patrol response.',
-  },
-
-  // --- GROUP 2 ---
-  {
-    id: 'off-5',
-    name: 'Kwame Asante',
-    phone: '+233244102001',
-    staffId: 'WAEC-ASH-0201',
-    group: 'Group 2',
-    isLeader: true,
-    assignedCenter: 'Yaa Asantewaa Girls Center 2',
-    centerCode: '050510',
-    status: 'ON_SITE',
-    verifiedTime: '07:42 GMT',
-    distanceFromDatum: 30,
-    battery: 95,
-    lat: 6.6914,
-    lng: -1.652,
-  },
-  {
-    id: 'off-6',
-    name: 'Grace Osei',
-    phone: '+233244102002',
-    staffId: 'WAEC-ASH-0202',
-    group: 'Group 2',
-    assignedCenter: 'Yaa Asantewaa Girls Center 2',
-    centerCode: '050510',
-    status: 'ON_SITE',
-    verifiedTime: '07:50 GMT',
-    distanceFromDatum: 60,
-    battery: 89,
-    lat: 6.6911,
-    lng: -1.6518,
-  },
-  {
-    id: 'off-7',
-    name: 'Daniel Appiah',
-    phone: '+233244102003',
-    staffId: 'WAEC-ASH-0203',
-    group: 'Group 2',
-    assignedCenter: 'Yaa Asantewaa Girls Center 2',
-    centerCode: '050510',
-    status: 'ON_SITE',
-    verifiedTime: '08:05 GMT',
-    distanceFromDatum: 75,
-    battery: 82,
-    lat: 6.6913,
-    lng: -1.6523,
-  },
-  {
-    id: 'off-8',
-    name: 'Patricia Agyei',
-    phone: '+233244102004',
-    staffId: 'WAEC-ASH-0204',
-    group: 'Group 2',
-    assignedCenter: 'Yaa Asantewaa Girls Center 2',
-    centerCode: '050510',
-    status: 'ON_SITE',
-    verifiedTime: '08:08 GMT',
-    distanceFromDatum: 40,
-    battery: 90,
-    lat: 6.6915,
-    lng: -1.6519,
-  },
-
-  // --- GROUP 3 ---
-  {
-    id: 'off-9',
-    name: 'Yaw Boakye',
-    phone: '+233244103001',
-    staffId: 'WAEC-ASH-0301',
-    group: 'Group 3',
-    isLeader: true,
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:38 GMT',
-    distanceFromDatum: 15,
-    battery: 98,
-    lat: 6.7027,
-    lng: -1.637,
-  },
-  {
-    id: 'off-10',
-    name: 'Abena Frimpong',
-    phone: '+233244103002',
-    staffId: 'WAEC-ASH-0302',
-    group: 'Group 3',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:44 GMT',
-    distanceFromDatum: 35,
-    battery: 88,
-    lat: 6.7026,
-    lng: -1.6367,
-  },
-  {
-    id: 'off-11',
-    name: 'Kwadwo Antwi',
-    phone: '+233244103003',
-    staffId: 'WAEC-ASH-0303',
-    group: 'Group 3',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:01 GMT',
-    distanceFromDatum: 55,
-    battery: 79,
-    lat: 6.703,
-    lng: -1.6371,
-  },
-  {
-    id: 'off-12',
-    name: 'Mercy Darko',
-    phone: '+233244103004',
-    staffId: 'WAEC-ASH-0304',
-    group: 'Group 3',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'PENDING',
-    distanceFromDatum: 320,
-    battery: 74,
-    lat: 6.6685,
-    lng: -1.595,
-  },
-
-  // --- GROUP 4 ---
-  {
-    id: 'off-13',
-    name: 'Joseph Ofori',
-    phone: '+233244104001',
-    staffId: 'WAEC-ASH-0401',
-    group: 'Group 4',
-    isLeader: true,
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '07:35 GMT',
-    distanceFromDatum: 20,
-    battery: 92,
-    lat: 6.6806,
-    lng: -1.6389,
-  },
-  {
-    id: 'off-14',
-    name: 'Evelyn Addo',
-    phone: '+233244104002',
-    staffId: 'WAEC-ASH-0402',
-    group: 'Group 4',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '07:51 GMT',
-    distanceFromDatum: 48,
-    battery: 85,
-    lat: 6.6804,
-    lng: -1.6391,
-  },
-  {
-    id: 'off-15',
-    name: 'Francis Kwarteng',
-    phone: '+233244104003',
-    staffId: 'WAEC-ASH-0403',
-    group: 'Group 4',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '08:04 GMT',
-    distanceFromDatum: 65,
-    battery: 77,
-    lat: 6.6664,
-    lng: -1.5976,
-  },
-  {
-    id: 'off-16',
-    name: 'Rita Yeboah',
-    phone: '+233244104004',
-    staffId: 'WAEC-ASH-0404',
-    group: 'Group 4',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:11 GMT',
-    distanceFromDatum: 52,
-    battery: 81,
-    lat: 6.7031,
-    lng: -1.6368,
-  },
-
-  // --- GROUP 5 ---
-  {
-    id: 'off-17',
-    name: 'Stephen Agyemang',
-    phone: '+233244105001',
-    staffId: 'WAEC-ASH-0501',
-    group: 'Group 5',
-    isLeader: true,
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '07:40 GMT',
-    distanceFromDatum: 22,
-    battery: 94,
-    lat: 6.6662,
-    lng: -1.5974,
-  },
-  {
-    id: 'off-18',
-    name: 'Linda Donkor',
-    phone: '+233244105002',
-    staffId: 'WAEC-ASH-0502',
-    group: 'Group 5',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '07:49 GMT',
-    distanceFromDatum: 38,
-    battery: 86,
-    lat: 6.6665,
-    lng: -1.5977,
-  },
-  {
-    id: 'off-19',
-    name: 'Charles Opoku',
-    phone: '+233244105003',
-    staffId: 'WAEC-ASH-0503',
-    group: 'Group 5',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '08:00 GMT',
-    distanceFromDatum: 70,
-    battery: 80,
-    lat: 6.6808,
-    lng: -1.6387,
-  },
-  {
-    id: 'off-20',
-    name: 'Gladys Mensah',
-    phone: '+233244105004',
-    staffId: 'WAEC-ASH-0504',
-    group: 'Group 5',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:09 GMT',
-    distanceFromDatum: 45,
-    battery: 83,
-    lat: 6.7028,
-    lng: -1.6371,
-  },
-
-  // --- GROUP 6 ---
-  {
-    id: 'off-21',
-    name: 'Peter Owusu',
-    phone: '+233244106001',
-    staffId: 'WAEC-ASH-0601',
-    group: 'Group 6',
-    isLeader: true,
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:36 GMT',
-    distanceFromDatum: 18,
-    battery: 96,
-    lat: 6.7029,
-    lng: -1.6369,
-  },
-  {
-    id: 'off-22',
-    name: 'Mary Asare',
-    phone: '+233244106002',
-    staffId: 'WAEC-ASH-0602',
-    group: 'Group 6',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:48 GMT',
-    distanceFromDatum: 40,
-    battery: 87,
-    lat: 6.7027,
-    lng: -1.6368,
-  },
-  {
-    id: 'off-23',
-    name: 'David Konadu',
-    phone: '+233244106003',
-    staffId: 'WAEC-ASH-0603',
-    group: 'Group 6',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '08:03 GMT',
-    distanceFromDatum: 58,
-    battery: 79,
-    lat: 6.6805,
-    lng: -1.639,
-  },
-  {
-    id: 'off-24',
-    name: 'Hannah Aidoo',
-    phone: '+233244106004',
-    staffId: 'WAEC-ASH-0604',
-    group: 'Group 6',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'PENDING',
-    distanceFromDatum: 410,
-    battery: 71,
-    lat: 6.6688,
-    lng: -1.5952,
-  },
-
-  // --- GROUP 7 ---
-  {
-    id: 'off-25',
-    name: 'Isaac Badu',
-    phone: '+233244107001',
-    staffId: 'WAEC-ASH-0701',
-    group: 'Group 7',
-    isLeader: true,
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '07:49 GMT',
-    distanceFromDatum: 25,
-    battery: 87,
-    lat: 6.6807,
-    lng: -1.6389,
-  },
-  {
-    id: 'off-26',
-    name: 'Comfort Sarpong',
-    phone: '+233244107002',
-    staffId: 'WAEC-ASH-0702',
-    group: 'Group 7',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '07:54 GMT',
-    distanceFromDatum: 44,
-    battery: 83,
-    lat: 6.6805,
-    lng: -1.639,
-  },
-  {
-    id: 'off-27',
-    name: 'Edward Kusi',
-    phone: '+233244107003',
-    staffId: 'WAEC-ASH-0703',
-    group: 'Group 7',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:06 GMT',
-    distanceFromDatum: 58,
-    battery: 77,
-    lat: 6.7027,
-    lng: -1.6368,
-  },
-  {
-    id: 'off-28',
-    name: 'Beatrice Fosu',
-    phone: '+233244107004',
-    staffId: 'WAEC-ASH-0704',
-    group: 'Group 7',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '08:10 GMT',
-    distanceFromDatum: 68,
-    battery: 84,
-    lat: 6.6663,
-    lng: -1.5973,
-  },
-
-  // --- GROUP 8 ---
-  {
-    id: 'off-29',
-    name: 'Victor Wiredu',
-    phone: '+233244108001',
-    staffId: 'WAEC-ASH-0801',
-    group: 'Group 8',
-    isLeader: true,
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:46 GMT',
-    distanceFromDatum: 32,
-    battery: 90,
-    lat: 6.7028,
-    lng: -1.6371,
-  },
-  {
-    id: 'off-30',
-    name: 'Theresa Amponsah',
-    phone: '+233244108002',
-    staffId: 'WAEC-ASH-0802',
-    group: 'Group 8',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '07:52 GMT',
-    distanceFromDatum: 51,
-    battery: 85,
-    lat: 6.7031,
-    lng: -1.6369,
-  },
-  {
-    id: 'off-31',
-    name: 'Richard Baffour',
-    phone: '+233244108003',
-    staffId: 'WAEC-ASH-0803',
-    group: 'Group 8',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'PENDING',
-    distanceFromDatum: 480,
-    battery: 69,
-    lat: 6.6695,
-    lng: -1.5942,
-  },
-  {
-    id: 'off-32',
-    name: 'Eunice Owusu-Ansah',
-    phone: '+233244108004',
-    staffId: 'WAEC-ASH-0804',
-    group: 'Group 8',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '08:07 GMT',
-    distanceFromDatum: 41,
-    battery: 82,
-    lat: 6.6807,
-    lng: -1.6387,
-  },
-
-  // --- GROUP 9 ---
-  {
-    id: 'off-33',
-    name: 'George Nsiah',
-    phone: '+233244109001',
-    staffId: 'WAEC-ASH-0901',
-    group: 'Group 9',
-    isLeader: true,
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '07:41 GMT',
-    distanceFromDatum: 29,
-    battery: 94,
-    lat: 6.6664,
-    lng: -1.5976,
-  },
-  {
-    id: 'off-34',
-    name: 'Mavis Yeboah',
-    phone: '+233244109002',
-    staffId: 'WAEC-ASH-0902',
-    group: 'Group 9',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '07:58 GMT',
-    distanceFromDatum: 35,
-    battery: 88,
-    lat: 6.6662,
-    lng: -1.5974,
-  },
-  {
-    id: 'off-35',
-    name: 'Philip Gyasi',
-    phone: '+233244109003',
-    staffId: 'WAEC-ASH-0903',
-    group: 'Group 9',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:04 GMT',
-    distanceFromDatum: 63,
-    battery: 81,
-    lat: 6.7026,
-    lng: -1.6367,
-  },
-  {
-    id: 'off-36',
-    name: 'Doris Adjei',
-    phone: '+233244109004',
-    staffId: 'WAEC-ASH-0904',
-    group: 'Group 9',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '08:09 GMT',
-    distanceFromDatum: 46,
-    battery: 86,
-    lat: 6.6806,
-    lng: -1.6391,
-  },
-
-  // --- GROUP 10 ---
-  {
-    id: 'off-37',
-    name: 'Andrews Mensah',
-    phone: '+233244110001',
-    staffId: 'WAEC-ASH-1001',
-    group: 'Group 10',
-    isLeader: true,
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '07:47 GMT',
-    distanceFromDatum: 27,
-    battery: 91,
-    lat: 6.6808,
-    lng: -1.6388,
-  },
-  {
-    id: 'off-38',
-    name: 'Cecilia Frimpong',
-    phone: '+233244110002',
-    staffId: 'WAEC-ASH-1002',
-    group: 'Group 10',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '07:53 GMT',
-    distanceFromDatum: 39,
-    battery: 84,
-    lat: 6.6805,
-    lng: -1.6387,
-  },
-  {
-    id: 'off-39',
-    name: 'Benjamin Osei',
-    phone: '+233244110003',
-    staffId: 'WAEC-ASH-1003',
-    group: 'Group 10',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:02 GMT',
-    distanceFromDatum: 44,
-    battery: 78,
-    lat: 6.7029,
-    lng: -1.6369,
-  },
-  {
-    id: 'off-40',
-    name: 'Janet Agyemang',
-    phone: '+233244110004',
-    staffId: 'WAEC-ASH-1004',
-    group: 'Group 10',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'PENDING',
-    distanceFromDatum: 380,
-    battery: 65,
-    lat: 6.7055,
-    lng: -1.635,
-  },
-
-  // Additional 8 verified on-site monitors to complete 48 total
-  {
-    id: 'off-41',
-    name: 'Alex Kwarteng',
-    phone: '+233244101005',
-    staffId: 'WAEC-ASH-0105',
-    group: 'Group 1',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:12 GMT',
-    distanceFromDatum: 50,
-    battery: 87,
-    lat: 6.703,
-    lng: -1.6366,
-  },
-  {
-    id: 'off-42',
-    name: 'Victoria Mensah',
-    phone: '+233244102005',
-    staffId: 'WAEC-ASH-0205',
-    group: 'Group 2',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '08:14 GMT',
-    distanceFromDatum: 34,
-    battery: 92,
-    lat: 6.6665,
-    lng: -1.5975,
-  },
-  {
-    id: 'off-43',
-    name: 'Solomon Baah',
-    phone: '+233244103005',
-    staffId: 'WAEC-ASH-0305',
-    group: 'Group 3',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '08:15 GMT',
-    distanceFromDatum: 28,
-    battery: 85,
-    lat: 6.6806,
-    lng: -1.6389,
-  },
-  {
-    id: 'off-44',
-    name: 'Eunice Mensah',
-    phone: '+233244104005',
-    staffId: 'WAEC-ASH-0405',
-    group: 'Group 4',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:16 GMT',
-    distanceFromDatum: 38,
-    battery: 89,
-    lat: 6.7029,
-    lng: -1.637,
-  },
-  {
-    id: 'off-45',
-    name: 'Francisca Appiah',
-    phone: '+233244105005',
-    staffId: 'WAEC-ASH-0505',
-    group: 'Group 5',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '08:18 GMT',
-    distanceFromDatum: 46,
-    battery: 81,
-    lat: 6.6664,
-    lng: -1.5973,
-  },
-  {
-    id: 'off-46',
-    name: 'Gideon Amoah',
-    phone: '+233244106005',
-    staffId: 'WAEC-ASH-0605',
-    group: 'Group 6',
-    assignedCenter: 'Opoku Ware School Center A',
-    centerCode: '050304',
-    status: 'ON_SITE',
-    verifiedTime: '08:19 GMT',
-    distanceFromDatum: 36,
-    battery: 88,
-    lat: 6.6807,
-    lng: -1.6388,
-  },
-  {
-    id: 'off-47',
-    name: 'Paul Sarfo',
-    phone: '+233244107005',
-    staffId: 'WAEC-ASH-0705',
-    group: 'Group 7',
-    assignedCenter: 'Prempeh College Center A',
-    centerCode: '050102',
-    status: 'ON_SITE',
-    verifiedTime: '08:20 GMT',
-    distanceFromDatum: 62,
-    battery: 80,
-    lat: 6.7028,
-    lng: -1.6367,
-  },
-  {
-    id: 'off-48',
-    name: 'Joana Boateng',
-    phone: '+233244108005',
-    staffId: 'WAEC-ASH-0805',
-    group: 'Group 8',
-    assignedCenter: 'Kumasi High School Center 1',
-    centerCode: '050211',
-    status: 'ON_SITE',
-    verifiedTime: '08:21 GMT',
-    distanceFromDatum: 42,
-    battery: 86,
-    lat: 6.6662,
-    lng: -1.5977,
-  },
-]
+// Fallback defaults while live database loads
+export const EXAM_CENTERS: ExamCenter[] = []
+const INITIAL_FLEET_OFFICERS: FleetOfficer[] = []
 
 export default function AdminPage() {
   const router = useRouter()
@@ -857,9 +70,11 @@ export default function AdminPage() {
   // Current active navigation tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
   const [activeTab, setActiveTab] = useState<'map' | 'directory' | 'centers' | 'incidents' | 'settings'>('map')
 
-  // Fleet Telematics state
+  // Live Centers & Fleet Telematics state from Neon DB
+  const [examCenters, setExamCenters] = useState<ExamCenter[]>(EXAM_CENTERS)
   const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>(INITIAL_FLEET_OFFICERS)
-  const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(INITIAL_FLEET_OFFICERS[0])
+  const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(null)
+  const [isLoadingLive, setIsLoadingLive] = useState<boolean>(true)
   const [focusTarget, setFocusTarget] = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
   const [patrolDispatched, setPatrolDispatched] = useState<boolean>(false)
 
@@ -929,18 +144,43 @@ export default function AdminPage() {
       return
     }
     setSession(s)
-    loadOfficers()
+    loadDashboardData()
   }, [router])
 
-  const loadOfficers = async () => {
+  const loadDashboardData = async () => {
+    setIsLoadingLive(true)
     try {
-      const res = await fetch('/api/officers')
-      const data = await res.json()
-      setOfficers(data.officers || [])
-    } catch {
-      // Fallback
+      const [centersRes, fleetRes, officersRes] = await Promise.all([
+        fetch('/api/centers'),
+        fetch('/api/fleet'),
+        fetch('/api/officers'),
+      ])
+      const [centersData, fleetData, officersData] = await Promise.all([
+        centersRes.json(),
+        fleetRes.json(),
+        officersRes.json(),
+      ])
+
+      if (centersData.centers) {
+        setExamCenters(centersData.centers)
+      }
+      if (fleetData.officers) {
+        setFleetOfficers(fleetData.officers)
+        if (fleetData.officers.length > 0) {
+          setSelectedOfficer((prev) => prev || fleetData.officers[0])
+        }
+      }
+      if (officersData.officers) {
+        setOfficers(officersData.officers)
+      }
+    } catch (err) {
+      console.error('Failed to load live dashboard data from Neon:', err)
+    } finally {
+      setIsLoadingLive(false)
     }
   }
+
+  const loadOfficers = loadDashboardData
 
   // --- KPI Counts ---
   const deployedMonitorsCount = fleetOfficers.length // 48
@@ -1172,7 +412,7 @@ export default function AdminPage() {
               <div className="flex-1 h-full w-full relative min-w-0 rounded-none lg:rounded-2xl border-0 lg:border border-[#22263C] overflow-hidden bg-[#090A0F] shadow-2xl">
                 <FleetMap
                   officers={filteredFleetOfficers}
-                  centers={EXAM_CENTERS}
+                  centers={examCenters}
                   selectedOfficer={selectedOfficer}
                   onSelectOfficer={(off) => setSelectedOfficer(off)}
                   onCallOfficer={handleCallOfficer}
@@ -1457,7 +697,7 @@ export default function AdminPage() {
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
                       <span className="text-[10px] text-slate-400 block font-medium">Deployed Personnel</span>
                       <span className="text-base sm:text-lg font-bold text-[#F6D300] mt-0.5 block">
-                        {EXAM_CENTERS.reduce((acc, c) => acc + c.totalMonitors, 0)} Officers
+                        {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0)} Officers
                       </span>
                     </div>
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
@@ -1506,7 +746,7 @@ export default function AdminPage() {
 
               {/* Centers Bento Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
-                {EXAM_CENTERS.map((center, index) => (
+                {examCenters.map((center, index) => (
                   <div
                     key={center.code}
                     className="rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-[#38bdf8]/40 transition-all duration-200 p-4 sm:p-5 space-y-3.5 shadow-md flex flex-col justify-between"
@@ -1865,7 +1105,7 @@ export default function AdminPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handlePreProvisionOfficer}
-        examCenters={EXAM_CENTERS}
+        examCenters={examCenters}
       />
 
       {/* MODAL: RESET PIN */}

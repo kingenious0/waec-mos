@@ -1,18 +1,20 @@
 'use client'
 
 import React, { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { GradientMesh } from '@/components/ui/login-page-utils/gradient-mesh'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
+import { NationalOperationsShowcase } from '@/components/auth/NationalOperationsShowcase'
 import {
-  Phone,
-  CheckCircle2,
-  AlertCircle,
   ArrowRight,
   ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
+  Sparkles,
+  MapPin,
+  Building,
+  UserCheck,
 } from 'lucide-react'
 
 export default function SignupPage() {
@@ -24,7 +26,10 @@ export default function SignupPage() {
 
   const handleCheckStatus = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!phoneQuery.trim()) return
+    if (!phoneQuery.trim()) {
+      setErrorMsg('Please enter your phone number.')
+      return
+    }
 
     setChecking(true)
     setErrorMsg('')
@@ -33,18 +38,20 @@ export default function SignupPage() {
     try {
       const res = await fetch('/api/officers')
       const data = await res.json()
-      const cleanInput = phoneQuery.trim().replace(/[\s\-()]/g, '')
+      const cleanInput = phoneQuery.trim().replace(/\D/g, '')
+      const last9 = cleanInput.length >= 9 ? cleanInput.slice(-9) : cleanInput
 
       const found = (data.officers || []).find((o: any) => {
-        const p = o.phone.replace(/[\s\-()]/g, '')
-        return p === cleanInput || p.endsWith(cleanInput) || cleanInput.endsWith(p.slice(-9))
+        const pDigits = (o.phone || '').replace(/\D/g, '')
+        const pLast9 = pDigits.length >= 9 ? pDigits.slice(-9) : pDigits
+        return pLast9 === last9
       })
 
       if (found) {
         setResult(found)
       } else {
         setErrorMsg(
-          'No deployment record was found for this phone number. Please contact your Zonal Coordinator or District Supervisor.'
+          'No deployment record was found for this phone number. Please contact your Zonal Coordinator or Regional Controller.'
         )
       }
     } catch {
@@ -54,32 +61,23 @@ export default function SignupPage() {
     }
   }
 
+  const handleQuickCheck = (testPhone: string) => {
+    const formatted = testPhone.replace('+233', '').replace(/\s+/g, '')
+    setPhoneQuery(formatted)
+    setErrorMsg('')
+  }
+
   return (
-    <div className="grid min-h-svh lg:grid-cols-2 bg-[#090B14] text-zinc-100 selection:bg-[#1E2B7B] selection:text-white">
+    <div className="grid min-h-screen lg:grid-cols-2 bg-[#080B16] text-zinc-100 selection:bg-[#375DFB] selection:text-white">
       {/* LEFT COLUMN: ROSTER VERIFICATION */}
-      <div className="flex flex-col justify-between p-6 sm:p-12 lg:p-16 max-w-xl mx-auto w-full">
+      <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-16 max-w-xl mx-auto w-full">
         {/* Header Branding */}
         <header className="flex items-center justify-between">
-          <Link href="/login" className="inline-flex items-center gap-3">
-            <div className="size-10 overflow-hidden rounded-xl border border-white/10 bg-[#0E1326] p-1 flex items-center justify-center shadow-md">
-              <Image
-                src="/images/waec-logo.jpg"
-                alt="WAEC Crest"
-                width={36}
-                height={36}
-                className="size-full object-cover rounded-lg"
-                priority
-              />
-            </div>
-            <div>
-              <div className="font-semibold text-white tracking-tight text-base">WAEC MOS</div>
-              <p className="text-xs text-zinc-400">Monitoring & Operations Suite</p>
-            </div>
-          </Link>
+          <WaecMosLogo href="/login" size="md" />
 
           <Link
             href="/login"
-            className="text-xs font-medium text-zinc-400 hover:text-white transition flex items-center gap-1"
+            className="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5"
           >
             <ArrowLeft className="size-3.5" />
             <span>Sign in</span>
@@ -87,14 +85,15 @@ export default function SignupPage() {
         </header>
 
         {/* Main Content Area */}
-        <main className="py-10">
+        <main className="py-8 sm:py-10">
           <div className="space-y-6">
+            {/* Title & Description */}
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight">
-                Verify deployment status
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Check roster status
               </h1>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Examination personnel are pre-registered by Council Headquarters. Enter your phone number to check your assignment.
+                Examination personnel are pre-registered by Council Headquarters. Enter your phone number to verify your deployment and assigned duty station.
               </p>
             </div>
 
@@ -102,103 +101,187 @@ export default function SignupPage() {
             {errorMsg && (
               <div
                 role="alert"
-                className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5"
+                className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5 animate-in fade-in duration-200"
               >
                 <AlertCircle className="size-4 shrink-0 text-red-400 mt-0.5" />
                 <span className="leading-relaxed">{errorMsg}</span>
               </div>
             )}
 
-            {/* Form or Result */}
+            {/* Verification Form or Verified Result Card */}
             {!result ? (
               <form onSubmit={handleCheckStatus} className="space-y-4">
                 <div className="space-y-1.5">
                   <label htmlFor="phone" className="text-xs font-medium text-zinc-300">
-                    Registered phone number
+                    Phone number
                   </label>
-                  <div className="relative">
-                    <Input
+                  <div className="flex items-center rounded-xl bg-[#0D1224] border border-white/10 focus-within:border-[#375DFB] focus-within:ring-1 focus-within:ring-[#375DFB] focus-within:bg-[#121833] transition overflow-hidden">
+                    <span className="px-3.5 py-3 text-xs sm:text-sm font-semibold text-zinc-200 border-r border-white/10 select-none shrink-0 tracking-wide">
+                      GH +233
+                    </span>
+                    <input
                       id="phone"
                       type="tel"
+                      inputMode="tel"
                       value={phoneQuery}
                       onChange={(e) => {
                         setPhoneQuery(e.target.value)
                         setErrorMsg('')
                       }}
-                      placeholder="024 000 0000"
+                      placeholder="24 000 0000"
                       autoComplete="tel"
-                      className="bg-[#121626] border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-[#1E2B7B] pl-9 h-11"
+                      className="w-full px-3.5 py-3 bg-transparent text-white placeholder:text-zinc-500 text-sm sm:text-base focus:outline-none"
                       required
                     />
-                    <Phone className="size-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
-                <Button
+                <button
                   type="submit"
                   disabled={checking}
-                  className="w-full h-11 bg-[#1E2B7B] hover:bg-[#25369A] text-white font-medium text-sm transition cursor-pointer"
+                  className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] active:bg-[#2043E0] text-white font-semibold text-sm sm:text-base shadow-lg shadow-[#375DFB]/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
                   {checking ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Checking roster...
+                      <span>Checking central registry...</span>
                     </span>
                   ) : (
-                    'Check status'
+                    <>
+                      <span>Check roster status</span>
+                      <ArrowRight className="size-4" />
+                    </>
                   )}
-                </Button>
+                </button>
               </form>
             ) : (
-              /* Verified Deployment Details */
-              <div className="rounded-xl bg-[#121626] border border-white/10 p-5 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="size-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+              /* Verified Officer Card */
+              <div className="rounded-2xl bg-[#0D1224] border border-emerald-500/30 p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200 shadow-xl">
+                <div className="flex items-start gap-3.5">
+                  <div className="size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
                     <CheckCircle2 className="size-5" />
                   </div>
                   <div>
-                    <div className="text-xs font-medium text-emerald-400">Assignment verified</div>
-                    <div className="text-base font-semibold text-white mt-0.5">{result.name}</div>
+                    <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                      Assignment Verified
+                    </div>
+                    <div className="text-lg font-bold text-white mt-0.5">
+                      {result.name}
+                    </div>
                   </div>
                 </div>
 
-                <div className="divide-y divide-white/5 text-xs text-zinc-300">
-                  <div className="py-2 flex justify-between">
+                <div className="rounded-xl bg-[#141A2E]/70 border border-white/5 p-3.5 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between">
                     <span className="text-zinc-400">Staff ID</span>
-                    <span className="font-mono text-white">{result.staffId}</span>
+                    <span className="font-mono font-bold text-white">{result.staffId}</span>
                   </div>
-                  <div className="py-2 flex justify-between">
-                    <span className="text-zinc-400">Assigned Center</span>
-                    <span className="text-white text-right">{result.assignedCenter}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Assigned Centre</span>
+                    <span className="font-medium text-white text-right truncate max-w-[200px]">
+                      {result.assignedCenter}
+                    </span>
                   </div>
-                  <div className="py-2 flex justify-between">
+                  <div className="flex items-center justify-between">
                     <span className="text-zinc-400">Duty Group</span>
-                    <span className="text-white">{result.group}</span>
+                    <span className="font-medium text-zinc-200">{result.group}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-400">Status</span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold text-[11px]">
+                      <span className="size-1.5 rounded-full bg-emerald-400" />
+                      Active On Duty
+                    </span>
                   </div>
                 </div>
 
-                <Button
-                  type="button"
-                  onClick={() => router.push('/login')}
-                  className="w-full h-11 bg-[#1E2B7B] hover:bg-[#25369A] text-white font-medium text-sm transition flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Continue to Sign In</span>
-                  <ArrowRight className="size-4" />
-                </Button>
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/login')}
+                    className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] text-white font-semibold text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#375DFB]/25"
+                  >
+                    <span>Proceed to Sign In</span>
+                    <ArrowRight className="size-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResult(null)
+                      setPhoneQuery('')
+                    }}
+                    className="w-full py-2 text-xs text-zinc-400 hover:text-white transition"
+                  >
+                    Verify another number
+                  </button>
+                </div>
               </div>
             )}
 
-            <div className="pt-2 text-center">
+            {/* Official WAEC Security Notice Box */}
+            <div className="p-3.5 sm:p-4 rounded-xl bg-[#141824] border border-amber-500/20 text-xs text-zinc-300 flex items-start gap-3">
+              <Shield className="size-4 text-[#FACC15] shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                Official WAEC devices only. Your location is shared while you are on duty.
+              </p>
+            </div>
+
+            {/* Return to Sign in link */}
+            <div className="pt-1 text-center">
               <p className="text-xs text-zinc-400">
                 Already know your PIN?{' '}
                 <Link
                   href="/login"
-                  className="text-zinc-200 font-medium underline underline-offset-4 hover:text-white transition"
+                  className="font-semibold text-[#8B9FFB] hover:text-white hover:underline transition"
                 >
                   Return to sign in
                 </Link>
               </p>
             </div>
+
+            {/* Quick Demo Credentials Autofill Helper */}
+            {!result && (
+              <div className="pt-2">
+                <div className="p-3 rounded-xl bg-[#101426]/70 border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
+                    <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                      <Sparkles className="size-3 text-[#F6C90E]" />
+                      <span>Registered Sample Personnel</span>
+                    </span>
+                    <span className="text-[10px] text-zinc-500">Click to test</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickCheck('0244128900')}
+                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
+                    >
+                      <div className="font-semibold text-white text-[11px] truncate">
+                        Kofi Mensah
+                      </div>
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        Prempeh College
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleQuickCheck('0241002345')}
+                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
+                    >
+                      <div className="font-semibold text-white text-[11px] truncate">
+                        Akua Owusu
+                      </div>
+                      <div className="text-[10px] text-zinc-400 font-mono">
+                        Yaa Asantewaa Girls
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </main>
 
@@ -208,75 +291,8 @@ export default function SignupPage() {
         </footer>
       </div>
 
-      {/* RIGHT COLUMN: INSTITUTIONAL SHOWCASE WITH OFFICIAL EMBLEM */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 overflow-hidden min-h-full border-l border-white/5 bg-[#070A1E]">
-        <GradientMesh
-          colors={['#050817', '#0C153B', '#162463']}
-          distortion={5}
-          swirl={0.18}
-          speed={0.6}
-          rotation={90}
-          waveAmp={0.18}
-          waveFreq={14}
-          waveSpeed={0.18}
-          grain={0.03}
-        />
-
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090B14]/90 via-transparent to-[#090B14]/50 pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-96 bg-[#F6D300]/8 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex items-center justify-between text-xs font-medium text-zinc-400">
-          <span className="tracking-widest uppercase text-[11px] text-[#F6D300]/90 font-mono">
-            Personnel Deployment Registry
-          </span>
-          <span className="text-zinc-400 font-mono text-[11px]">Est. 1952</span>
-        </div>
-
-        <div className="relative z-10 my-auto py-12 flex flex-col items-center text-center max-w-lg mx-auto">
-          <div className="relative mb-6 group">
-            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-[#F6D300]/30 to-[#1E2B7B]/30 blur-md opacity-75 group-hover:opacity-100 transition" />
-            <div className="relative size-28 sm:size-32 rounded-2xl bg-white p-3 shadow-2xl shadow-black/60 border border-white/40 flex items-center justify-center">
-              <Image
-                src="/images/waec-logo.jpg"
-                alt="Official WAEC Crest"
-                width={120}
-                height={120}
-                className="size-full object-contain"
-                priority
-              />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="text-xs font-semibold tracking-widest text-[#F6D300] uppercase font-mono">
-              The West African Examinations Council
-            </div>
-            <h2 className="text-3xl font-bold text-white tracking-tight leading-snug">
-              Official Personnel Registry
-            </h2>
-            <p className="text-sm text-zinc-300 leading-relaxed max-w-md pt-1">
-              Examination monitor and supervisor accounts are provisioned exclusively through authorized regional and zonal coordination rosters.
-            </p>
-          </div>
-
-          <div className="mt-8 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-[11px] font-mono text-zinc-400 backdrop-blur-sm">
-            <span>Accra</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Kumasi</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Tamale</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Cape Coast</span>
-            <span className="text-[#F6D300]">•</span>
-            <span>Sekondi</span>
-          </div>
-        </div>
-
-        <div className="relative z-10 flex items-center justify-between text-xs text-zinc-400 font-mono border-t border-white/10 pt-4">
-          <span>Ashanti Regional Operations Command</span>
-          <span>Kumasi, Ghana</span>
-        </div>
-      </div>
+      {/* RIGHT COLUMN: NATIONAL OPERATIONS GRID SHOWCASE */}
+      <NationalOperationsShowcase />
     </div>
   )
 }

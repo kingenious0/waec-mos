@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
-import { Shield, KeyRound, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
+import { NationalOperationsShowcase } from '@/components/auth/NationalOperationsShowcase'
+import { ArrowLeft, ArrowRight, CheckCircle2, KeyRound, Shield } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [identifier, setIdentifier] = useState('')
@@ -11,108 +12,117 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!identifier) return
+    if (!identifier.trim()) return
     setSubmitted(true)
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#090a0f] text-white">
-      {/* Top Banner */}
-      <header className="flex h-16 items-center border-b border-[#22263c] bg-[#0d0f18]/80 px-6 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <div className="relative size-9 overflow-hidden rounded-lg border border-[#303654] bg-[#11131f]">
-            <Image
-              src="/images/waec-logo.jpg"
-              alt="WAEC"
-              width={36}
-              height={36}
-              className="size-full object-cover"
-              priority
-            />
-          </div>
-          <div>
-            <div className="text-sm font-black tracking-wider text-white">
-              WAEC <span className="text-[#f6d300]">MOS</span>
-            </div>
-            <div className="text-[9px] tracking-widest text-slate-500">
-              CREDENTIAL RECOVERY
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="grid min-h-screen lg:grid-cols-2 bg-[#080B16] text-zinc-100 selection:bg-[#375DFB] selection:text-white">
+      {/* LEFT COLUMN: RECOVERY FORM */}
+      <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-16 max-w-xl mx-auto w-full">
+        {/* Header */}
+        <header className="flex items-center justify-between">
+          <WaecMosLogo href="/login" size="md" />
+          <Link
+            href="/login"
+            className="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5"
+          >
+            <ArrowLeft className="size-3.5" />
+            <span>Sign in</span>
+          </Link>
+        </header>
 
-      {/* Main Container */}
-      <div className="flex flex-1 items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-[#22263c] bg-[#11131f] p-6 shadow-2xl md:p-8">
-            <div className="mb-6 text-center">
-              <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-xl border border-[#303654] bg-[#15192b] text-[#8290ff]">
-                <KeyRound size={24} />
-              </div>
-              <h1 className="text-xl font-black text-white">Reset Account Access</h1>
-              <p className="mt-1 text-xs text-slate-400">
-                Enter your registered Staff ID or Email to initiate verification.
+        {/* Main Content */}
+        <main className="py-8 sm:py-10">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                Reset account PIN
+              </h1>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Enter your registered phone number or Staff ID. Your regional coordinator will dispatch a secure 4-digit verification token.
               </p>
             </div>
 
             {submitted ? (
-              <div className="space-y-4 text-center">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-300">
-                  <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-400" />
-                  <p className="font-bold">Request Dispatched</p>
-                  <p className="mt-1 text-[11px] text-slate-300">
-                    If this Staff ID or email matches an active account, verification instructions have been dispatched to your registered phone and email. Contact your regional coordinator for immediate on-duty assistance.
+              <div className="rounded-2xl bg-[#0D1224] border border-emerald-500/30 p-6 space-y-4 text-center animate-in fade-in zoom-in-95 duration-200">
+                <div className="size-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="size-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Recovery Request Transmitted</h3>
+                  <p className="text-xs text-zinc-300 leading-relaxed mt-1.5 max-w-sm mx-auto">
+                    If this identifier matches an accredited officer or administrator, verification instructions have been dispatched to your regional command hub.
                   </p>
                 </div>
 
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 text-xs font-bold text-[#8290ff] hover:underline"
-                >
-                  <ArrowLeft size={13} />
-                  Return to Login
-                </Link>
+                <div className="pt-2">
+                  <Link
+                    href="/login"
+                    className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] text-white font-semibold text-sm transition flex items-center justify-center gap-2"
+                  >
+                    <span>Return to Sign In</span>
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-[10px] font-bold tracking-wider uppercase text-slate-400">
-                    Staff ID or Registered Email
+                <div className="space-y-1.5">
+                  <label htmlFor="identifier" className="text-xs font-medium text-zinc-300">
+                    Phone number or Staff ID
                   </label>
                   <div className="relative">
-                    <Mail size={15} className="absolute left-3 top-3 text-slate-500" />
                     <input
+                      id="identifier"
                       type="text"
                       required
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="e.g. WAEC-GH-0412 or officer@waec.org"
-                      className="w-full rounded-xl border border-[#303654] bg-[#15192b] py-2.5 pl-9 pr-3 text-xs text-white placeholder-slate-600 focus:border-[#8290ff] focus:outline-none"
+                      placeholder="e.g. 024 412 8900 or WAEC-GH-0412"
+                      className="w-full h-12 rounded-xl bg-[#0D1224] border border-white/10 px-4 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-[#375DFB] focus:ring-1 focus:ring-[#375DFB] transition"
                     />
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1e2b7b] py-3 text-xs font-black tracking-wide text-white shadow-[0_0_20px_rgba(46,65,182,.3)] transition hover:bg-[#2b3cb8]"
+                  className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] text-white font-semibold text-sm sm:text-base shadow-lg shadow-[#375DFB]/25 transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  TRANSMIT RECOVERY REQUEST
+                  <span>Transmit recovery request</span>
+                  <ArrowRight className="size-4" />
                 </button>
-
-                <div className="pt-2 text-center">
-                  <Link
-                    href="/login"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white"
-                  >
-                    <ArrowLeft size={13} />
-                    Back to Login
-                  </Link>
-                </div>
               </form>
             )}
+
+            {/* Official Security Box */}
+            <div className="p-3.5 sm:p-4 rounded-xl bg-[#141824] border border-amber-500/20 text-xs text-zinc-300 flex items-start gap-3">
+              <Shield className="size-4 text-[#FACC15] shrink-0 mt-0.5" />
+              <p className="leading-relaxed">
+                Security tokens are encrypted and valid for 15 minutes. Contact your regional coordinator for immediate on-duty assistance.
+              </p>
+            </div>
+
+            <div className="pt-1 text-center">
+              <Link
+                href="/login"
+                className="text-xs font-semibold text-[#8B9FFB] hover:text-white transition inline-flex items-center gap-1.5"
+              >
+                <ArrowLeft className="size-3.5" />
+                <span>Back to sign in</span>
+              </Link>
+            </div>
           </div>
-        </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="pt-6 border-t border-white/5 text-xs text-zinc-500">
+          <p>© The West African Examinations Council</p>
+        </footer>
       </div>
+
+      {/* RIGHT COLUMN: NATIONAL OPERATIONS GRID SHOWCASE */}
+      <NationalOperationsShowcase />
     </div>
   )
 }
