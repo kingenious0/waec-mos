@@ -13,9 +13,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'WAEC MOS | National Operations Suite',
   description: 'Field verification and security dispatch platform for WAEC operations.',
-  generator: 'v0.app',
   icons: {
     icon: [
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
       {
         url: '/icon-light-32x32.png',
         media: '(prefers-color-scheme: light)',
@@ -24,12 +27,9 @@ export const metadata: Metadata = {
         url: '/icon-dark-32x32.png',
         media: '(prefers-color-scheme: dark)',
       },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
     ],
     apple: '/apple-icon.png',
+    shortcut: '/icon.svg',
   },
 }
 
