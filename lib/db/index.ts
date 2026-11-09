@@ -99,55 +99,16 @@ class MosV1Store {
       role: 'FIELD_OFFICER',
       status: 'ACTIVE',
       region: 'Ashanti Region',
-      group: 'Group 2',
-      isGroupLeader: true,
-      assignedCenter: 'Yaa Asantewaa Girls Center 2',
-      assignedCenterCode: '050119',
+      group: 'Group 1',
+      isGroupLeader: false,
+      assignedCenter: 'Prempeh College Center A',
+      assignedCenterCode: '050102',
       dutyStatus: 'ON_DUTY',
       mustChangePassword: false,
       passwordHash: 'Field@123',
       photo: '',
       lastLoginAt: '27 Oct 2026, 08:20 GMT',
       checkInTime: '08:20 GMT',
-    },
-    {
-      id: 'usr-field-3',
-      staffId: 'WAEC-GH-0504',
-      email: 'eboateng@waec.org',
-      name: 'Emmanuel Boateng',
-      phone: '+233 24 551 2289',
-      pin: '2289',
-      role: 'FIELD_OFFICER',
-      status: 'ACTIVE',
-      region: 'Ashanti Region',
-      group: 'Group 1',
-      isGroupLeader: false,
-      assignedCenter: 'Kumasi High School Center 1',
-      assignedCenterCode: '050211',
-      dutyStatus: 'OFF_DUTY',
-      mustChangePassword: false,
-      passwordHash: 'Field@123',
-      photo: '',
-      lastLoginAt: '26 Oct 2026, 17:00 GMT',
-    },
-    {
-      id: 'usr-field-4',
-      staffId: 'WAEC-GH-0999',
-      email: 'newofficer@waec.org',
-      name: 'Samuel Quaye',
-      phone: '+233 54 888 7762',
-      pin: '9999',
-      role: 'FIELD_OFFICER',
-      status: 'ACTIVE',
-      region: 'Ashanti Region',
-      group: 'Group 3',
-      isGroupLeader: false,
-      assignedCenter: 'Opoku Ware School Center A',
-      assignedCenterCode: '050304',
-      dutyStatus: 'OFF_DUTY',
-      mustChangePassword: false,
-      passwordHash: 'Temp@123',
-      photo: '',
     },
   ]
 
@@ -206,6 +167,14 @@ class MosV1Store {
     const user = this.users.find((u) => u.id === id || u.staffId === id)
     if (user) {
       user.status = status
+    }
+    return user
+  }
+
+  updateUser(id: string, updates: Partial<UserAccount>): UserAccount | undefined {
+    const user = this.users.find((u) => u.id === id || u.staffId === id)
+    if (user) {
+      Object.assign(user, updates)
     }
     return user
   }

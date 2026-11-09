@@ -267,7 +267,7 @@ export default function AdminPage() {
 
   // Handle Toggle Status (Active / Revoke)
   const handleToggleStatus = async (officer: UserAccount) => {
-    const newStatus = officer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+    const newStatus = officer.status === 'ACTIVE' ? 'REVOKED' : 'ACTIVE'
     try {
       const res = await fetch('/api/officers', {
         method: 'PUT',
@@ -281,6 +281,9 @@ export default function AdminPage() {
       if (res.ok) {
         setFeedback(`Security status for ${officer.name} updated to ${newStatus}`)
         loadOfficers()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setFeedback(`Failed to update status: ${err.error || 'Server error'}`)
       }
     } catch {
       setFeedback('Failed to update status.')
@@ -300,14 +303,45 @@ export default function AdminPage() {
       })
 
       if (res.ok) {
-        setFeedback(`PIN reset successfully for officer`)
+        setFeedback(`PIN reset successfully to ${newPin}`)
         setShowResetPinModal(null)
         loadOfficers()
       } else {
-        setFeedback('Failed to reset officer PIN.')
+        const err = await res.json().catch(() => ({}))
+        setFeedback(`Failed to reset officer PIN: ${err.error || 'Server error'}`)
       }
     } catch {
       setFeedback('Failed to reset officer PIN.')
+    }
+  }
+
+  // Handle Officer Profile update via ProfileModal
+  const handleSaveOfficerProfile = async (updated: Partial<SessionData>) => {
+    if (!inspectedOfficer) return
+    try {
+      const res = await fetch('/api/officers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: inspectedOfficer.id,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          pin: updated.pin,
+          photo: updated.photo,
+        }),
+      })
+
+      if (res.ok) {
+        setFeedback(`Profile for ${updated.name || inspectedOfficer.name} saved successfully`)
+        setInspectedOfficer(null)
+        loadOfficers()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setFeedback(`Failed to save officer profile: ${err.error || 'Server error'}`)
+      }
+    } catch {
+      setFeedback('Failed to save officer profile.')
     }
   }
 
@@ -362,7 +396,7 @@ export default function AdminPage() {
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
         {/* Top Responsive Header */}
         <AdminTopNav
-          activeCount={deployedMonitorsCount}
+          activeCount={activeTab === 'directory' ? officers.filter((o) => o.status === 'ACTIVE').length : deployedMonitorsCount}
           activeTabTitle={activeTabTitle}
           searchQuery={rosterSearch}
           onSearchChange={setRosterSearch}
@@ -390,18 +424,32 @@ export default function AdminPage() {
         />
 
         {/* Floating Feedback Notification Toast */}
-        {feedback && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border border-[#22263C] bg-[#11131F]/95 px-4 py-2 text-xs font-mono text-[#10B981] shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
-            <CheckCircle2 className="size-4 shrink-0 text-[#10B981]" />
-            <span>{feedback}</span>
-            <button
-              onClick={() => setFeedback('')}
-              className="ml-2 text-slate-400 hover:text-white cursor-pointer"
+        {feedback && (() => {
+          const isError = /fail|error|invalid|cannot|unable/i.test(feedback)
+          return (
+            <div
+              className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-mono shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 max-w-[90vw] ${
+                isError
+                  ? 'border-rose-500/40 bg-[#1A0D12]/95 text-rose-300'
+                  : 'border-emerald-500/30 bg-[#11131F]/95 text-[#10B981]'
+              }`}
             >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        )}
+              {isError ? (
+                <AlertTriangle className="size-4 shrink-0 text-rose-400" />
+              ) : (
+                <CheckCircle2 className="size-4 shrink-0 text-[#10B981]" />
+              )}
+              <span className="truncate">{feedback}</span>
+              <button
+                onClick={() => setFeedback('')}
+                className="ml-2 text-slate-400 hover:text-white cursor-pointer"
+                aria-label="Dismiss notification"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          )
+        })()}
 
         {/* Main Work Area: Flex row (Map + Inspector) or Tab Panels */}
         <main className="flex-1 flex overflow-hidden relative min-w-0">
@@ -1138,6 +1186,7 @@ export default function AdminPage() {
             mustChangePassword: inspectedOfficer.mustChangePassword,
           }}
           onDutyStatus={inspectedOfficer.dutyStatus === 'ON_DUTY' ? 'ON DUTY' : 'OFF DUTY'}
+          onSave={handleSaveOfficerProfile}
         />
       )}
 

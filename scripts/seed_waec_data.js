@@ -61,22 +61,21 @@ async function seed() {
   `;
 
   // 5. Users
-  console.log('Seeding Verified Personnel...');
+  console.log('Seeding Verified Personnel (2 field officers)...');
   await sql`
     INSERT INTO "public"."user" 
-      ("id", "name", "email", "role", "staff_id", "phone", "status", "region_id", "must_change_password")
+      ("id", "name", "email", "role", "staff_id", "phone", "pin", "group_name", "is_group_leader", "status", "region_id", "must_change_password")
     VALUES 
-      ('usr-admin-hq', 'Dr. James Addo', 'admin@waec.org', 'SUPER_ADMIN', 'WAEC-HQ-001', '+233 24 111 2233', 'ACTIVE', 'reg-ashanti', false),
-      ('usr-off-0101', 'Kofi Mensah', 'kmensah@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0101', '+233 24 410 1001', 'ACTIVE', 'reg-ashanti', false),
-      ('usr-off-0102', 'Akua Owusu', 'aowusu@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0102', '+233 24 410 1002', 'ACTIVE', 'reg-ashanti', false),
-      ('usr-off-0103', 'Emmanuel Boateng', 'eboateng@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0103', '+233 24 410 1003', 'ACTIVE', 'reg-ashanti', false),
-      ('usr-off-0104', 'Samuel Quaye', 'squaye@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0104', '+233 24 410 1004', 'ACTIVE', 'reg-ashanti', false),
-      ('usr-off-0201', 'Kwame Asante', 'kasante@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0201', '+233 24 410 2001', 'ACTIVE', 'reg-ashanti', false),
-      ('usr-off-0202', 'Grace Osei', 'gosei@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0202', '+233 24 410 2002', 'ACTIVE', 'reg-ashanti', false)
+      ('usr-admin-hq', 'Dr. James Addo', 'admin@waec.org', 'SUPER_ADMIN', 'WAEC-HQ-001', '+233 24 111 2233', '0001', 'HQ Command', true, 'ACTIVE', 'reg-ashanti', false),
+      ('usr-off-0101', 'Kofi Mensah', 'kmensah@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0101', '+233 24 410 1001', '0412', 'Group 1', true, 'ACTIVE', 'reg-ashanti', false),
+      ('usr-off-0102', 'Akua Owusu', 'aowusu@waec.org', 'FIELD_OFFICER', 'WAEC-ASH-0102', '+233 24 410 1002', '1234', 'Group 1', false, 'ACTIVE', 'reg-ashanti', false)
     ON CONFLICT ("id") DO UPDATE 
       SET "name" = EXCLUDED."name",
           "role" = EXCLUDED."role",
           "phone" = EXCLUDED."phone",
+          "pin" = EXCLUDED."pin",
+          "group_name" = EXCLUDED."group_name",
+          "is_group_leader" = EXCLUDED."is_group_leader",
           "status" = EXCLUDED."status";
   `;
 
@@ -87,11 +86,7 @@ async function seed() {
       ("id", "operation_id", "center_id", "officer_id", "date", "paper_name", "start_time", "end_time", "status", "check_in_time", "check_in_distance_meters")
     VALUES
       ('asg-01', 'op-wassce-2026', 'cnt-050102', 'usr-off-0101', '2026-05-12', 'Core Mathematics Paper 1 & 2', '08:30 GMT', '12:00 GMT', 'ON_SITE', '2026-05-12 07:54:00', 24),
-      ('asg-02', 'op-wassce-2026', 'cnt-050102', 'usr-off-0102', '2026-05-12', 'Core Mathematics Paper 1 & 2', '08:30 GMT', '12:00 GMT', 'ON_SITE', '2026-05-12 08:02:00', 45),
-      ('asg-03', 'op-wassce-2026', 'cnt-050211', 'usr-off-0103', '2026-05-12', 'English Language Paper 1', '08:30 GMT', '11:30 GMT', 'PENDING', NULL, NULL),
-      ('asg-04', 'op-wassce-2026', 'cnt-050304', 'usr-off-0104', '2026-05-12', 'Integrated Science Paper 1 & 2', '08:30 GMT', '12:00 GMT', 'PENDING', NULL, NULL),
-      ('asg-05', 'op-wassce-2026', 'cnt-050510', 'usr-off-0201', '2026-05-12', 'Core Mathematics Paper 1 & 2', '08:30 GMT', '12:00 GMT', 'ON_SITE', '2026-05-12 07:42:00', 30),
-      ('asg-06', 'op-wassce-2026', 'cnt-050510', 'usr-off-0202', '2026-05-12', 'Core Mathematics Paper 1 & 2', '08:30 GMT', '12:00 GMT', 'ON_SITE', '2026-05-12 07:50:00', 60)
+      ('asg-02', 'op-wassce-2026', 'cnt-050102', 'usr-off-0102', '2026-05-12', 'Core Mathematics Paper 1 & 2', '08:30 GMT', '12:00 GMT', 'ON_SITE', '2026-05-12 08:02:00', 45)
     ON CONFLICT ("id") DO UPDATE
       SET "status" = EXCLUDED."status",
           "check_in_time" = EXCLUDED."check_in_time";

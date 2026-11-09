@@ -13,6 +13,9 @@ export const user = pgTable('user', {
   // Custom WAEC MOS fields
   staffId: text('staff_id').unique(),
   phone: text('phone'),
+  pin: text('pin'),
+  groupName: text('group_name').default('Group 1'),
+  isGroupLeader: boolean('is_group_leader').default(false),
   role: text('role').notNull().default('FIELD_OFFICER'), // SUPER_ADMIN, ADMIN, REGIONAL_COORD, SUPERVISOR, FIELD_OFFICER
   status: text('status').notNull().default('ACTIVE'), // ACTIVE, SUSPENDED, REVOKED, ARCHIVED
   regionId: text('region_id'),

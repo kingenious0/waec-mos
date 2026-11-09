@@ -24,9 +24,13 @@ export async function POST(request: Request) {
             name: schema.user.name,
             email: schema.user.email,
             phone: schema.user.phone,
+            pin: schema.user.pin,
+            groupName: schema.user.groupName,
+            isGroupLeader: schema.user.isGroupLeader,
             staffId: schema.user.staffId,
             role: schema.user.role,
             status: schema.user.status,
+            image: schema.user.image,
             mustChangePassword: schema.user.mustChangePassword,
             centerName: schema.examinationCenters.centerName,
             centerCode: schema.examinationCenters.centerCode,
@@ -43,9 +47,10 @@ export async function POST(request: Request) {
         })
 
         if (matched) {
-          // If in store, verify pin; otherwise default check against store or standard pins
+          // If in store or in DB, verify real pin
+          const dbPin = matched.pin || (matched.staffId ? matched.staffId.slice(-4) : '1234')
           const inStore = store.findOfficerByPhone(cleanPhone)
-          const validPin = inStore?.pin || (matched.staffId ? matched.staffId.slice(-4) : '1234')
+          const validPin = matched.pin || inStore?.pin || dbPin
 
           if (pin === validPin || pin === '1234' || pin === '0412') {
             user = {
@@ -54,15 +59,15 @@ export async function POST(request: Request) {
               email: matched.email,
               name: matched.name,
               phone: matched.phone,
-              pin: pin,
+              pin: matched.pin || pin,
               role: 'FIELD_OFFICER',
               status: matched.status || 'ACTIVE',
               region: 'Ashanti Region',
-              group: 'Group 1',
-              isGroupLeader: true,
+              group: matched.groupName || 'Group 1',
+              isGroupLeader: Boolean(matched.isGroupLeader),
               assignedCenter: matched.centerName || 'Prempeh College Center A',
               assignedCenterCode: matched.centerCode || '050102',
-              photo: '',
+              photo: matched.image || '',
               mustChangePassword: matched.mustChangePassword ?? false,
             }
           } else {

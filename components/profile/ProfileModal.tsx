@@ -146,7 +146,7 @@ export function ProfileModal({
         {/* Modal Top Title Bar matching screenshot */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <h2 className="text-xl font-bold tracking-tight text-white font-sans">
-            My Profile
+            {session.role === 'FIELD_OFFICER' ? 'Officer Profile' : 'My Profile'}
           </h2>
           <button
             type="button"
