@@ -163,7 +163,9 @@ export function StatusCard({
             isInside ? 'text-emerald-400' : 'text-amber-400'
           }`}
         >
-          {distanceMeters} m
+          {distanceMeters >= 1000
+            ? `${(distanceMeters / 1000).toFixed(1)} km`
+            : `${distanceMeters} m`}
         </div>
         <div className="text-[11px] text-slate-400 mt-1 font-medium">
           from centre

@@ -69,7 +69,13 @@ export function CheckInButton({
         onClick={() => {}}
         className="w-full h-[60px] rounded-xl font-semibold text-sm tracking-wide flex items-center justify-center gap-2 border border-dashed border-[#283556] bg-[#0D111D]/80 text-slate-400 cursor-not-allowed select-none transition"
       >
-        <span>Check in opens {excessDistance} m closer</span>
+        <span>
+          Check in opens{' '}
+          {excessDistance >= 1000
+            ? `${(excessDistance / 1000).toFixed(1)} km`
+            : `${excessDistance} m`}{' '}
+          closer
+        </span>
       </button>
     )
   }

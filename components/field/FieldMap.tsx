@@ -5,8 +5,15 @@ import 'leaflet/dist/leaflet.css'
 import { MapPin, Crosshair } from 'lucide-react'
 
 interface FieldMapProps {
-  centerName?: string; centerCode?: string; centerLat?: number; centerLng?: number
-  radiusMeters?: number; isInside?: boolean; distanceMeters?: number
+  centerName?: string
+  centerCode?: string
+  centerLat?: number
+  centerLng?: number
+  radiusMeters?: number
+  isInside?: boolean
+  distanceMeters?: number
+  userLat?: number
+  userLng?: number
 }
 
 export default function FieldMap({
@@ -17,12 +24,18 @@ export default function FieldMap({
   radiusMeters = 150,
   isInside = true,
   distanceMeters = isInside ? 42 : 450,
+  userLat,
+  userLng,
 }: FieldMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
 
-  const officerLat = isInside ? centerLat + 0.00028 : centerLat + 0.0028
-  const officerLng = isInside ? centerLng + 0.00024 : centerLng + 0.0031
+  const officerLat = userLat !== undefined ? userLat : (isInside ? centerLat + 0.00028 : centerLat + 0.0028)
+  const officerLng = userLng !== undefined ? userLng : (isInside ? centerLng + 0.00024 : centerLng + 0.0031)
+
+  const distanceFormatted = distanceMeters >= 1000
+    ? `${(distanceMeters / 1000).toFixed(1)} km`
+    : `${distanceMeters} m`
 
   const fitView = (map: any, L: any) => {
     if (!map || !L) return
@@ -110,7 +123,7 @@ export default function FieldMap({
       mapInstanceRef.current?.remove()
       mapInstanceRef.current = null
     }
-  }, [centerLat, centerLng, officerLat, officerLng, radiusMeters, isInside])
+  }, [centerLat, centerLng, officerLat, officerLng, radiusMeters, isInside, userLat, userLng])
 
   const handleRecenter = () => {
     if (!mapInstanceRef.current) return
@@ -133,7 +146,7 @@ export default function FieldMap({
       </div>
       <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md tabular-nums">
         <span className={`size-2 rounded-full ${isInside ? 'bg-emerald-400' : 'bg-[#F6D300]'}`} />
-        <span>{distanceMeters} m from centre</span>
+        <span>{distanceFormatted} from centre</span>
       </div>
       <button
         type="button"

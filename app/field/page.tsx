@@ -33,7 +33,11 @@ export default function FieldPage() {
   const [session, setSession] = useState<SessionData | null>(null)
 
   // Geofence & Check-in States
-  const [simulatedInside, setSimulatedInside] = useState<boolean>(true)
+  const [gpsMode, setGpsMode] = useState<'live' | 'mock-inside' | 'mock-outside'>('live')
+  const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'denied'>('searching')
+  const [testVenueOverride, setTestVenueOverride] = useState<{ lat: number; lng: number; name: string } | null>(null)
+
   const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false)
   const [checkInTimestamp, setCheckInTimestamp] = useState<string>('07:54 GMT')
   const [shiftSeconds, setShiftSeconds] = useState<number>(0)
@@ -59,35 +63,30 @@ export default function FieldPage() {
 
   // Real GPS Geofence Watcher
   useEffect(() => {
-    if (!isFeatureEnabled('FIELD_REAL_DEVICE_GPS')) return
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
       setDeviceGpsActive(false)
+      setGpsStatus('denied')
       return
     }
+
+    setGpsStatus('searching')
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         setDeviceGpsActive(true)
-        const lat = pos.coords.latitude
-        const lng = pos.coords.longitude
-        // Haversine formula against center (Prempeh College: 6.7028, -1.6369)
-        const R = 6371e3
-        const dLat = ((lat - 6.7028) * Math.PI) / 180
-        const dLng = ((lng - (-1.6369)) * Math.PI) / 180
-        const a =
-          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos((6.7028 * Math.PI) / 180) *
-            Math.cos((lat * Math.PI) / 180) *
-            Math.sin(dLng / 2) *
-            Math.sin(dLng / 2)
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        const dist = Math.round(R * c)
-        if (pos.coords.accuracy <= 50) {
-          setSimulatedInside(dist <= 150)
-        }
+        setGpsStatus('active')
+        setLiveCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: Math.round(pos.coords.accuracy),
+        })
       },
-      () => setDeviceGpsActive(false),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+      (err) => {
+        console.warn('Geolocation access error:', err.message)
+        setDeviceGpsActive(false)
+        setGpsStatus('denied')
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
@@ -153,7 +152,7 @@ export default function FieldPage() {
 
   // Handle Duty Check-In
   const handleCheckIn = async () => {
-    if (!simulatedInside) return
+    if (!isInside) return
     const nowTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT'
     setCheckInTimestamp(nowTime)
     setIsCheckedIn(true)
@@ -224,15 +223,67 @@ export default function FieldPage() {
     router.push('/login')
   }
 
-  // Officer display data
+  // Active Venue details (supports test location override)
+  const defaultVenue = {
+    lat: 6.7028,
+    lng: -1.6369,
+    name: session?.assignedCenter || 'Prempeh College Center A',
+    code: session?.assignedCenterCode || '050102',
+  }
+  const activeVenue = testVenueOverride
+    ? { ...defaultVenue, lat: testVenueOverride.lat, lng: testVenueOverride.lng, name: testVenueOverride.name }
+    : defaultVenue
+
   const officerName = session?.name || 'Kofi Mensah'
-  const centerVenue = session?.assignedCenter || 'Prempeh College Center A'
-  const centerCode = session?.assignedCenterCode || '050102'
-  const distanceMeters = simulatedInside ? 42 : 450
+  const centerVenue = activeVenue.name
+  const centerCode = activeVenue.code
+
+  // Calculate distance in meters using Haversine
+  const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLng = ((lon2 - lon1) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return Math.round(R * c)
+  }
+
+  let effectiveUserLat: number | undefined = undefined
+  let effectiveUserLng: number | undefined = undefined
+  let distanceMeters = 42
+  let isInside = true
+
+  if (gpsMode === 'live' && liveCoords) {
+    effectiveUserLat = liveCoords.lat
+    effectiveUserLng = liveCoords.lng
+    distanceMeters = calculateHaversine(
+      liveCoords.lat,
+      liveCoords.lng,
+      activeVenue.lat,
+      activeVenue.lng
+    )
+    isInside = distanceMeters <= 150
+  } else if (gpsMode === 'mock-outside') {
+    distanceMeters = 450
+    isInside = false
+  } else {
+    // 'mock-inside' or fallback before liveCoords arrive
+    distanceMeters = 42
+    isInside = true
+  }
 
   const statusCardState: StatusCardState = isCheckedIn
     ? 'checked-in'
-    : simulatedInside
+    : gpsMode === 'live' && gpsStatus === 'denied'
+    ? 'gps-denied'
+    : gpsMode === 'live' && gpsStatus === 'searching' && !liveCoords
+    ? 'gps-searching'
+    : isInside
     ? 'inside'
     : 'outside'
 
@@ -276,35 +327,73 @@ export default function FieldPage() {
             <FieldMap
               centerName={centerVenue}
               centerCode={centerCode}
-              centerLat={6.7028}
-              centerLng={-1.6369}
+              centerLat={activeVenue.lat}
+              centerLng={activeVenue.lng}
               radiusMeters={150}
-              isInside={simulatedInside}
+              isInside={isInside}
               distanceMeters={distanceMeters}
+              userLat={effectiveUserLat}
+              userLng={effectiveUserLng}
             />
           )}
 
-          {/* Testing simulation switcher floating badge */}
+          {/* Testing & GPS Mode switcher */}
           <div className="absolute top-3 right-3 z-[400] flex items-center p-0.5 rounded-lg bg-[#0B0F1A]/90 border border-[#212A40] text-[10px] backdrop-blur-md">
             <button
               type="button"
-              onClick={() => setSimulatedInside(true)}
+              onClick={() => setGpsMode('live')}
+              className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer flex items-center gap-1 ${
+                gpsMode === 'live' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className={`size-1.5 rounded-full ${gpsStatus === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+              Live
+            </button>
+            <button
+              type="button"
+              onClick={() => setGpsMode('mock-inside')}
               className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                simulatedInside ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                gpsMode === 'mock-inside' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               42m
             </button>
             <button
               type="button"
-              onClick={() => setSimulatedInside(false)}
+              onClick={() => setGpsMode('mock-outside')}
               className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                !simulatedInside ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
+                gpsMode === 'mock-outside' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               450m
             </button>
           </div>
+
+          {/* Quick Test Trigger for Live GPS */}
+          {gpsMode === 'live' && liveCoords && distanceMeters > 150 && (
+            <button
+              type="button"
+              onClick={() => {
+                setTestVenueOverride({
+                  lat: liveCoords.lat,
+                  lng: liveCoords.lng,
+                  name: 'My Spot (Test Venue)',
+                })
+              }}
+              className="absolute bottom-12 left-3 z-[400] text-[10px] font-semibold bg-[#0B0F1A]/95 text-sky-300 hover:text-white border border-[#23335A] hover:border-sky-400 px-2 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
+            >
+              🎯 Test Check-In Here
+            </button>
+          )}
+          {testVenueOverride && (
+            <button
+              type="button"
+              onClick={() => setTestVenueOverride(null)}
+              className="absolute bottom-12 right-3 z-[400] text-[10px] font-semibold bg-[#1C1215]/95 text-red-300 hover:text-white border border-red-500/30 px-2 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
+            >
+              ✕ Reset
+            </button>
+          )}
         </div>
 
         {/* Status Card */}
@@ -324,7 +413,7 @@ export default function FieldPage() {
         {/* Action Dock */}
         <div className="w-full space-y-2.5 pt-2">
           <CheckInButton
-            isInside={simulatedInside}
+            isInside={isInside}
             distanceMeters={distanceMeters}
             geofenceRadius={150}
             isCheckedIn={isCheckedIn}
@@ -359,35 +448,73 @@ export default function FieldPage() {
             <FieldMap
               centerName={centerVenue}
               centerCode={centerCode}
-              centerLat={6.7028}
-              centerLng={-1.6369}
+              centerLat={activeVenue.lat}
+              centerLng={activeVenue.lng}
               radiusMeters={150}
-              isInside={simulatedInside}
+              isInside={isInside}
               distanceMeters={distanceMeters}
+              userLat={effectiveUserLat}
+              userLng={effectiveUserLng}
             />
           )}
 
-          {/* Testing simulation switcher */}
+          {/* Testing & GPS Mode switcher */}
           <div className="absolute top-3 right-3 z-[400] flex items-center p-0.5 rounded-lg bg-[#0B0F1A]/90 border border-[#212A40] text-[10px] backdrop-blur-md">
             <button
               type="button"
-              onClick={() => setSimulatedInside(true)}
+              onClick={() => setGpsMode('live')}
+              className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer flex items-center gap-1 ${
+                gpsMode === 'live' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span className={`size-1.5 rounded-full ${gpsStatus === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+              🛰️ Live GPS
+            </button>
+            <button
+              type="button"
+              onClick={() => setGpsMode('mock-inside')}
               className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                simulatedInside ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                gpsMode === 'mock-inside' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               Inside (42m)
             </button>
             <button
               type="button"
-              onClick={() => setSimulatedInside(false)}
+              onClick={() => setGpsMode('mock-outside')}
               className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                !simulatedInside ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
+                gpsMode === 'mock-outside' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
               Outside (450m)
             </button>
           </div>
+
+          {/* Quick Test Trigger for Live GPS */}
+          {gpsMode === 'live' && liveCoords && distanceMeters > 150 && (
+            <button
+              type="button"
+              onClick={() => {
+                setTestVenueOverride({
+                  lat: liveCoords.lat,
+                  lng: liveCoords.lng,
+                  name: 'My Spot (Test Venue)',
+                })
+              }}
+              className="absolute bottom-12 left-3 z-[400] text-[10px] font-semibold bg-[#0B0F1A]/95 text-sky-300 hover:text-white border border-[#23335A] hover:border-sky-400 px-2.5 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
+            >
+              🎯 Set Venue to My Location (Test Check-In)
+            </button>
+          )}
+          {testVenueOverride && (
+            <button
+              type="button"
+              onClick={() => setTestVenueOverride(null)}
+              className="absolute bottom-12 right-3 z-[400] text-[10px] font-semibold bg-[#1C1215]/95 text-red-300 hover:text-white border border-red-500/30 px-2.5 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
+            >
+              ✕ Reset to Prempeh College
+            </button>
+          )}
         </div>
 
         {/* Right Column: 460px panel with action dock pinned to bottom */}
@@ -419,7 +546,7 @@ export default function FieldPage() {
           {/* Action Dock (Pinned to panel bottom) */}
           <div className="space-y-2.5 pt-2">
             <CheckInButton
-              isInside={simulatedInside}
+              isInside={isInside}
               distanceMeters={distanceMeters}
               geofenceRadius={150}
               isCheckedIn={isCheckedIn}
@@ -459,8 +586,16 @@ export default function FieldPage() {
         officerName={officerName}
         venueName={centerVenue}
         centerCode={centerCode}
-        coords={{ lat: '6.7028° N', lng: '1.6369° W', acc: '±4.2m' }}
-        batteryLevel="84%"
+        coords={
+          liveCoords
+            ? {
+                lat: `${liveCoords.lat.toFixed(4)}° N`,
+                lng: `${Math.abs(liveCoords.lng).toFixed(4)}° W`,
+                acc: `±${liveCoords.accuracy}m`,
+              }
+            : { lat: '6.7028° N', lng: '1.6369° W', acc: '±4.2m' }
+        }
+        batteryLevel={`${batteryLevel}%`}
       />
 
       {/* Officer Profile Modal */}
