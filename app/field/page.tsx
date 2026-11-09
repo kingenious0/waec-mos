@@ -100,6 +100,69 @@ export default function FieldPage() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  // Live Database Assignment & Venue States
+  const [assignment, setAssignment] = useState<{
+    venue: {
+      name: string
+      code: string
+      zone: string
+      region: string
+      lat: number
+      lng: number
+      radiusMeters: number
+    }
+    paper: PaperAssignment
+    timeline: TimelineItem[]
+  }>({
+    venue: {
+      name: 'Prempeh College Center A',
+      code: '050102',
+      zone: 'Kumasi Central Examination Zone',
+      region: 'Ashanti Region',
+      lat: 6.7028,
+      lng: -1.6369,
+      radiusMeters: 150,
+    },
+    paper: {
+      title: 'Core Mathematics 1 and 2',
+      timeRange: '08:30 to 12:00 GMT',
+      arriveBy: '08:00',
+      collectBy: 'Collect at 07:45',
+    },
+    timeline: [
+      { time: '07:45', label: 'Collect papers', isHighlight: false },
+      { time: '08:00', label: 'Check in deadline', isHighlight: true },
+      { time: '08:30', label: 'Core Mathematics 1 and 2 begins', isHighlight: false },
+      { time: '12:00', label: 'Paper ends', isHighlight: false },
+    ],
+  })
+
+  // Fetch Live Assignment from Database on Mount / Session change
+  useEffect(() => {
+    const fetchAssignment = async () => {
+      try {
+        const url = session?.userId
+          ? `/api/field/assignment?officerId=${encodeURIComponent(session.userId)}&staffId=${encodeURIComponent(session.staffId || '')}`
+          : '/api/field/assignment'
+        const res = await fetch(url)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && data.venue && data.paper && data.timeline) {
+            setAssignment({
+              venue: data.venue,
+              paper: data.paper,
+              timeline: data.timeline,
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load assignment from DB:', err)
+      }
+    }
+
+    fetchAssignment()
+  }, [session])
+
   // Verify authentication on mount
   useEffect(() => {
     const s = getCurrentClientSession()
@@ -223,12 +286,15 @@ export default function FieldPage() {
     router.push('/login')
   }
 
-  // Active Venue details (supports test location override)
+  // Active Venue details (from Live Database Assignment, with fallback)
   const defaultVenue = {
-    lat: 6.7028,
-    lng: -1.6369,
-    name: session?.assignedCenter || 'Prempeh College Center A',
-    code: session?.assignedCenterCode || '050102',
+    lat: assignment.venue.lat,
+    lng: assignment.venue.lng,
+    name: assignment.venue.name || session?.assignedCenter || 'Prempeh College Center A',
+    code: assignment.venue.code || session?.assignedCenterCode || '050102',
+    zone: assignment.venue.zone || 'Kumasi Central Examination Zone',
+    region: assignment.venue.region || 'Ashanti Region',
+    radiusMeters: assignment.venue.radiusMeters || 150,
   }
   const activeVenue = testVenueOverride
     ? { ...defaultVenue, lat: testVenueOverride.lat, lng: testVenueOverride.lng, name: testVenueOverride.name }
@@ -237,6 +303,9 @@ export default function FieldPage() {
   const officerName = session?.name || 'Kofi Mensah'
   const centerVenue = activeVenue.name
   const centerCode = activeVenue.code
+  const centerZone = activeVenue.zone
+  const centerRegion = activeVenue.region
+  const geofenceRadius = activeVenue.radiusMeters
 
   // Calculate distance in meters using Haversine
   const calculateHaversine = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -267,7 +336,7 @@ export default function FieldPage() {
       activeVenue.lat,
       activeVenue.lng
     )
-    isInside = distanceMeters <= 150
+    isInside = distanceMeters <= geofenceRadius
   } else if (gpsMode === 'mock-outside') {
     distanceMeters = 450
     isInside = false
@@ -287,19 +356,9 @@ export default function FieldPage() {
     ? 'inside'
     : 'outside'
 
-  const paperAssignment: PaperAssignment = {
-    title: 'Core Mathematics 1 and 2',
-    timeRange: '08:30 to 12:00 GMT',
-    arriveBy: '08:00',
-    collectBy: 'Collect at 07:45',
-  }
-
-  const todayTimeline: TimelineItem[] = [
-    { time: '07:45', label: 'Collect papers', isHighlight: false },
-    { time: '08:00', label: 'Check in deadline', isHighlight: true },
-    { time: '08:30', label: 'Core Mathematics 1 and 2 begins', isHighlight: false },
-    { time: '12:00', label: 'Paper ends', isHighlight: false },
-  ]
+  // Dynamic Live Paper & Schedule Timeline from Database
+  const paperAssignment: PaperAssignment = assignment.paper
+  const todayTimeline: TimelineItem[] = assignment.timeline
 
   return (
     <div className="min-h-screen w-full bg-[#070913] text-zinc-100 flex flex-col font-sans select-none antialiased">
@@ -329,7 +388,7 @@ export default function FieldPage() {
               centerCode={centerCode}
               centerLat={activeVenue.lat}
               centerLng={activeVenue.lng}
-              radiusMeters={150}
+              radiusMeters={geofenceRadius}
               isInside={isInside}
               distanceMeters={distanceMeters}
               userLat={effectiveUserLat}
@@ -404,6 +463,14 @@ export default function FieldPage() {
           elapsedFormatted={formatTimer(shiftSeconds)}
         />
 
+        {/* Venue Card */}
+        <VenueCard
+          venueName={centerVenue}
+          venueCode={centerCode}
+          zoneName={centerZone}
+          regionName={centerRegion}
+        />
+
         {/* Paper / Arrive Tiles */}
         <PaperTiles assignment={paperAssignment} />
 
@@ -415,7 +482,7 @@ export default function FieldPage() {
           <CheckInButton
             isInside={isInside}
             distanceMeters={distanceMeters}
-            geofenceRadius={150}
+            geofenceRadius={geofenceRadius}
             isCheckedIn={isCheckedIn}
             onCheckIn={handleCheckIn}
             onCheckOut={handleCheckOut}
@@ -450,7 +517,7 @@ export default function FieldPage() {
               centerCode={centerCode}
               centerLat={activeVenue.lat}
               centerLng={activeVenue.lng}
-              radiusMeters={150}
+              radiusMeters={geofenceRadius}
               isInside={isInside}
               distanceMeters={distanceMeters}
               userLat={effectiveUserLat}
@@ -532,8 +599,8 @@ export default function FieldPage() {
             <VenueCard
               venueName={centerVenue}
               venueCode={centerCode}
-              zoneName="Kumasi Central Examination Zone"
-              regionName="Ashanti Region"
+              zoneName={centerZone}
+              regionName={centerRegion}
             />
 
             {/* Paper / Arrive Tiles */}
@@ -548,7 +615,7 @@ export default function FieldPage() {
             <CheckInButton
               isInside={isInside}
               distanceMeters={distanceMeters}
-              geofenceRadius={150}
+              geofenceRadius={geofenceRadius}
               isCheckedIn={isCheckedIn}
               onCheckIn={handleCheckIn}
               onCheckOut={handleCheckOut}
