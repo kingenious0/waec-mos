@@ -87,9 +87,11 @@ export default function LoginPage() {
       setClientSession(data.user)
 
       if (data.user.role === 'ADMIN') {
-        router.push('/admin')
-      } else if (data.user.mustChangePassword) {
-        router.push('/change-password')
+        if (data.user.mustChangePassword) {
+          router.push('/change-password')
+        } else {
+          router.push('/admin')
+        }
       } else {
         router.push('/field')
       }
@@ -404,27 +406,27 @@ export default function LoginPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() => handleAutofillOfficer('244128900', '0412')}
+                      onClick={() => handleAutofillOfficer('244101001', '')}
                       className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
                     >
                       <div className="font-semibold text-white text-[11px] truncate">
                         Kofi Mensah
                       </div>
                       <div className="text-[10px] text-zinc-400 font-mono">
-                        024 412 8900 • 0412
+                        024 410 1001 • Enter PIN
                       </div>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => handleAutofillOfficer('241002345', '1234')}
+                      onClick={() => handleAutofillOfficer('244101002', '')}
                       className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
                     >
                       <div className="font-semibold text-white text-[11px] truncate">
                         Akua Owusu
                       </div>
                       <div className="text-[10px] text-zinc-400 font-mono">
-                        024 100 2345 • 1234
+                        024 410 1002 • Enter PIN
                       </div>
                     </button>
                   </div>

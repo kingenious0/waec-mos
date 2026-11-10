@@ -1,16 +1,12 @@
 'use client'
 
 import React, { useState } from 'react'
-import {
-  Menu,
-  Bell,
-  Search,
-  User,
-  SlidersHorizontal,
-  LogOut,
-} from 'lucide-react'
+import { Menu, Bell, Search, User, LogOut } from 'lucide-react'
 import type { SessionData } from '@/lib/auth/session'
-import { NotificationsPopover } from '@/components/admin/notifications/NotificationsPopover'
+import {
+  NotificationsPopover,
+  type NotificationItem,
+} from '@/components/admin/notifications/NotificationsPopover'
 
 interface AdminTopNavProps {
   activeCount: number
@@ -20,11 +16,15 @@ interface AdminTopNavProps {
   onToggleMobileMenu?: () => void
   onOpenProfile?: () => void
   onSignOut?: () => void
+  onFocusOfficer?: (officerId?: string) => void
   onFocusSos?: () => void
   onCallEmergency?: () => void
   onOpenIncidents?: () => void
   onOpenSettings?: () => void
   session?: SessionData | null
+  notifications?: NotificationItem[]
+  notificationsLoading?: boolean
+  onMarkAllRead?: () => Promise<void> | void
   unreadAlertsCount?: number
 }
 
@@ -36,17 +36,33 @@ export function AdminTopNav({
   onToggleMobileMenu,
   onOpenProfile,
   onSignOut,
+  onFocusOfficer,
   onFocusSos,
   onCallEmergency,
   onOpenIncidents,
   onOpenSettings,
   session,
-  unreadAlertsCount = 1,
+  notifications = [],
+  notificationsLoading = false,
+  onMarkAllRead,
+  unreadAlertsCount = 0,
 }: AdminTopNavProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+
+  const displayName = session?.name || 'Regional Command'
+  const initials =
+    displayName
+      .replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, '')
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'HQ'
+
   return (
     <header className="h-14 border-b border-border bg-[#0B0D14] px-4 flex items-center justify-between shrink-0 select-none z-20 relative">
-      {/* --- MOBILE HEADER VIEW (< 1024px) --- */}
+      {/* MOBILE HEADER VIEW (< 1024px) */}
       <div className="flex lg:hidden items-center justify-between w-full">
         <div className="flex items-center gap-3">
           <button
@@ -74,7 +90,6 @@ export function AdminTopNav({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Notification Bell (Mobile) */}
           <button
             type="button"
             data-bell-trigger="true"
@@ -96,9 +111,14 @@ export function AdminTopNav({
             type="button"
             onClick={onOpenProfile}
             aria-label="Profile"
-            className="size-8 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs hover:border-sky-400 transition-colors cursor-pointer"
+            className="size-8 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs hover:border-sky-400 transition-colors cursor-pointer overflow-hidden"
           >
-            <User className="size-4" />
+            {session?.photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={session.photo} alt={displayName} className="size-full object-cover" />
+            ) : (
+              <User className="size-4" />
+            )}
           </button>
 
           {onSignOut && (
@@ -115,9 +135,8 @@ export function AdminTopNav({
         </div>
       </div>
 
-      {/* --- DESKTOP HEADER VIEW (>= 1024px) --- */}
+      {/* DESKTOP HEADER VIEW (>= 1024px) */}
       <div className="hidden lg:flex items-center justify-between w-full">
-        {/* Left: Section Title & Active Units Pill */}
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-foreground tracking-tight">
             {activeTabTitle}
@@ -128,9 +147,7 @@ export function AdminTopNav({
           </div>
         </div>
 
-        {/* Right: Search Bar, Notifications & User Avatar */}
         <div className="flex items-center gap-3">
-          {/* Quick Search */}
           <div className="relative w-64">
             <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -141,11 +158,10 @@ export function AdminTopNav({
               className="w-full bg-[#111420] border border-border/80 rounded-lg pl-8.5 pr-8 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:border-brand/50 transition-colors"
             />
             <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-sans text-muted-foreground bg-muted/40 rounded border border-border/40 pointer-events-none">
-              ⌘K
+              /
             </kbd>
           </div>
 
-          {/* Notification Bell (Desktop) */}
           <button
             type="button"
             data-bell-trigger="true"
@@ -163,17 +179,20 @@ export function AdminTopNav({
             )}
           </button>
 
-          {/* User Avatar */}
           <button
             type="button"
             onClick={onOpenProfile}
-            title={session?.name || 'Dr. Mensah Osei'}
-            className="size-8 rounded-full bg-[#1A233A] text-sky-400 border border-sky-500/25 flex items-center justify-center font-bold text-xs hover:border-sky-400 transition-colors cursor-pointer"
+            title={displayName}
+            className="size-8 rounded-full bg-[#1A233A] text-sky-400 border border-sky-500/25 flex items-center justify-center font-bold text-xs hover:border-sky-400 transition-colors cursor-pointer overflow-hidden"
           >
-            OP
+            {session?.photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={session.photo} alt={displayName} className="size-full object-cover" />
+            ) : (
+              initials
+            )}
           </button>
 
-          {/* Desktop Sign Out Button */}
           {onSignOut && (
             <button
               type="button"
@@ -188,10 +207,14 @@ export function AdminTopNav({
         </div>
       </div>
 
-      {/* Unified Notifications Popover */}
+      {/* Live Notifications Popover */}
       <NotificationsPopover
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
+        notifications={notifications}
+        loading={notificationsLoading}
+        onMarkAllRead={onMarkAllRead}
+        onFocusOfficer={onFocusOfficer}
         onFocusSos={onFocusSos}
         onCallEmergency={onCallEmergency}
         onOpenIncidents={onOpenIncidents}

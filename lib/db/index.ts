@@ -40,6 +40,7 @@ export interface UserAccount {
   mustChangePassword: boolean
   passwordHash: string
   photo?: string
+  bio?: string
   lastLoginAt?: string
   checkInTime?: string
 }

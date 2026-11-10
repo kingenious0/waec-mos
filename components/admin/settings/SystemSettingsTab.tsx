@@ -1,63 +1,59 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { RotateCcw, CheckCircle2, ChevronDown } from 'lucide-react'
 import {
-  Shield,
-  Bell,
-  MapPin,
-  Lock,
-  RotateCcw,
-  CheckCircle2,
-  ChevronDown,
-} from 'lucide-react'
+  DEFAULT_SYSTEM_SETTINGS,
+  type SystemSettingsConfig,
+} from '@/lib/settings-utils'
+import type { SessionData } from '@/lib/auth/session'
 
-export interface SystemSettingsConfig {
-  lowBatteryThreshold: string
-  outsideGeofenceAlert: boolean
-  officerOfflineTimeout: string
-  inAppNotifications: boolean
-  sosAlarmSound: boolean
-  smsToController: boolean
-  dailyEmailSummary: boolean
-  geofenceRadius: string
-  locationRefreshInterval: string
-  hideOfficerPins: boolean
-  sessionTimeout: string
-}
-
-const DEFAULT_SETTINGS: SystemSettingsConfig = {
-  lowBatteryThreshold: 'Below 25%',
-  outsideGeofenceAlert: true,
-  officerOfflineTimeout: 'After 2 minutes',
-  inAppNotifications: true,
-  sosAlarmSound: true,
-  smsToController: true,
-  dailyEmailSummary: false,
-  geofenceRadius: '150 m',
-  locationRefreshInterval: 'Every 10 s',
-  hideOfficerPins: true,
-  sessionTimeout: '30 minutes',
-}
+export type { SystemSettingsConfig }
 
 interface SystemSettingsTabProps {
+  initialSettings?: SystemSettingsConfig
+  session?: SessionData | null
   onSave?: (settings: SystemSettingsConfig) => void
   onFeedback?: (msg: string) => void
 }
 
-export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps) {
-  const [settings, setSettings] = useState<SystemSettingsConfig>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('waec_mos_system_settings')
-        if (saved) return JSON.parse(saved)
-      } catch {
-        // fallback
-      }
-    }
-    return DEFAULT_SETTINGS
-  })
-
+export function SystemSettingsTab({
+  initialSettings,
+  session,
+  onSave,
+  onFeedback,
+}: SystemSettingsTabProps) {
+  const [settings, setSettings] = useState<SystemSettingsConfig>(
+    initialSettings || DEFAULT_SYSTEM_SETTINGS
+  )
+  const [isLoading, setIsLoading] = useState<boolean>(!initialSettings)
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [isSaved, setIsSaved] = useState(false)
+
+  useEffect(() => {
+    if (initialSettings) {
+      setSettings(initialSettings)
+      setIsLoading(false)
+      return
+    }
+
+    let cancelled = false
+    fetch('/api/settings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.settings) {
+          setSettings(data.settings)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [initialSettings])
 
   const handleToggle = (key: keyof SystemSettingsConfig) => {
     setSettings((prev) => ({
@@ -75,47 +71,88 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
     setIsSaved(false)
   }
 
-  const handleReset = () => {
-    setSettings(DEFAULT_SETTINGS)
-    setIsSaved(false)
-    if (onFeedback) {
-      onFeedback('Settings reset to system defaults')
+  const handleReset = async () => {
+    setIsSubmitting(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actorId: session?.userId,
+          actorName: session?.name,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        onFeedback?.(`Error resetting settings: ${data.error || 'Server error'}`)
+        return
+      }
+      const next = data.settings || DEFAULT_SYSTEM_SETTINGS
+      setSettings(next)
+      setIsSaved(false)
+      onSave?.(next)
+      onFeedback?.('Settings reset to system defaults and saved in database')
+    } catch {
+      onFeedback?.('Error resetting system settings.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const handleSave = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('waec_mos_system_settings', JSON.stringify(settings))
+  const handleSave = async () => {
+    setIsSubmitting(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          settings,
+          actorId: session?.userId,
+          actorName: session?.name,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        onFeedback?.(`Failed to save settings: ${data.error || 'Server error'}`)
+        return
+      }
+      const saved = data.settings || settings
+      setSettings(saved)
+      setIsSaved(true)
+      onSave?.(saved)
+      onFeedback?.('System settings saved to Neon database and synchronized across regional hub')
+      setTimeout(() => setIsSaved(false), 3000)
+    } catch {
+      onFeedback?.('Failed to connect to database while saving settings.')
+    } finally {
+      setIsSubmitting(false)
     }
-    setIsSaved(true)
-    if (onSave) onSave(settings)
-    if (onFeedback) {
-      onFeedback('System settings updated and synchronized across regional hub')
-    }
-    setTimeout(() => setIsSaved(false), 3000)
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#090A0F] text-foreground p-6 lg:p-10 select-none">
+    <div className="flex-1 overflow-y-auto bg-[#090A0F] text-foreground p-6 lg:p-10 select-none pb-28 lg:pb-10">
       <div className="max-w-4xl mx-auto space-y-8 pb-16">
-        {/* Header Section */}
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight text-white">System settings</h1>
-          <p className="text-sm text-zinc-400">
-            Alert rules, map behaviour, and security for the Ashanti regional hub.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-bold tracking-tight text-white">System settings</h1>
+            <p className="text-sm text-zinc-400">
+              Alert rules, map behaviour, and security for the {session?.region || 'Ashanti'} regional hub.
+            </p>
+          </div>
+          {isLoading && (
+            <span className="text-xs text-sky-400 bg-sky-500/10 border border-sky-500/20 px-3 py-1 rounded-full">
+              Loading DB config...
+            </span>
+          )}
         </div>
 
-        {/* ========================================================= */}
         {/* SECTION 1: ALERT RULES */}
-        {/* ========================================================= */}
         <div className="space-y-3">
           <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
             ALERT RULES
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
-            {/* Row 1: SOS alerts */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">SOS alerts</div>
@@ -128,7 +165,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </span>
             </div>
 
-            {/* Row 2: Low battery */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Low battery</div>
@@ -151,7 +187,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </div>
             </div>
 
-            {/* Row 3: Outside geofence */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Outside geofence</div>
@@ -176,7 +211,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </button>
             </div>
 
-            {/* Row 4: Officer offline */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Officer offline</div>
@@ -201,16 +235,13 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
           </div>
         </div>
 
-        {/* ========================================================= */}
         {/* SECTION 2: DELIVERY */}
-        {/* ========================================================= */}
         <div className="space-y-3">
           <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
             DELIVERY
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
-            {/* Row 1: In-app notifications */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">In-app notifications</div>
@@ -235,7 +266,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </button>
             </div>
 
-            {/* Row 2: SOS alarm sound */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">SOS alarm sound</div>
@@ -260,7 +290,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </button>
             </div>
 
-            {/* Row 3: SMS to regional controller */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">SMS to regional controller</div>
@@ -285,7 +314,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </button>
             </div>
 
-            {/* Row 4: Daily email summary */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Daily email summary</div>
@@ -312,16 +340,13 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
           </div>
         </div>
 
-        {/* ========================================================= */}
         {/* SECTION 3: MAP AND GEOFENCES */}
-        {/* ========================================================= */}
         <div className="space-y-3">
           <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
             MAP AND GEOFENCES
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
-            {/* Row 1: Geofence radius */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Geofence radius</div>
@@ -345,7 +370,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </div>
             </div>
 
-            {/* Row 2: Location refresh */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Location refresh</div>
@@ -370,16 +394,13 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
           </div>
         </div>
 
-        {/* ========================================================= */}
         {/* SECTION 4: SECURITY */}
-        {/* ========================================================= */}
         <div className="space-y-3">
           <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
             SECURITY
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
-            {/* Row 1: Hide officer PINs */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Hide officer PINs</div>
@@ -404,7 +425,6 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
               </button>
             </div>
 
-            {/* Row 2: Session timeout */}
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Session timeout</div>
@@ -434,16 +454,18 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/60">
           <button
             type="button"
+            disabled={isSubmitting || isLoading}
             onClick={handleReset}
-            className="px-4 py-2 rounded-xl border border-slate-700 bg-[#121626] hover:bg-[#181D2E] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl border border-slate-700 bg-[#121626] hover:bg-[#181D2E] disabled:opacity-50 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer flex items-center gap-1.5"
           >
             <RotateCcw className="size-3.5 text-slate-400" />
             <span>Reset to defaults</span>
           </button>
           <button
             type="button"
+            disabled={isSubmitting || isLoading}
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] text-white text-xs font-bold shadow-lg shadow-blue-900/30 transition cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-900/30 transition cursor-pointer flex items-center gap-1.5"
           >
             {isSaved ? (
               <>
@@ -451,7 +473,7 @@ export function SystemSettingsTab({ onSave, onFeedback }: SystemSettingsTabProps
                 <span>Saved!</span>
               </>
             ) : (
-              <span>Save changes</span>
+              <span>{isSubmitting ? 'Saving...' : 'Save changes'}</span>
             )}
           </button>
         </div>

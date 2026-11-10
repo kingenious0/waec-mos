@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  Shield,
   LogOut,
 } from 'lucide-react'
 
@@ -20,6 +19,8 @@ interface AdminSidebarProps {
   onToggleCollapse: () => void
   sosCount: number
   adminName?: string
+  adminPhoto?: string
+  onOpenProfile?: () => void
   onSignOut?: () => void
 }
 
@@ -29,9 +30,21 @@ export function AdminSidebar({
   isCollapsed,
   onToggleCollapse,
   sosCount,
-  adminName = 'Dr. Mensah Osei',
+  adminName = 'Regional Command',
+  adminPhoto,
+  onOpenProfile,
   onSignOut,
 }: AdminSidebarProps) {
+  const initials =
+    adminName
+      .replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, '')
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'HQ'
+
   const navItems = [
     {
       id: 'map' as const,
@@ -66,7 +79,7 @@ export function AdminSidebar({
       <div className="h-14 border-b border-border/80 px-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 overflow-hidden">
           <div className="size-7 rounded-full bg-brand flex items-center justify-center text-background font-bold shrink-0 shadow-xs">
-            <span className="text-xs tracking-tighter">●</span>
+            <span className="text-xs tracking-tighter">M</span>
           </div>
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
@@ -122,13 +135,10 @@ export function AdminSidebar({
                 <Icon className={`size-4 shrink-0 ${isActive ? 'text-brand' : ''}`} />
                 {!isCollapsed && <span className="truncate">{item.label}</span>}
 
-                {/* Notification Badge */}
                 {item.badge !== undefined && (
                   <span
                     className={`size-2 rounded-full bg-status-sos shrink-0 ${
-                      isCollapsed
-                        ? 'absolute top-1.5 right-1.5'
-                        : 'ml-auto'
+                      isCollapsed ? 'absolute top-1.5 right-1.5' : 'ml-auto'
                     }`}
                   />
                 )}
@@ -140,10 +150,19 @@ export function AdminSidebar({
 
       {/* Sidebar Footer */}
       <div className="border-t border-border/80 p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center shrink-0">
-              MO
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="flex items-center gap-2.5 overflow-hidden text-left hover:opacity-90 transition cursor-pointer"
+          >
+            <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+              {adminPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={adminPhoto} alt={adminName} className="size-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
@@ -156,7 +175,7 @@ export function AdminSidebar({
                 </div>
               </div>
             )}
-          </div>
+          </button>
 
           {!isCollapsed && (
             <button
@@ -191,8 +210,8 @@ export function AdminSidebar({
           </button>
         )}
 
-        {onSignOut && (
-          isCollapsed ? (
+        {onSignOut &&
+          (isCollapsed ? (
             <button
               type="button"
               onClick={onSignOut}
@@ -212,8 +231,7 @@ export function AdminSidebar({
               <LogOut className="size-3.5 shrink-0" />
               <span>Sign Out</span>
             </button>
-          )
-        )}
+          ))}
       </div>
     </aside>
   )

@@ -1,86 +1,32 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import {
-  AlertTriangle,
-  Battery,
-  MapPin,
-  CheckCircle2,
-  Phone,
-  Compass,
-  X,
-  Bell,
-  SlidersHorizontal,
-} from 'lucide-react'
+import { Phone, Compass, Bell } from 'lucide-react'
 
 export interface NotificationItem {
   id: string
+  sourceType?: 'incident' | 'audit'
+  sourceId?: string
   category: 'sos' | 'geofence' | 'device' | 'checkin'
   type: 'critical' | 'warning' | 'success'
   title: string
   subtitle: string
   time: string
   read: boolean
+  officerId?: string
   officerName?: string
   centerName?: string
   battery?: string
   actionLabel?: string
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'notif-1',
-    category: 'sos',
-    type: 'critical',
-    title: 'Samuel Quaye triggered an SOS',
-    subtitle: 'Opoku Ware School Center A · battery 24%',
-    time: '07:48 GMT',
-    read: false,
-    officerName: 'Samuel Quaye',
-    centerName: 'Opoku Ware School Center A',
-    battery: '24%',
-  },
-  {
-    id: 'notif-2',
-    category: 'device',
-    type: 'warning',
-    title: 'Low battery',
-    subtitle: 'Samuel Quaye is at 24%',
-    time: '07:52',
-    read: false,
-  },
-  {
-    id: 'notif-3',
-    category: 'geofence',
-    type: 'warning',
-    title: 'Outside geofence',
-    subtitle: 'Emmanuel Boateng is 450 m from Kumasi High School Center 1',
-    time: '08:05',
-    read: false,
-  },
-  {
-    id: 'notif-4',
-    category: 'checkin',
-    type: 'success',
-    title: 'Verified on site',
-    subtitle: 'Akua Owusu at Prempeh College Center B',
-    time: '08:02',
-    read: false,
-  },
-  {
-    id: 'notif-5',
-    category: 'checkin',
-    type: 'success',
-    title: 'Verified on site',
-    subtitle: 'Kofi Mensah at Prempeh College Center A',
-    time: '07:54',
-    read: false,
-  },
-]
-
 interface NotificationsPopoverProps {
   isOpen: boolean
   onClose: () => void
+  notifications: NotificationItem[]
+  loading?: boolean
+  onMarkAllRead?: () => Promise<void> | void
+  onFocusOfficer?: (officerId?: string) => void
   onFocusSos?: () => void
   onCallEmergency?: () => void
   onOpenIncidents?: () => void
@@ -90,16 +36,19 @@ interface NotificationsPopoverProps {
 export function NotificationsPopover({
   isOpen,
   onClose,
+  notifications,
+  loading = false,
+  onMarkAllRead,
+  onFocusOfficer,
   onFocusSos,
   onCallEmergency,
   onOpenIncidents,
   onOpenSettings,
 }: NotificationsPopoverProps) {
   const [filter, setFilter] = useState<'all' | 'sos' | 'geofence' | 'device' | 'checkin'>('all')
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS)
+  const [markingRead, setMarkingRead] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Close on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -120,16 +69,22 @@ export function NotificationsPopover({
 
   if (!isOpen) return null
 
-  const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  const handleMarkAllAsRead = async () => {
+    if (!onMarkAllRead) return
+    setMarkingRead(true)
+    try {
+      await onMarkAllRead()
+    } finally {
+      setMarkingRead(false)
+    }
   }
 
-  // Calculate counts
   const totalCount = notifications.length
   const sosCount = notifications.filter((n) => n.category === 'sos').length
   const geofenceCount = notifications.filter((n) => n.category === 'geofence').length
   const devicesCount = notifications.filter((n) => n.category === 'device').length
   const checkinsCount = notifications.filter((n) => n.category === 'checkin').length
+  const unreadCount = notifications.filter((n) => !n.read).length
 
   const filteredNotifications = notifications.filter((item) => {
     if (filter === 'all') return true
@@ -142,22 +97,27 @@ export function NotificationsPopover({
       onMouseDown={(e) => e.stopPropagation()}
       className="absolute right-2 sm:right-4 top-13 z-50 w-[calc(100vw-1rem)] sm:w-[410px] max-w-[420px] rounded-2xl border border-[#22263C] bg-[#0E1019] text-zinc-100 shadow-2xl shadow-black/90 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden font-sans select-none"
     >
-      {/* 1. Header */}
+      {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-[#1A1F33]">
         <div className="flex items-center gap-2">
           <span className="font-bold text-sm text-white tracking-tight">Notifications</span>
-          <span className="size-2 rounded-full bg-status-sos animate-pulse" />
+          {unreadCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-status-sos/20 text-status-sos text-[10px] font-bold">
+              {unreadCount} new
+            </span>
+          )}
         </div>
         <button
           type="button"
+          disabled={markingRead || unreadCount === 0}
           onClick={handleMarkAllAsRead}
-          className="text-[11px] font-medium text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 transition cursor-pointer"
+          className="text-[11px] font-medium text-slate-300 hover:text-white disabled:opacity-40 px-2.5 py-1 rounded-lg border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 transition cursor-pointer"
         >
-          Mark all as read
+          {markingRead ? 'Updating...' : 'Mark all as read'}
         </button>
       </div>
 
-      {/* 2. Filter Pills */}
+      {/* Filter Pills */}
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[#1A1F33]/80 overflow-x-auto text-[11px] scrollbar-none">
         <button
           type="button"
@@ -216,20 +176,26 @@ export function NotificationsPopover({
         </button>
       </div>
 
-      {/* 3. Notification List Items */}
+      {/* Live Notification List Items */}
       <div className="max-h-[360px] overflow-y-auto p-3 space-y-2.5">
-        {filteredNotifications.length === 0 ? (
-          <div className="text-center py-8 text-xs text-slate-500">
-            No notifications in this category
+        {loading && notifications.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-400">
+            Loading live notifications from database...
+          </div>
+        ) : filteredNotifications.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-500 flex flex-col items-center gap-2">
+            <Bell className="size-5 text-slate-600" />
+            <span>No events in this category yet</span>
           </div>
         ) : (
           filteredNotifications.map((notif) => {
-            // Critical SOS Card
             if (notif.category === 'sos') {
               return (
                 <div
                   key={notif.id}
-                  className="rounded-xl border border-red-500/30 bg-[#1A121A] p-3 border-l-4 border-l-red-500 shadow-md relative group"
+                  className={`rounded-xl border border-red-500/30 bg-[#1A121A] p-3 border-l-4 border-l-red-500 shadow-md relative group ${
+                    notif.read ? 'opacity-75' : ''
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold tracking-wide">
@@ -251,7 +217,11 @@ export function NotificationsPopover({
                     <button
                       type="button"
                       onClick={() => {
-                        onFocusSos?.()
+                        if (notif.officerId && onFocusOfficer) {
+                          onFocusOfficer(notif.officerId)
+                        } else {
+                          onFocusSos?.()
+                        }
                         onClose()
                       }}
                       className="px-3 py-1.5 rounded-lg bg-[#2E41B6] hover:bg-[#394FD6] text-white text-xs font-semibold shadow-sm transition cursor-pointer flex items-center gap-1.5"
@@ -261,9 +231,7 @@ export function NotificationsPopover({
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        onCallEmergency?.()
-                      }}
+                      onClick={() => onCallEmergency?.()}
                       className="px-3 py-1.5 rounded-lg bg-[#151928] hover:bg-[#1D2236] border border-slate-700/80 text-slate-200 text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
                     >
                       <Phone className="size-3.5 text-red-400" />
@@ -274,14 +242,21 @@ export function NotificationsPopover({
               )
             }
 
-            // Normal Notification Items
             const dotColor =
               notif.type === 'success' ? 'bg-emerald-400' : 'bg-amber-400'
 
             return (
               <div
                 key={notif.id}
-                className="flex items-start justify-between py-2 px-2.5 rounded-lg hover:bg-white/[0.03] transition-colors border-b border-white/[0.04] last:border-none"
+                onClick={() => {
+                  if (notif.officerId && onFocusOfficer) {
+                    onFocusOfficer(notif.officerId)
+                    onClose()
+                  }
+                }}
+                className={`flex items-start justify-between py-2 px-2.5 rounded-lg hover:bg-white/[0.04] transition-colors border-b border-white/[0.04] last:border-none ${
+                  notif.officerId ? 'cursor-pointer' : ''
+                } ${notif.read ? 'opacity-70' : ''}`}
               >
                 <div className="flex items-start gap-2.5 min-w-0">
                   <span className={`size-1.5 rounded-full ${dotColor} mt-1.5 shrink-0`} />
@@ -303,7 +278,7 @@ export function NotificationsPopover({
         )}
       </div>
 
-      {/* 4. Footer Links */}
+      {/* Footer Links */}
       <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#1A1F33] bg-[#0A0D15]/80 text-xs">
         <button
           type="button"

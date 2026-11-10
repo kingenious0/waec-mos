@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { SessionData, clearClientSession } from '@/lib/auth/session'
+import { SessionData } from '@/lib/auth/session'
 import {
   X,
   Pencil,
@@ -18,7 +18,7 @@ interface ProfileModalProps {
   onClose: () => void
   session: SessionData | null
   onDutyStatus?: string
-  onSave?: (updated: Partial<SessionData>) => void
+  onSave?: (updated: Partial<SessionData>) => Promise<boolean | void> | boolean | void
   onLogout?: () => void
 }
 
@@ -41,6 +41,8 @@ export function ProfileModal({
   const [bio, setBio] = useState('')
   const [photo, setPhoto] = useState<string>('')
   const [isSaved, setIsSaved] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -56,14 +58,17 @@ export function ProfileModal({
       setEmail(session.email || '')
       setPhone(session.phone || '')
       setStaffId(session.staffId || '')
-      setPin(session.pin || '1234')
+      setPin(session.pin || '')
       setPhoto(session.photo || '')
       setBio(
-        session.role === 'ADMIN'
-          ? 'Regional Operations Director & Surveillance Coordinator for WAEC Ashanti Region.'
-          : 'Official Field Examination Officer assigned to regional depot security and materials escort.'
+        session.bio ||
+          (session.role === 'ADMIN'
+            ? 'Regional Operations Director & Surveillance Coordinator for WAEC Ashanti Region.'
+            : 'Official Field Examination Officer assigned to regional depot security and materials escort.')
       )
       setIsSaved(false)
+      setIsSaving(false)
+      setSaveError('')
     }
   }, [session, isOpen])
 
@@ -72,7 +77,13 @@ export function ProfileModal({
   const initials = `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase() || 'OP'
   const isLeader = Boolean(session.isGroupLeader)
   const roleName = session.role === 'ADMIN' ? 'Headquarters Admin' : 'Field Officer'
-  const statusLabel = onDutyStatus || (session.status === 'ACTIVE' ? 'Active' : 'Offline')
+  const statusLabel =
+    onDutyStatus ||
+    (session.status === 'ACTIVE'
+      ? 'Active'
+      : session.status === 'REVOKED'
+      ? 'Revoked'
+      : 'Offline')
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -90,48 +101,60 @@ export function ProfileModal({
     reader.readAsDataURL(file)
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     const fullName = `${firstName} ${lastName}`.trim()
+    setIsSaving(true)
+    setSaveError('')
 
-    if (onSave) {
-      onSave({
-        name: fullName,
-        email,
-        phone,
-        pin,
-        photo,
-      })
+    const payload: Partial<SessionData> = {
+      name: fullName,
+      email,
+      phone,
+      ...(session.role === 'FIELD_OFFICER' ? { pin } : {}),
+      photo,
+      bio,
     }
 
-    // Save to local storage session if it's the current user
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('waec_mos_session')
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (parsed.userId === session.userId) {
-            const updated = {
-              ...parsed,
-              name: fullName,
-              email,
-              phone,
-              pin,
-              photo,
-            }
-            localStorage.setItem('waec_mos_session', JSON.stringify(updated))
-          }
+    try {
+      if (onSave) {
+        const result = await onSave(payload)
+        if (result === false) {
+          setSaveError('Failed to save changes to database. Please try again.')
+          setIsSaving(false)
+          return
         }
-      } catch {
-        // Fallback
       }
-    }
 
-    setIsSaved(true)
-    setTimeout(() => {
-      setIsSaved(false)
-      onClose()
-    }, 900)
+      // Save to local storage session if it's the current user
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('waec_mos_session')
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            if (parsed.userId === session.userId) {
+              const updated = {
+                ...parsed,
+                ...payload,
+              }
+              localStorage.setItem('waec_mos_session', JSON.stringify(updated))
+            }
+          }
+        } catch {
+          // Fallback
+        }
+      }
+
+      setIsSaved(true)
+      setIsSaving(false)
+      setTimeout(() => {
+        setIsSaved(false)
+        onClose()
+      }, 900)
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to save changes to database.')
+      setIsSaving(false)
+    }
   }
 
   const modalContent = (
@@ -313,43 +336,57 @@ export function ProfileModal({
                   />
                 </div>
 
-                {/* Login PIN with Interactive Eye Toggle Button */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-300">
-                      Login PIN
+                {/* Login PIN (Field Officers) or Operational Region (Admins) */}
+                {session.role === 'FIELD_OFFICER' ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Login PIN
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        {showPin ? <EyeOff className="size-3 text-sky-400" /> : <Eye className="size-3" />}
+                        <span className={showPin ? 'text-sky-400 font-medium' : ''}>
+                          {showPin ? 'Hide' : 'Show'}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPin ? 'text' : 'password'}
+                        maxLength={4}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        placeholder="••••"
+                        className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-xs font-sans font-bold text-[#F6D300] placeholder:text-slate-500 tracking-widest focus:outline-hidden focus:border-sky-400 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                        title={showPin ? 'Hide PIN' : 'Show PIN'}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        {showPin ? <EyeOff className="size-4 text-sky-400" /> : <Eye className="size-4" />}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      Command Region
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPin(!showPin)}
-                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      {showPin ? <EyeOff className="size-3 text-sky-400" /> : <Eye className="size-3" />}
-                      <span className={showPin ? 'text-sky-400 font-medium' : ''}>
-                        {showPin ? 'Hide' : 'Show'}
-                      </span>
-                    </button>
-                  </div>
-                  <div className="relative">
                     <input
-                      type={showPin ? 'text' : 'password'}
-                      maxLength={6}
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="••••"
-                      className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-xs font-sans font-bold text-[#F6D300] placeholder:text-slate-500 tracking-widest focus:outline-hidden focus:border-sky-400 transition-colors"
+                      type="text"
+                      value={session.region || 'Ashanti Region'}
+                      readOnly
+                      className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17]/60 px-3.5 py-2.5 text-xs text-slate-300 cursor-not-allowed font-sans"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPin(!showPin)}
-                      aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
-                      title={showPin ? 'Hide PIN' : 'Show PIN'}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                    >
-                      {showPin ? <EyeOff className="size-4 text-sky-400" /> : <Eye className="size-4" />}
-                    </button>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Row 4: Account Status */}
@@ -357,10 +394,17 @@ export function ProfileModal({
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                   Account Status
                 </label>
-                <div className="flex items-center h-10 px-3.5 rounded-xl border border-[#22263C] bg-[#0A0D17]/60 text-xs font-medium text-emerald-400 gap-2">
-                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Verified Active</span>
-                </div>
+                {session.status === 'REVOKED' ? (
+                  <div className="flex items-center h-10 px-3.5 rounded-xl border border-rose-500/30 bg-rose-950/30 text-xs font-medium text-rose-400 gap-2">
+                    <span className="size-2 rounded-full bg-rose-400" />
+                    <span>Access Revoked</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center h-10 px-3.5 rounded-xl border border-[#22263C] bg-[#0A0D17]/60 text-xs font-medium text-emerald-400 gap-2">
+                    <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Verified Active</span>
+                  </div>
+                )}
               </div>
 
               {/* Row 5: Notes / Bio (0/200 characters) matching screenshot */}
@@ -386,23 +430,20 @@ export function ProfileModal({
           {/* Bottom Action Buttons: Cancel & Save Changes */}
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (onLogout) {
-                    onLogout()
-                  } else {
-                    clearClientSession()
-                    window.location.href = '/login'
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer"
-              >
-                <LogOut className="size-3.5" />
-                <span>Log Out</span>
-              </button>
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                >
+                  <LogOut className="size-3.5" />
+                  <span>Log Out</span>
+                </button>
+              )}
 
-              {isSaved ? (
+              {saveError ? (
+                <div className="text-xs text-rose-400 font-medium">{saveError}</div>
+              ) : isSaved ? (
                 <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
                   <CheckCircle2 className="size-4" />
                   <span>Changes saved!</span>
@@ -418,15 +459,17 @@ export function ProfileModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl border border-[#22263C] bg-[#121626] hover:bg-[#181D2E] text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                disabled={isSaving}
+                className="px-4 py-2 rounded-xl border border-[#22263C] bg-[#121626] hover:bg-[#181D2E] disabled:opacity-50 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
+                disabled={isSaving}
+                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] disabled:opacity-60 border border-[#F6D300]/40 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
               >
-                Save Changes
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

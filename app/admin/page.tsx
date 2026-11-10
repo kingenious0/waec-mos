@@ -1,12 +1,18 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getCurrentClientSession, SessionData, clearClientSession } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
 import { PreProvisionOfficerModal, PreProvisionData } from '@/components/admin/modals/PreProvisionOfficerModal'
 import { ResetPinModal } from '@/components/admin/modals/ResetPinModal'
+import {
+  ExamCenterModal,
+  type DistrictOption,
+  type ExamCenterFormPayload,
+} from '@/components/admin/modals/ExamCenterModal'
+import { LogIncidentModal, type LogIncidentPayload } from '@/components/admin/modals/LogIncidentModal'
 import {
   Users,
   ShieldCheck,
@@ -22,31 +28,35 @@ import {
   Phone,
   Radio,
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
   Battery,
-  Navigation,
-  Check,
   LogOut,
   Compass,
-  Activity,
-  FileText,
-  Clock,
   Shield,
   Siren,
   KeyRound,
   User,
   Settings,
+  Eye,
+  EyeOff,
+  Plus,
+  Pencil,
 } from 'lucide-react'
-import { UserAccount } from '@/lib/db'
+import type { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
 import { AdminSidebar } from '@/components/admin/sidebar/AdminSidebar'
 import { AdminTopNav } from '@/components/admin/header/AdminTopNav'
 import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTelematicsDrawer'
 import { MobileBottomNav } from '@/components/admin/mobile/MobileBottomNav'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
+import type { NotificationItem } from '@/components/admin/notifications/NotificationsPopover'
+import {
+  DEFAULT_SYSTEM_SETTINGS,
+  parseGeofenceRadiusMeters,
+  parseRefreshIntervalMs,
+  parseSessionTimeoutMs,
+  type SystemSettingsConfig,
+} from '@/lib/settings-utils'
 
-// Dynamic import for Leaflet FleetMap to prevent SSR issues
 const FleetMap = dynamic(() => import('@/components/admin/FleetMap'), {
   ssr: false,
   loading: () => (
@@ -59,29 +69,105 @@ const FleetMap = dynamic(() => import('@/components/admin/FleetMap'), {
   ),
 })
 
-// Fallback defaults while live database loads
-export const EXAM_CENTERS: ExamCenter[] = []
-const INITIAL_FLEET_OFFICERS: FleetOfficer[] = []
+interface LiveIncidentRecord {
+  id: string
+  incidentNumber: string
+  title: string
+  category: string
+  severity: string
+  status: string
+  description: string
+  resolutionNotes: string
+  reportedAt: string | null
+  reportedTimeFormatted: string
+  resolvedAt: string | null
+  reportedBy: string
+  reporterName: string
+  reporterPhone: string
+  reporterStaffId: string
+  reporterBattery: number | null
+  reporterLat: number | null
+  reporterLng: number | null
+  reporterDistance: number | null
+  centerId: string | null
+  centerName: string
+  centerCode: string
+}
+
+interface LiveAuditLogRecord {
+  id: string
+  actorId: string
+  actorName: string
+  actorRole: string
+  action: string
+  entityType: string
+  entityId: string
+  details: Record<string, any>
+  createdAt: string | null
+  timeFormatted: string
+}
 
 export default function AdminPage() {
   const router = useRouter()
   const [session, setSession] = useState<SessionData | null>(null)
 
-  // Current active navigation tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
-  const [activeTab, setActiveTab] = useState<'map' | 'directory' | 'centers' | 'incidents' | 'settings'>('map')
+  const [activeTab, setActiveTab] = useState<
+    'map' | 'directory' | 'centers' | 'incidents' | 'settings'
+  >('map')
 
-  // Live Centers & Fleet Telematics state from Neon DB
-  const [examCenters, setExamCenters] = useState<ExamCenter[]>(EXAM_CENTERS)
-  const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>(INITIAL_FLEET_OFFICERS)
+  // Live Neon DB States
+  const [examCenters, setExamCenters] = useState<ExamCenter[]>([])
+  const [districts, setDistricts] = useState<DistrictOption[]>([])
+  const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>([])
   const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(null)
+  const [officers, setOfficers] = useState<UserAccount[]>([])
+  const [incidents, setIncidents] = useState<LiveIncidentRecord[]>([])
+  const [auditLogs, setAuditLogs] = useState<LiveAuditLogRecord[]>([])
+  const [incidentSummary, setIncidentSummary] = useState({
+    activeSosCount: 0,
+    openIncidentsCount: 0,
+    totalIncidents: 0,
+    breachCount: 0,
+  })
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0)
+  const [systemSettings, setSystemSettings] = useState<SystemSettingsConfig>(
+    DEFAULT_SYSTEM_SETTINGS
+  )
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(true)
-  const [focusTarget, setFocusTarget] = useState<{ lat: number; lng: number; zoom?: number } | null>(null)
-  const [patrolDispatched, setPatrolDispatched] = useState<boolean>(false)
 
-  // Responsive Layout States
+  // Map, Search & Filter States
+  const [focusTarget, setFocusTarget] = useState<{
+    lat: number
+    lng: number
+    zoom?: number
+  } | null>(null)
+  const [patrolDispatchedIds, setPatrolDispatchedIds] = useState<Record<string, boolean>>({})
+  const [rosterSearch, setRosterSearch] = useState('')
+  const [directorySearch, setDirectorySearch] = useState('')
+  const [revealedPins, setRevealedPins] = useState<Record<string, boolean>>({})
+  const [incidentFilter, setIncidentFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL')
+  const [auditOfficerFilterId, setAuditOfficerFilterId] = useState<string | null>(null)
+
+  // Responsive Layout & Feedback
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileDrawerExpanded, setIsMobileDrawerExpanded] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [feedback, setFeedback] = useState('')
+
+  // Modals
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showResetPinModal, setShowResetPinModal] = useState<UserAccount | null>(null)
+  const [showAdminProfile, setShowAdminProfile] = useState(false)
+  const [inspectedOfficer, setInspectedOfficer] = useState<UserAccount | null>(null)
+  const [centerModalState, setCenterModalState] = useState<{
+    mode: 'create' | 'edit'
+    center?: ExamCenter
+  } | null>(null)
+  const [showLogIncidentModal, setShowLogIncidentModal] = useState(false)
+
+  const hasInitializedSelectionRef = useRef(false)
+  const prevSosCountRef = useRef(0)
 
   const activeTabTitle = useMemo(() => {
     switch (activeTab) {
@@ -100,39 +186,119 @@ export default function AdminPage() {
     }
   }, [activeTab])
 
-  // Roster search and filters
-  const [rosterSearch, setRosterSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ON_SITE' | 'PENDING' | 'SOS'>('ALL')
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'Group 1': true, // Expanded by default
-  })
+  const playCommandSosTone = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(780, ctx.currentTime)
+      osc.frequency.setValueAtTime(540, ctx.currentTime + 0.18)
+      osc.frequency.setValueAtTime(780, ctx.currentTime + 0.36)
+      gain.gain.setValueAtTime(0.12, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.6)
+    } catch {
+      // Autoplay blocked until user gesture
+    }
+  }, [])
 
-  // Personnel DB Accounts (for account pre-provisioning & management)
-  const [officers, setOfficers] = useState<UserAccount[]>([])
-  const [directorySearch, setDirectorySearch] = useState('')
-  const [feedback, setFeedback] = useState('')
+  const loadDashboardData = useCallback(
+    async (silent = false) => {
+      if (!silent) setIsLoadingLive(true)
+      try {
+        const [centersRes, fleetRes, officersRes, incidentsRes, notifRes, settingsRes] =
+          await Promise.all([
+            fetch('/api/centers'),
+            fetch('/api/fleet'),
+            fetch('/api/officers'),
+            fetch('/api/incidents'),
+            fetch('/api/notifications'),
+            fetch('/api/settings'),
+          ])
 
-  // Modals
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showResetPinModal, setShowResetPinModal] = useState<UserAccount | null>(null)
-  const [showAdminProfile, setShowAdminProfile] = useState(false)
-  const [inspectedOfficer, setInspectedOfficer] = useState<UserAccount | null>(null)
+        const [
+          centersData,
+          fleetData,
+          officersData,
+          incidentsData,
+          notifData,
+          settingsData,
+        ] = await Promise.all([
+          centersRes.json(),
+          fleetRes.json(),
+          officersRes.json(),
+          incidentsRes.json(),
+          notifRes.json(),
+          settingsRes.json(),
+        ])
 
-  // Provisioning form states
-  const [newName, setNewName] = useState('')
-  const [newStaffId, setNewStaffId] = useState('')
-  const [newPhone, setNewPhone] = useState('')
-  const [newPin, setNewPin] = useState(Math.floor(1000 + Math.random() * 9000).toString())
-  const [newRegion, setNewRegion] = useState('Ashanti Region')
-  const [newGroup, setNewGroup] = useState('Group 1')
-  const [newIsGroupLeader, setNewIsGroupLeader] = useState(false)
-  const [newCenter, setNewCenter] = useState('Prempeh College Center A')
-  const [newCenterCode, setNewCenterCode] = useState('050102')
+        if (centersData.centers) {
+          setExamCenters(centersData.centers)
+        }
+        if (centersData.districts) {
+          setDistricts(centersData.districts)
+        }
 
-  // Reset PIN state
-  const [newResetPin, setNewResetPin] = useState(Math.floor(1000 + Math.random() * 9000).toString())
+        if (fleetData.officers) {
+          const nextFleet: FleetOfficer[] = fleetData.officers
+          setFleetOfficers(nextFleet)
+          setSelectedOfficer((prev) => {
+            if (!hasInitializedSelectionRef.current) {
+              hasInitializedSelectionRef.current = true
+              const sos = nextFleet.find((o) => o.status === 'SOS')
+              return sos || nextFleet[0] || null
+            }
+            if (!prev) return null
+            return nextFleet.find((o) => o.id === prev.id) || null
+          })
+        }
 
-  // Check auth session
+        if (officersData.officers) {
+          setOfficers(officersData.officers)
+        }
+
+        if (incidentsData.incidents) {
+          setIncidents(incidentsData.incidents)
+        }
+        if (incidentsData.auditLogs) {
+          setAuditLogs(incidentsData.auditLogs)
+        }
+        if (incidentsData.summary) {
+          setIncidentSummary(incidentsData.summary)
+          const nextSos = incidentsData.summary.activeSosCount || 0
+          if (
+            nextSos > prevSosCountRef.current &&
+            (settingsData.settings?.sosAlarmSound ?? true)
+          ) {
+            playCommandSosTone()
+          }
+          prevSosCountRef.current = nextSos
+        }
+
+        if (notifData.notifications) {
+          setNotifications(notifData.notifications)
+          setNotificationsUnreadCount(notifData.unreadCount || 0)
+        }
+
+        if (settingsData.settings) {
+          setSystemSettings(settingsData.settings)
+        }
+      } catch (err) {
+        console.error('Failed to load live dashboard data from Neon:', err)
+      } finally {
+        if (!silent) setIsLoadingLive(false)
+      }
+    },
+    [playCommandSosTone]
+  )
+
+  // Check auth session & perform initial DB fetch
   useEffect(() => {
     const s = getCurrentClientSession()
     if (!s) {
@@ -144,53 +310,98 @@ export default function AdminPage() {
       return
     }
     setSession(s)
-    loadDashboardData()
+    loadDashboardData(false)
+  }, [router, loadDashboardData])
+
+  // Background polling interval driven by DB locationRefreshInterval
+  const pollIntervalMs = useMemo(
+    () => parseRefreshIntervalMs(systemSettings.locationRefreshInterval),
+    [systemSettings.locationRefreshInterval]
+  )
+
+  useEffect(() => {
+    if (!session) return
+    const timer = setInterval(() => {
+      loadDashboardData(true)
+    }, pollIntervalMs)
+    return () => clearInterval(timer)
+  }, [session, pollIntervalMs, loadDashboardData])
+
+  // Auto-dismiss feedback toast after 5s
+  useEffect(() => {
+    if (!feedback) return
+    const t = setTimeout(() => setFeedback(''), 5000)
+    return () => clearTimeout(t)
+  }, [feedback])
+
+  const handleSignOut = useCallback(() => {
+    clearClientSession()
+    router.push('/login')
   }, [router])
 
-  const loadDashboardData = async () => {
-    setIsLoadingLive(true)
-    try {
-      const [centersRes, fleetRes, officersRes] = await Promise.all([
-        fetch('/api/centers'),
-        fetch('/api/fleet'),
-        fetch('/api/officers'),
-      ])
-      const [centersData, fleetData, officersData] = await Promise.all([
-        centersRes.json(),
-        fleetRes.json(),
-        officersRes.json(),
-      ])
+  // Inactivity timeout enforcement from DB sessionTimeout setting
+  useEffect(() => {
+    if (!session) return
+    const timeoutMs = parseSessionTimeoutMs(systemSettings.sessionTimeout)
+    if (!timeoutMs) return
 
-      if (centersData.centers) {
-        setExamCenters(centersData.centers)
-      }
-      if (fleetData.officers) {
-        setFleetOfficers(fleetData.officers)
-        if (fleetData.officers.length > 0) {
-          setSelectedOfficer((prev) => prev || fleetData.officers[0])
-        }
-      }
-      if (officersData.officers) {
-        setOfficers(officersData.officers)
-      }
-    } catch (err) {
-      console.error('Failed to load live dashboard data from Neon:', err)
-    } finally {
-      setIsLoadingLive(false)
+    let timeoutId: NodeJS.Timeout
+    const resetTimer = () => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        clearClientSession()
+        router.push('/login')
+      }, timeoutMs)
     }
-  }
 
-  const loadOfficers = loadDashboardData
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll']
+    events.forEach((ev) => window.addEventListener(ev, resetTimer, { passive: true }))
+    resetTimer()
 
-  // --- KPI Counts ---
-  const deployedMonitorsCount = fleetOfficers.length // 48
-  const verifiedOnSiteCount = fleetOfficers.filter((o) => o.status === 'ON_SITE').length // 42
-  const pendingArrivalCount = fleetOfficers.filter((o) => o.status === 'PENDING').length // 5
-  const activeSosCount = fleetOfficers.filter((o) => o.status === 'SOS').length // 1
-  const sosOfficer = fleetOfficers.find((o) => o.status === 'SOS')
+    return () => {
+      clearTimeout(timeoutId)
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer))
+    }
+  }, [session, systemSettings.sessionTimeout, router])
 
-  // --- Interactive Handlers ---
+  // Clear PIN reveal overrides if hideOfficerPins toggled back ON
+  useEffect(() => {
+    if (systemSettings.hideOfficerPins) {
+      setRevealedPins({})
+    }
+  }, [systemSettings.hideOfficerPins])
+
+  // Computed live metrics
+  const deployedMonitorsCount = fleetOfficers.length
+  const activeSosCount = fleetOfficers.filter((o) => o.status === 'SOS').length
+  const verifiedOnSiteCount = fleetOfficers.filter((o) => o.status === 'ON_SITE').length
+  const onlineUnitsCount = fleetOfficers.filter((o) => o.isOnline).length
+
+  const unresolvedIncidents = useMemo(
+    () => incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(i.status)),
+    [incidents]
+  )
+  const criticalSosIncidents = useMemo(
+    () =>
+      unresolvedIncidents.filter(
+        (i) => i.severity === 'CRITICAL' || i.category === 'SOS'
+      ),
+    [unresolvedIncidents]
+  )
+  const safeCentersCount = useMemo(
+    () => examCenters.filter((c) => (c.openIncidentsCount || 0) === 0).length,
+    [examCenters]
+  )
+
+  const totalCriticalSosCount = Math.max(activeSosCount, criticalSosIncidents.length)
+  const defaultRadiusMeters = parseGeofenceRadiusMeters(systemSettings.geofenceRadius)
+
+  // Interactive Handlers
   const handleCallOfficer = (phone: string) => {
+    if (!phone) {
+      setFeedback('Unable to initiate call: no phone number registered for officer.')
+      return
+    }
     window.open(`tel:${phone}`)
     setFeedback(`Initiating voice communication line with ${phone}...`)
   }
@@ -200,24 +411,36 @@ export default function AdminPage() {
     setFeedback(`Opened tactical route navigation to ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
   }
 
-  const handleFocusSamuelQuaye = () => {
+  const handleFocusOfficer = (officerId?: string) => {
+    const target = officerId
+      ? fleetOfficers.find((o) => o.id === officerId)
+      : fleetOfficers.find((o) => o.status === 'SOS') || fleetOfficers[0]
+
     setActiveTab('map')
-    if (sosOfficer) {
-      setSelectedOfficer(sosOfficer)
-      setFocusTarget({ lat: sosOfficer.lat, lng: sosOfficer.lng, zoom: 16 })
-      setFeedback(`Focused telematics map on ${sosOfficer.name} at ${sosOfficer.assignedCenter}`)
+    if (target) {
+      setSelectedOfficer(target)
+      setFocusTarget({ lat: target.lat, lng: target.lng, zoom: 16 })
+      setFeedback(`Focused telematics map on ${target.name} (${target.assignedCenter})`)
     }
   }
 
-  const handleDispatchPatrol = () => {
-    setPatrolDispatched(true)
-    setFeedback('EMERGENCY PATROL DISPATCHED! Kumasi Central Rapid Response Unit en route (ETA 4 min).')
-    window.open('tel:191')
-  }
-
-  const handleSignOut = () => {
-    clearClientSession()
-    router.push('/login')
+  const handleFocusIncidentLocation = (inc: LiveIncidentRecord) => {
+    const matchedOfficer = fleetOfficers.find((o) => o.id === inc.reportedBy)
+    const matchedCenter = examCenters.find(
+      (c) => c.code === inc.centerCode || c.name === inc.centerName
+    )
+    setActiveTab('map')
+    if (matchedOfficer) {
+      setSelectedOfficer(matchedOfficer)
+      setFocusTarget({ lat: matchedOfficer.lat, lng: matchedOfficer.lng, zoom: 16 })
+      setFeedback(`Focused map on ${matchedOfficer.name} (${inc.incidentNumber})`)
+    } else if (inc.reporterLat && inc.reporterLng) {
+      setFocusTarget({ lat: inc.reporterLat, lng: inc.reporterLng, zoom: 16 })
+      setFeedback(`Focused map on incident ${inc.incidentNumber}`)
+    } else if (matchedCenter) {
+      setFocusTarget({ lat: matchedCenter.lat, lng: matchedCenter.lng, zoom: 16 })
+      setFeedback(`Focused map on ${matchedCenter.name}`)
+    }
   }
 
   const handleCenterFocus = (center: ExamCenter) => {
@@ -226,14 +449,31 @@ export default function AdminPage() {
     setFeedback(`Surveillance grid locked onto ${center.name} (Code: ${center.code})`)
   }
 
-  const toggleGroupAccordion = (groupName: string) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupName]: !prev[groupName],
-    }))
+  const handleDispatchPatrol = (incidentId: string) => {
+    setPatrolDispatchedIds((prev) => ({ ...prev, [incidentId]: true }))
+    setFeedback('EMERGENCY PATROL DISPATCHED! Dialing Police Command 191...')
+    if (typeof window !== 'undefined') {
+      window.open('tel:191')
+    }
   }
 
-  // Handle Create New Officer via Modal
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'MARK_ALL_READ' }),
+      })
+      if (res.ok) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+        setNotificationsUnreadCount(0)
+      }
+    } catch {
+      setFeedback('Failed to update notification read status.')
+    }
+  }
+
+  // Personnel Mutations
   const handlePreProvisionOfficer = async (data: PreProvisionData) => {
     try {
       const res = await fetch('/api/officers', {
@@ -249,23 +489,24 @@ export default function AdminPage() {
           isGroupLeader: data.isGroupLeader,
           assignedCenter: data.centerName,
           assignedCenterCode: data.centerCode,
+          actorId: session?.userId,
+          actorName: session?.name,
         }),
       })
 
       if (res.ok) {
-        setFeedback(`Officer ${data.name} successfully registered in ${data.group}`)
+        setFeedback(`Officer ${data.name} registered in ${data.group}`)
         setShowCreateModal(false)
-        loadOfficers()
+        loadDashboardData(true)
       } else {
-        const err = await res.json()
-        setFeedback(`Error: ${err.error || 'Failed to create account'}`)
+        const err = await res.json().catch(() => ({}))
+        setFeedback(`Error: ${err.error || 'Failed to create officer account'}`)
       }
     } catch {
       setFeedback('Error registering officer account.')
     }
   }
 
-  // Handle Toggle Status (Active / Revoke)
   const handleToggleStatus = async (officer: UserAccount) => {
     const newStatus = officer.status === 'ACTIVE' ? 'REVOKED' : 'ACTIVE'
     try {
@@ -275,22 +516,23 @@ export default function AdminPage() {
         body: JSON.stringify({
           id: officer.id,
           status: newStatus,
+          actorId: session?.userId,
+          actorName: session?.name,
         }),
       })
 
       if (res.ok) {
         setFeedback(`Security status for ${officer.name} updated to ${newStatus}`)
-        loadOfficers()
+        loadDashboardData(true)
       } else {
         const err = await res.json().catch(() => ({}))
         setFeedback(`Failed to update status: ${err.error || 'Server error'}`)
       }
     } catch {
-      setFeedback('Failed to update status.')
+      setFeedback('Failed to update officer status.')
     }
   }
 
-  // Handle Reset PIN via Modal
   const handleSaveResetPin = async (officerId: string, newPin: string) => {
     try {
       const res = await fetch('/api/officers', {
@@ -299,13 +541,15 @@ export default function AdminPage() {
         body: JSON.stringify({
           id: officerId,
           pin: newPin,
+          actorId: session?.userId,
+          actorName: session?.name,
         }),
       })
 
       if (res.ok) {
         setFeedback(`PIN reset successfully to ${newPin}`)
         setShowResetPinModal(null)
-        loadOfficers()
+        loadDashboardData(true)
       } else {
         const err = await res.json().catch(() => ({}))
         setFeedback(`Failed to reset officer PIN: ${err.error || 'Server error'}`)
@@ -315,104 +559,248 @@ export default function AdminPage() {
     }
   }
 
-  // Handle Officer Profile update via ProfileModal
-  const handleSaveOfficerProfile = async (updated: Partial<SessionData>) => {
-    if (!inspectedOfficer) return
+  const handleSaveOfficerProfile = async (
+    updated: Partial<SessionData>
+  ): Promise<boolean> => {
+    if (!inspectedOfficer) return false
+    const res = await fetch('/api/officers', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: inspectedOfficer.id,
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        pin: updated.pin,
+        photo: updated.photo,
+        bio: updated.bio,
+        actorId: session?.userId,
+        actorName: session?.name,
+      }),
+    })
+
+    const errData = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(errData.error || 'Failed to save officer profile')
+    }
+
+    setFeedback(`Profile for ${updated.name || inspectedOfficer.name} saved to database`)
+    setInspectedOfficer(null)
+    loadDashboardData(true)
+    return true
+  }
+
+  const handleSaveAdminProfile = async (
+    updated: Partial<SessionData>
+  ): Promise<boolean> => {
+    if (!session?.userId) return false
+    const res = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: session.userId,
+        name: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        photo: updated.photo,
+        bio: updated.bio,
+      }),
+    })
+
+    const errData = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(errData.error || 'Failed to save profile')
+    }
+
+    setSession((prev) => (prev ? { ...prev, ...updated } : null))
+    setFeedback('Administrator profile saved to database')
+    return true
+  }
+
+  // Center Create / Edit
+  const handleSaveExamCenter = async (payload: ExamCenterFormPayload) => {
+    const isEdit = Boolean(payload.id)
+    const res = await fetch('/api/centers', {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...payload,
+        actorId: session?.userId,
+        actorName: session?.name,
+      }),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to save examination center')
+    }
+
+    setFeedback(
+      isEdit
+        ? `Updated geofence & center configuration for ${payload.name}`
+        : `Registered new examination center ${payload.name} (${payload.code})`
+    )
+    loadDashboardData(true)
+  }
+
+  // Incident Create / Update Workflow
+  const handleCreateIncident = async (payload: LogIncidentPayload) => {
+    const res = await fetch('/api/incidents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to log incident')
+    }
+
+    setFeedback(`Incident logged successfully (${data.incident?.incidentNumber || 'Saved'})`)
+    loadDashboardData(true)
+  }
+
+  const handleUpdateIncidentStatus = async (
+    incidentId: string,
+    nextStatus: 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED' | 'CLOSED'
+  ) => {
     try {
-      const res = await fetch('/api/officers', {
+      const res = await fetch('/api/incidents', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: inspectedOfficer.id,
-          name: updated.name,
-          email: updated.email,
-          phone: updated.phone,
-          pin: updated.pin,
-          photo: updated.photo,
+          id: incidentId,
+          status: nextStatus,
+          resolutionNotes:
+            nextStatus === 'RESOLVED' || nextStatus === 'CLOSED'
+              ? `Cleared by ${session?.name || 'HQ Command'}`
+              : `Status transitioned to ${nextStatus} by ${session?.name || 'HQ Command'}`,
+          actorId: session?.userId,
+          actorName: session?.name,
         }),
       })
 
       if (res.ok) {
-        setFeedback(`Profile for ${updated.name || inspectedOfficer.name} saved successfully`)
-        setInspectedOfficer(null)
-        loadOfficers()
+        setFeedback(`Incident status updated to ${nextStatus}`)
+        loadDashboardData(true)
       } else {
         const err = await res.json().catch(() => ({}))
-        setFeedback(`Failed to save officer profile: ${err.error || 'Server error'}`)
+        setFeedback(`Failed to update incident: ${err.error || 'Server error'}`)
       }
     } catch {
-      setFeedback('Failed to save officer profile.')
+      setFeedback('Failed to update incident status.')
     }
   }
 
-  // Groups list 1 to 10
-  const groupsList = useMemo(() => Array.from({ length: 10 }, (_, i) => `Group ${i + 1}`), [])
-
-  // Filtered fleet officers for the roster
+  // Filters
   const filteredFleetOfficers = useMemo(() => {
-    return fleetOfficers.filter((off) => {
-      const query = rosterSearch.toLowerCase()
-      const matchQuery =
-        !query ||
+    const query = rosterSearch.toLowerCase()
+    if (!query) return fleetOfficers
+    return fleetOfficers.filter(
+      (off) =>
         off.name.toLowerCase().includes(query) ||
         off.assignedCenter.toLowerCase().includes(query) ||
         off.group.toLowerCase().includes(query) ||
         off.staffId.toLowerCase().includes(query)
+    )
+  }, [fleetOfficers, rosterSearch])
 
-      const matchStatus = statusFilter === 'ALL' || off.status === statusFilter
-      return matchQuery && matchStatus
-    })
-  }, [fleetOfficers, rosterSearch, statusFilter])
-
-  // Filtered DB officers for the Directory tab
   const filteredDirectoryOfficers = useMemo(() => {
-    return officers.filter((off) => {
-      const q = directorySearch.toLowerCase()
-      return (
-        !q ||
+    const q = directorySearch.toLowerCase()
+    if (!q) return officers
+    return officers.filter(
+      (off) =>
         off.name.toLowerCase().includes(q) ||
         off.phone.toLowerCase().includes(q) ||
         (off.staffId && off.staffId.toLowerCase().includes(q)) ||
         (off.assignedCenter && off.assignedCenter.toLowerCase().includes(q)) ||
         (off.group && off.group.toLowerCase().includes(q))
-      )
-    })
+    )
   }, [officers, directorySearch])
+
+  const filteredIncidents = useMemo(() => {
+    return incidents.filter((inc) => {
+      if (incidentFilter === 'OPEN') {
+        return !['RESOLVED', 'CLOSED'].includes(inc.status)
+      }
+      if (incidentFilter === 'RESOLVED') {
+        return ['RESOLVED', 'CLOSED'].includes(inc.status)
+      }
+      return true
+    })
+  }, [incidents, incidentFilter])
+
+  const filteredAuditLogs = useMemo(() => {
+    if (!auditOfficerFilterId) return auditLogs
+    return auditLogs.filter(
+      (log) => log.actorId === auditOfficerFilterId || log.entityId === auditOfficerFilterId
+    )
+  }, [auditLogs, auditOfficerFilterId])
+
+  const adminDisplayName = session?.name || 'Regional Command'
+  const adminInitials =
+    adminDisplayName
+      .replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, '')
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'HQ'
+
+  const filteredAuditOfficerName = useMemo(() => {
+    if (!auditOfficerFilterId) return ''
+    return (
+      officers.find((o) => o.id === auditOfficerFilterId)?.name ||
+      fleetOfficers.find((o) => o.id === auditOfficerFilterId)?.name ||
+      auditOfficerFilterId
+    )
+  }, [auditOfficerFilterId, officers, fleetOfficers])
 
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-[#090A0F] text-foreground font-sans select-none antialiased">
-      {/* Desktop Left Slim Sidebar Rail (Collapsible w-60 / w-16, hidden on mobile) */}
+      {/* Desktop Left Sidebar */}
       <AdminSidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        sosCount={activeSosCount}
-        adminName={session?.name || 'Dr. Mensah Osei'}
+        sosCount={totalCriticalSosCount}
+        adminName={adminDisplayName}
+        adminPhoto={session?.photo}
+        onOpenProfile={() => setShowAdminProfile(true)}
         onSignOut={handleSignOut}
       />
 
-      {/* Main Operations Split: Top Nav + Dynamic Tab Stage */}
+      {/* Main Stage */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        {/* Top Responsive Header */}
         <AdminTopNav
-          activeCount={activeTab === 'directory' ? officers.filter((o) => o.status === 'ACTIVE').length : deployedMonitorsCount}
+          activeCount={
+            activeTab === 'directory'
+              ? officers.filter((o) => o.status === 'ACTIVE').length
+              : deployedMonitorsCount
+          }
           activeTabTitle={activeTabTitle}
-          searchQuery={rosterSearch}
-          onSearchChange={setRosterSearch}
+          searchQuery={activeTab === 'directory' ? directorySearch : rosterSearch}
+          onSearchChange={(q) => {
+            if (activeTab === 'directory') {
+              setDirectorySearch(q)
+            } else {
+              setRosterSearch(q)
+            }
+          }}
           onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
           onOpenProfile={() => setShowAdminProfile(true)}
           session={session}
-          unreadAlertsCount={activeSosCount}
+          notifications={notifications}
+          notificationsLoading={isLoadingLive && notifications.length === 0}
+          onMarkAllRead={handleMarkAllNotificationsRead}
+          unreadAlertsCount={
+            systemSettings.inAppNotifications ? notificationsUnreadCount : 0
+          }
           onSignOut={handleSignOut}
-          onFocusSos={() => {
-            const samuel = fleetOfficers.find((o) => o.name.toLowerCase().includes('samuel') || o.status === 'SOS')
-            if (samuel) {
-              setSelectedOfficer(samuel)
-            }
-            setActiveTab('map')
-            setFeedback('Focused on Officer Samuel Quaye (Critical SOS)')
-          }}
+          onFocusOfficer={(officerId) => handleFocusOfficer(officerId)}
+          onFocusSos={() => handleFocusOfficer()}
           onCallEmergency={() => {
             setFeedback('Emergency Call: Dialing Police Command 191...')
             if (typeof window !== 'undefined') {
@@ -423,40 +811,41 @@ export default function AdminPage() {
           onOpenSettings={() => setActiveTab('settings')}
         />
 
-        {/* Floating Feedback Notification Toast */}
-        {feedback && (() => {
-          const isError = /fail|error|invalid|cannot|unable/i.test(feedback)
-          return (
-            <div
-              className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-mono shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 max-w-[90vw] ${
-                isError
-                  ? 'border-rose-500/40 bg-[#1A0D12]/95 text-rose-300'
-                  : 'border-emerald-500/30 bg-[#11131F]/95 text-[#10B981]'
-              }`}
-            >
-              {isError ? (
-                <AlertTriangle className="size-4 shrink-0 text-rose-400" />
-              ) : (
-                <CheckCircle2 className="size-4 shrink-0 text-[#10B981]" />
-              )}
-              <span className="truncate">{feedback}</span>
-              <button
-                onClick={() => setFeedback('')}
-                className="ml-2 text-slate-400 hover:text-white cursor-pointer"
-                aria-label="Dismiss notification"
+        {/* Floating Feedback Toast */}
+        {feedback &&
+          (() => {
+            const isError = /fail|error|invalid|cannot|unable/i.test(feedback)
+            return (
+              <div
+                className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-mono shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 max-w-[90vw] ${
+                  isError
+                    ? 'border-rose-500/40 bg-[#1A0D12]/95 text-rose-300'
+                    : 'border-emerald-500/30 bg-[#11131F]/95 text-[#10B981]'
+                }`}
               >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          )
-        })()}
+                {isError ? (
+                  <AlertTriangle className="size-4 shrink-0 text-rose-400" />
+                ) : (
+                  <CheckCircle2 className="size-4 shrink-0 text-[#10B981]" />
+                )}
+                <span className="truncate">{feedback}</span>
+                <button
+                  onClick={() => setFeedback('')}
+                  className="ml-2 text-slate-400 hover:text-white cursor-pointer"
+                  aria-label="Dismiss notification"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            )
+          })()}
 
-        {/* Main Work Area: Flex row (Map + Inspector) or Tab Panels */}
         <main className="flex-1 flex overflow-hidden relative min-w-0">
+          {/* ========================================================= */}
           {/* TAB 1: LIVE FLEET MAP VIEW */}
+          {/* ========================================================= */}
           {activeTab === 'map' && (
             <div className="flex-1 flex flex-col lg:flex-row h-full w-full overflow-hidden relative min-w-0 p-0 lg:p-4 gap-0 lg:gap-4">
-              {/* Center Map Canvas Card */}
               <div className="flex-1 h-full w-full relative min-w-0 rounded-none lg:rounded-2xl border-0 lg:border border-[#22263C] overflow-hidden bg-[#090A0F] shadow-2xl">
                 <FleetMap
                   officers={filteredFleetOfficers}
@@ -466,23 +855,24 @@ export default function AdminPage() {
                   onCallOfficer={handleCallOfficer}
                   onNavigate={handleNavigate}
                   focusTarget={focusTarget}
-                  activeSectorName="Ashanti Regional Zone"
+                  activeSectorName={`${session?.region || 'Ashanti'} Telematics Grid`}
                 />
               </div>
 
-              {/* Desktop Right Telematics Inspector Drawer Card */}
               {selectedOfficer && (
                 <aside className="hidden lg:flex w-[380px] shrink-0 h-full rounded-2xl border border-[#22263C] bg-[#0C0F17] overflow-hidden flex-col shadow-2xl z-10 animate-in fade-in slide-in-from-right-4 duration-200">
                   <OfficerTelematicsDrawer
                     officer={selectedOfficer}
                     onCallOfficer={handleCallOfficer}
-                    onViewLogs={() => setActiveTab('incidents')}
+                    onViewLogs={(officerId) => {
+                      setAuditOfficerFilterId(officerId)
+                      setActiveTab('incidents')
+                    }}
                     onClose={() => setSelectedOfficer(null)}
                   />
                 </aside>
               )}
 
-              {/* Mobile Floating Card Telematics Inspector (< 1024px) */}
               {selectedOfficer && (
                 <div
                   className={`lg:hidden absolute left-3 right-3 sm:left-4 sm:right-auto sm:w-[380px] z-30 transition-all duration-300 ease-in-out border border-[#22263C] bg-[#0C0F17]/95 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden flex flex-col ${
@@ -494,9 +884,14 @@ export default function AdminPage() {
                   <OfficerTelematicsDrawer
                     officer={selectedOfficer}
                     onCallOfficer={handleCallOfficer}
-                    onViewLogs={() => setActiveTab('incidents')}
+                    onViewLogs={(officerId) => {
+                      setAuditOfficerFilterId(officerId)
+                      setActiveTab('incidents')
+                    }}
                     isMobileDrawerExpanded={isMobileDrawerExpanded}
-                    onToggleMobileDrawer={() => setIsMobileDrawerExpanded(!isMobileDrawerExpanded)}
+                    onToggleMobileDrawer={() =>
+                      setIsMobileDrawerExpanded(!isMobileDrawerExpanded)
+                    }
                     onClose={() => setSelectedOfficer(null)}
                   />
                 </div>
@@ -504,12 +899,12 @@ export default function AdminPage() {
             </div>
           )}
 
+          {/* ========================================================= */}
           {/* TAB 2: MONITOR DIRECTORY & CREDENTIALS */}
+          {/* ========================================================= */}
           {activeTab === 'directory' && (
             <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 bg-[#090A0F] font-sans">
-              {/* Header: Title, Counts, Search, and Register Trigger */}
               <div className="flex flex-col gap-3 pb-3 border-b border-[#22263C]">
-                {/* Row 1: Section Title & Register Button */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     <div className="size-9 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] shrink-0">
@@ -528,7 +923,6 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Desktop Quick Register Button */}
                   <button
                     onClick={() => setShowCreateModal(true)}
                     className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer shrink-0"
@@ -538,7 +932,6 @@ export default function AdminPage() {
                   </button>
                 </div>
 
-                {/* Row 2: Responsive Search Input + Mobile Register Button */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <div className="relative flex-1">
                     <Search className="size-4 absolute left-3 top-2.5 text-slate-500" />
@@ -546,7 +939,7 @@ export default function AdminPage() {
                       type="text"
                       value={directorySearch}
                       onChange={(e) => setDirectorySearch(e.target.value)}
-                      placeholder="Search by name, phone, or assigned center..."
+                      placeholder="Search by name, phone, staff ID, or assigned center..."
                       className="w-full rounded-xl border border-[#22263C] bg-[#11131F] py-2 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans"
                     />
                     {directorySearch && (
@@ -560,7 +953,6 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  {/* Mobile full-width register button */}
                   <button
                     onClick={() => setShowCreateModal(true)}
                     className="sm:hidden flex items-center justify-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white py-2.5 px-4 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer w-full"
@@ -571,131 +963,186 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Personnel Cards Grid (Lean 1-col on mobile, 2-col tablet, 3-col desktop) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                {filteredDirectoryOfficers.map((officer) => (
-                  <div
-                    key={officer.id}
-                    className="rounded-2xl border border-[#22263C] bg-[#11131F]/90 hover:border-slate-500/50 transition-all p-4 space-y-3 shadow-md flex flex-col justify-between"
-                  >
-                    {/* Top Row: Avatar + Name & Phone + Status */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E2B7B] to-[#12162B] text-white font-bold text-xs shadow-sm border border-[#2B355A]">
-                          {officer.name
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')
-                            .slice(0, 2)}
-                          {officer.isGroupLeader && (
-                            <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-[#F6D300] text-black shadow-xs">
-                              <Star className="size-2.5 fill-black" />
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-sm text-white flex items-center gap-1.5 truncate">
-                            <span className="truncate">{officer.name}</span>
-                            {officer.isGroupLeader && (
-                              <span className="text-[9px] font-bold text-[#F6D300] bg-[#F6D300]/15 border border-[#F6D300]/30 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5">
-                                <Star className="size-2 fill-[#F6D300]" />
-                                <span>Leader</span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                            <Phone className="size-3 text-slate-500 shrink-0" />
-                            <span>{officer.phone}</span>
-                          </div>
-                        </div>
-                      </div>
+              {filteredDirectoryOfficers.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
+                  <Users className="size-7 text-slate-500 mx-auto" />
+                  <p className="text-sm font-semibold text-slate-300">
+                    {directorySearch
+                      ? 'No officers matched your search filter'
+                      : 'No field officers registered yet'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Register a new field officer to assign an examination center and PIN.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                  {filteredDirectoryOfficers.map((officer) => {
+                    const isPinMasked =
+                      systemSettings.hideOfficerPins && !revealedPins[officer.id]
 
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold shrink-0 flex items-center gap-1 ${
-                          officer.status === 'ACTIVE'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                        }`}
+                    return (
+                      <div
+                        key={officer.id}
+                        className="rounded-2xl border border-[#22263C] bg-[#11131F]/90 hover:border-slate-500/50 transition-all p-4 space-y-3 shadow-md flex flex-col justify-between"
                       >
-                        <span className={`size-1.5 rounded-full ${officer.status === 'ACTIVE' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-                        <span>{officer.status === 'ACTIVE' ? 'Active' : 'Revoked'}</span>
-                      </span>
-                    </div>
+                        {/* Top Row */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E2B7B] to-[#12162B] text-white font-bold text-xs shadow-sm border border-[#2B355A] overflow-hidden">
+                              {officer.photo ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={officer.photo}
+                                  alt={officer.name}
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                officer.name
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .join('')
+                                  .slice(0, 2)
+                              )}
+                              {officer.isGroupLeader && (
+                                <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-[#F6D300] text-black shadow-xs">
+                                  <Star className="size-2.5 fill-black" />
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm text-white flex items-center gap-1.5 truncate">
+                                <span className="truncate">{officer.name}</span>
+                                {officer.isGroupLeader && (
+                                  <span className="text-[9px] font-bold text-[#F6D300] bg-[#F6D300]/15 border border-[#F6D300]/30 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5">
+                                    <Star className="size-2 fill-[#F6D300]" />
+                                    <span>Leader</span>
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                                <Phone className="size-3 text-slate-500 shrink-0" />
+                                <span>{officer.phone}</span>
+                              </div>
+                            </div>
+                          </div>
 
-                    {/* Details Section */}
-                    <div className="rounded-xl bg-[#0A0D17]/80 p-3 border border-[#1E243A] space-y-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="size-3.5 text-slate-500 shrink-0" />
-                        <span className="text-slate-400 shrink-0">Center:</span>
-                        <span className="text-slate-200 font-medium truncate flex-1">
-                          {officer.assignedCenter || 'Unassigned'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1C2237]">
-                        <div className="flex items-center gap-1.5 text-slate-300">
-                          <Users className="size-3.5 text-slate-500 shrink-0" />
-                          <span className="text-slate-400">Group:</span>
-                          <span className="font-semibold text-sky-400">{officer.group || 'Group 1'}</span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 bg-[#121626] px-2 py-0.5 rounded-md border border-[#22263C]">
-                          <Lock className="size-3 text-[#F6D300]" />
-                          <span className="text-slate-400">PIN:</span>
-                          <span className="font-bold text-[#F6D300] tracking-wider">
-                            {officer.pin || '••••'}
+                          <span
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold shrink-0 flex items-center gap-1 ${
+                              officer.status === 'ACTIVE'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full ${
+                                officer.status === 'ACTIVE'
+                                  ? 'bg-emerald-400 animate-pulse'
+                                  : 'bg-rose-400'
+                              }`}
+                            />
+                            <span>{officer.status === 'ACTIVE' ? 'Active' : 'Revoked'}</span>
                           </span>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Touch-Friendly Action Buttons */}
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      <button
-                        onClick={() => setInspectedOfficer(officer)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
-                      >
-                        <User className="size-3 text-slate-400" />
-                        <span>Profile</span>
-                      </button>
-                      <button
-                        onClick={() => setShowResetPinModal(officer)}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
-                      >
-                        <KeyRound className="size-3 text-[#F6D300]" />
-                        <span>PIN</span>
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(officer)}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
-                          officer.status === 'ACTIVE'
-                            ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
-                            : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
-                        }`}
-                      >
-                        {officer.status === 'ACTIVE' ? (
-                          <>
-                            <ShieldAlert className="size-3" />
-                            <span>Revoke</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="size-3" />
-                            <span>Activate</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        {/* Details Section */}
+                        <div className="rounded-xl bg-[#0A0D17]/80 p-3 border border-[#1E243A] space-y-2 text-xs">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="size-3.5 text-slate-500 shrink-0" />
+                            <span className="text-slate-400 shrink-0">Center:</span>
+                            <span className="text-slate-200 font-medium truncate flex-1">
+                              {officer.assignedCenter || 'Unassigned'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1C2237]">
+                            <div className="flex items-center gap-1.5 text-slate-300">
+                              <Users className="size-3.5 text-slate-500 shrink-0" />
+                              <span className="text-slate-400">Group:</span>
+                              <span className="font-semibold text-sky-400">
+                                {officer.group || 'Group 1'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 bg-[#121626] px-2 py-0.5 rounded-md border border-[#22263C]">
+                              <Lock className="size-3 text-[#F6D300]" />
+                              <span className="text-slate-400">PIN:</span>
+                              <span className="font-bold text-[#F6D300] tracking-wider tabular-nums">
+                                {isPinMasked ? '••••' : officer.pin || '••••'}
+                              </span>
+                              {systemSettings.hideOfficerPins && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRevealedPins((prev) => ({
+                                      ...prev,
+                                      [officer.id]: !prev[officer.id],
+                                    }))
+                                  }
+                                  aria-label={isPinMasked ? 'Reveal PIN' : 'Hide PIN'}
+                                  className="text-slate-400 hover:text-white cursor-pointer ml-0.5"
+                                >
+                                  {isPinMasked ? (
+                                    <Eye className="size-3" />
+                                  ) : (
+                                    <EyeOff className="size-3 text-sky-400" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <button
+                            onClick={() => setInspectedOfficer(officer)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
+                          >
+                            <User className="size-3 text-slate-400" />
+                            <span>Profile</span>
+                          </button>
+                          <button
+                            onClick={() => setShowResetPinModal(officer)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
+                          >
+                            <KeyRound className="size-3 text-[#F6D300]" />
+                            <span>PIN</span>
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(officer)}
+                            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
+                              officer.status === 'ACTIVE'
+                                ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
+                                : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                            }`}
+                          >
+                            {officer.status === 'ACTIVE' ? (
+                              <>
+                                <ShieldAlert className="size-3" />
+                                <span>Revoke</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheck className="size-3" />
+                                <span>Activate</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
+          {/* ========================================================= */}
           {/* TAB 3: EXAM CENTERS & GEOFENCES */}
+          {/* ========================================================= */}
           {activeTab === 'centers' && (
             <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
-              {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#22263C] pb-3">
                 <div>
                   <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
@@ -703,64 +1150,115 @@ export default function AdminPage() {
                     <span>Examination Centers & Geofences</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    150m perimeter boundaries with real-time telematics sync and automatic attendance verification
+                    Default {defaultRadiusMeters}m perimeter boundaries with live telematics sync from Neon database
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-semibold text-emerald-400 self-start sm:self-auto">
-                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>All 4 Geofences Operational</span>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <div
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                      unresolvedIncidents.length > 0
+                        ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+                        : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+                    }`}
+                  >
+                    <span
+                      className={`size-2 rounded-full animate-pulse ${
+                        unresolvedIncidents.length > 0 ? 'bg-rose-400' : 'bg-emerald-400'
+                      }`}
+                    />
+                    <span>
+                      {unresolvedIncidents.length > 0
+                        ? `${unresolvedIncidents.length} Open Incident${unresolvedIncidents.length > 1 ? 's' : ''}`
+                        : `All ${examCenters.length} Geofences Operational`}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCenterModalState({ mode: 'create' })}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer shrink-0"
+                  >
+                    <Plus className="size-3.5 text-[#F6D300]" />
+                    <span>Register Center</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Bento Grid Top Summary Row */}
+              {/* Live Summary Bento Row */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-                {/* Bento Card 1: Regional District Coverage (Spans 2 columns on desktop) */}
                 <div className="md:col-span-2 rounded-2xl border border-[#22263C] bg-gradient-to-br from-[#161D3A]/60 via-[#101426] to-[#0B0D17] p-4 sm:p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
                   <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400">
-                        Ashanti Examination Zone
+                        {session?.region || 'Ashanti'} Examination Zone
                       </span>
                       <h3 className="text-lg font-bold text-white mt-0.5">
-                        Kumasi Metro Central District
+                        Regional Operations Coverage
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 max-w-md">
-                        Continuous GPS telemetry monitoring 4 major secondary schools with automated geo-fenced attendance and perimeter breach alarms.
+                        Live GPS telemetry monitoring {examCenters.length} registered examination center
+                        {examCenters.length === 1 ? '' : 's'} with geofenced check-in verification.
                       </p>
                     </div>
                     <div className="flex items-center gap-2 bg-[#0C0F17]/80 border border-[#22263C] px-3.5 py-2 rounded-xl text-xs shrink-0">
-                      <ShieldCheck className="size-4 text-emerald-400" />
+                      <ShieldCheck
+                        className={`size-4 ${
+                          incidentSummary.openIncidentsCount === 0
+                            ? 'text-emerald-400'
+                            : 'text-amber-400'
+                        }`}
+                      />
                       <div>
-                        <div className="font-bold text-emerald-400">100% Integrity</div>
-                        <div className="text-[10px] text-slate-400">0 Perimeter Breaches</div>
+                        <div
+                          className={`font-bold ${
+                            incidentSummary.openIncidentsCount === 0
+                              ? 'text-emerald-400'
+                              : 'text-amber-400'
+                          }`}
+                        >
+                          {safeCentersCount} / {examCenters.length} Clear
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {incidentSummary.breachCount} Geofence Breaches Logged
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3 pt-4 mt-4 border-t border-[#22263C]/80 relative z-10">
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
-                      <span className="text-[10px] text-slate-400 block font-medium">Monitored Centers</span>
-                      <span className="text-base sm:text-lg font-bold text-white mt-0.5 block">4 Centers</span>
+                      <span className="text-[10px] text-slate-400 block font-medium">
+                        Monitored Centers
+                      </span>
+                      <span className="text-base sm:text-lg font-bold text-white mt-0.5 block">
+                        {examCenters.length} Centers
+                      </span>
                     </div>
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
-                      <span className="text-[10px] text-slate-400 block font-medium">Deployed Personnel</span>
+                      <span className="text-[10px] text-slate-400 block font-medium">
+                        Deployed Personnel
+                      </span>
                       <span className="text-base sm:text-lg font-bold text-[#F6D300] mt-0.5 block">
                         {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0)} Officers
                       </span>
                     </div>
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
-                      <span className="text-[10px] text-slate-400 block font-medium">Safety Perimeter</span>
-                      <span className="text-base sm:text-lg font-bold text-sky-400 mt-0.5 block">150m Radius</span>
+                      <span className="text-[10px] text-slate-400 block font-medium">
+                        Default Perimeter
+                      </span>
+                      <span className="text-base sm:text-lg font-bold text-sky-400 mt-0.5 block">
+                        {systemSettings.geofenceRadius} Radius
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Bento Card 2: Live Geofence Telematics Status */}
                 <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 shadow-xl flex flex-col justify-between space-y-3">
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Perimeter Status
+                        Telemetry Sync
                       </span>
                       <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
                     </div>
@@ -769,16 +1267,22 @@ export default function AdminPage() {
 
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
-                      <span className="text-slate-400">GPS Triangulation:</span>
-                      <span className="font-semibold text-emerald-400">High Precision (RTK)</span>
+                      <span className="text-slate-400">Active GPS Feeds:</span>
+                      <span className="font-semibold text-emerald-400">
+                        {onlineUnitsCount} / {deployedMonitorsCount} Online
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
-                      <span className="text-slate-400">Corridor Checkpoints:</span>
-                      <span className="font-semibold text-white">All Clear</span>
+                      <span className="text-slate-400">Verified On-Site:</span>
+                      <span className="font-semibold text-white">
+                        {verifiedOnSiteCount} Officers
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-300 py-1.5">
-                      <span className="text-slate-400">Automatic Sync:</span>
-                      <span className="font-semibold text-sky-400">Every 10s</span>
+                      <span className="text-slate-400">Automatic Poll:</span>
+                      <span className="font-semibold text-sky-400">
+                        {systemSettings.locationRefreshInterval}
+                      </span>
                     </div>
                   </div>
 
@@ -792,223 +1296,492 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Centers Bento Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
-                {examCenters.map((center, index) => (
-                  <div
-                    key={center.code}
-                    className="rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-[#38bdf8]/40 transition-all duration-200 p-4 sm:p-5 space-y-3.5 shadow-md flex flex-col justify-between"
-                  >
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] font-bold text-sm shrink-0">
-                          {String(index + 1).padStart(2, '0')}
+              {/* Centers Cards Grid */}
+              {examCenters.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
+                  <Building2 className="size-7 text-slate-500 mx-auto" />
+                  <p className="text-sm font-semibold text-slate-300">
+                    No examination centers found in database
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Click &ldquo;Register Center&rdquo; to add an examination venue and geofence.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
+                  {examCenters.map((center, index) => {
+                    const hasOpenInc = (center.openIncidentsCount || 0) > 0
+                    return (
+                      <div
+                        key={center.code}
+                        className="rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-[#38bdf8]/40 transition-all duration-200 p-4 sm:p-5 space-y-3.5 shadow-md flex flex-col justify-between"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="size-10 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] font-bold text-sm shrink-0">
+                              {String(index + 1).padStart(2, '0')}
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-bold text-sm sm:text-base text-white truncate">
+                                {center.name}
+                              </h3>
+                              <div className="flex items-center gap-2 mt-0.5 text-xs">
+                                <span className="text-sky-400 font-semibold">{center.code}</span>
+                                <span className="text-slate-600">•</span>
+                                <span className="text-slate-400 truncate">
+                                  {center.districtName || 'Kumasi Metro'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span
+                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold shrink-0 flex items-center gap-1.5 ${
+                              hasOpenInc
+                                ? 'bg-rose-500/15 border-rose-500/35 text-rose-400'
+                                : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
+                            }`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full animate-pulse ${
+                                hasOpenInc ? 'bg-rose-400' : 'bg-emerald-400'
+                              }`}
+                            />
+                            <span>{hasOpenInc ? 'ALERT ACTIVE' : 'ACTIVE GEOFENCE'}</span>
+                          </span>
                         </div>
-                        <div>
-                          <h3 className="font-bold text-sm sm:text-base text-white">{center.name}</h3>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-slate-400 font-sans">Index Code:</span>
-                            <span className="text-xs text-sky-400 font-semibold">{center.code}</span>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#1E243A]">
+                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                            <span className="text-slate-400 text-[11px] block">
+                              Perimeter Boundary:
+                            </span>
+                            <div className="text-white font-bold text-sm mt-0.5 flex items-center gap-1">
+                              <Radio className="size-3 text-sky-400" />
+                              <span>{center.radius}m Radius</span>
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                            <span className="text-slate-400 text-[11px] block">
+                              Assigned / On-Site:
+                            </span>
+                            <div className="text-[#F6D300] font-bold text-sm mt-0.5 flex items-center gap-1">
+                              <Users className="size-3 text-[#F6D300]" />
+                              <span>
+                                {center.onSiteMonitors || 0} / {center.totalMonitors} Officers
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                            <span className="text-slate-400 text-[11px] block">
+                              GPS Coordinates:
+                            </span>
+                            <div className="text-slate-200 font-sans text-xs mt-0.5 font-medium truncate">
+                              {center.lat.toFixed(4)}° {center.lat >= 0 ? 'N' : 'S'},{' '}
+                              {Math.abs(center.lng).toFixed(4)}° {center.lng >= 0 ? 'E' : 'W'}
+                            </div>
+                          </div>
+
+                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
+                            <span className="text-slate-400 text-[11px] block">
+                              Perimeter Security:
+                            </span>
+                            <div
+                              className={`font-bold text-xs mt-0.5 flex items-center gap-1 ${
+                                hasOpenInc ? 'text-rose-400' : 'text-emerald-400'
+                              }`}
+                            >
+                              {hasOpenInc ? (
+                                <AlertTriangle className="size-3" />
+                              ) : (
+                                <ShieldCheck className="size-3" />
+                              )}
+                              <span>
+                                {hasOpenInc
+                                  ? `${center.openIncidentsCount} Open Alert${
+                                      (center.openIncidentsCount || 0) > 1 ? 's' : ''
+                                    }`
+                                  : 'Nominal (0 Alerts)'}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <span className="rounded-full bg-emerald-500/15 border border-emerald-500/35 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 shrink-0 flex items-center gap-1.5">
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        <span>ACTIVE GEOFENCE</span>
-                      </span>
-                    </div>
 
-                    {/* Bento Mini-Tiles Grid */}
-                    <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#1E243A]">
-                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                        <span className="text-slate-400 text-[11px] block">Perimeter Boundary:</span>
-                        <div className="text-white font-bold text-sm mt-0.5 flex items-center gap-1">
-                          <Radio className="size-3 text-sky-400" />
-                          <span>{center.radius}m Radius</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleCenterFocus(center)}
+                            className="py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                          >
+                            <MapPin className="size-3.5 text-[#F6D300]" />
+                            <span>Focus on Map</span>
+                          </button>
+
+                          <button
+                            onClick={() => setCenterModalState({ mode: 'edit', center })}
+                            className="py-2.5 px-3 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-xs font-semibold text-slate-200 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <Pencil className="size-3.5 text-sky-400" />
+                            <span>Edit Geofence</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                        <span className="text-slate-400 text-[11px] block">Active Personnel:</span>
-                        <div className="text-[#F6D300] font-bold text-sm mt-0.5 flex items-center gap-1">
-                          <Users className="size-3 text-[#F6D300]" />
-                          <span>{center.totalMonitors} Officers</span>
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                        <span className="text-slate-400 text-[11px] block">GPS Coordinates:</span>
-                        <div className="text-slate-200 font-sans text-xs mt-0.5 font-medium truncate">
-                          {center.lat.toFixed(4)}° N, {center.lng.toFixed(4)}° W
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                        <span className="text-slate-400 text-[11px] block">Perimeter Security:</span>
-                        <div className="text-emerald-400 font-bold text-xs mt-0.5 flex items-center gap-1">
-                          <ShieldCheck className="size-3" />
-                          <span>Normal (0 Breaches)</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Touch Action Button */}
-                    <button
-                      onClick={() => handleCenterFocus(center)}
-                      className="w-full py-2.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      <MapPin className="size-3.5 text-[#F6D300]" />
-                      <span>Focus Geofence on Live Map</span>
-                    </button>
-                  </div>
-                ))}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
 
-          {/* TAB 4: INCIDENT LOGS & EMERGENCY DISPATCH */}
+          {/* ========================================================= */}
+          {/* TAB 4: INCIDENT LOGS & AUDIT TRAIL */}
+          {/* ========================================================= */}
           {activeTab === 'incidents' && (
             <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
               <div className="border-b border-[#22263C] pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
                     <Siren className="size-4.5 text-[#EF4444]" />
-                    <span>Security & Emergency Logs</span>
+                    <span>Security & Incident Logs</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    High-priority telematics alarms, SOS alerts, and emergency dispatch tracking
+                    Real-time emergency SOS alerts, incident workflows, and operational audit trail
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-semibold text-rose-400 self-start sm:self-auto">
-                  <span className="size-2 rounded-full bg-rose-500 animate-ping" />
-                  <span>1 Active Emergency Alert</span>
+
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  {totalCriticalSosCount > 0 ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-semibold text-rose-400">
+                      <span className="size-2 rounded-full bg-rose-500 animate-ping" />
+                      <span>
+                        {totalCriticalSosCount} Active SOS Alert
+                        {totalCriticalSosCount > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-semibold text-emerald-400">
+                      <span className="size-2 rounded-full bg-emerald-400" />
+                      <span>All Stations Nominal</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowLogIncidentModal(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 text-xs font-bold shadow-md transition cursor-pointer"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>Log Incident</span>
+                  </button>
                 </div>
               </div>
 
-              {/* SOS Incident Highlight Bento Card */}
-              {sosOfficer && (
-                <div className="rounded-2xl border border-[#EF4444]/80 bg-gradient-to-br from-rose-950/40 via-[#14121F] to-[#0C0F17] p-4 sm:p-5 space-y-4 shadow-2xl">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="size-11 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg shadow-rose-950 shrink-0">
-                        <AlertTriangle className="size-6 animate-pulse" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-[#EF4444] px-2.5 py-0.5 text-[10px] font-black text-white tracking-wider">
-                            CRITICAL SOS
-                          </span>
-                          <span className="text-xs font-sans text-rose-300 font-semibold">Incident #WAEC-SEC-091</span>
+              {/* Active Critical SOS Incident Cards */}
+              {criticalSosIncidents.length > 0 && (
+                <div className="space-y-3">
+                  {criticalSosIncidents.map((inc) => (
+                    <div
+                      key={inc.id}
+                      className="rounded-2xl border border-[#EF4444]/80 bg-gradient-to-br from-rose-950/40 via-[#14121F] to-[#0C0F17] p-4 sm:p-5 space-y-4 shadow-2xl"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="size-11 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg shadow-rose-950 shrink-0">
+                            <AlertTriangle className="size-6 animate-pulse" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-[#EF4444] px-2.5 py-0.5 text-[10px] font-black text-white tracking-wider">
+                                CRITICAL SOS
+                              </span>
+                              <span className="text-xs font-sans text-rose-300 font-semibold">
+                                {inc.incidentNumber}
+                              </span>
+                            </div>
+                            <h3 className="font-bold text-base sm:text-lg text-white mt-0.5">
+                              {inc.reporterName} — {inc.centerName}
+                            </h3>
+                          </div>
                         </div>
-                        <h3 className="font-bold text-base sm:text-lg text-white mt-0.5">
-                          Officer {sosOfficer.name} — {sosOfficer.assignedCenter}
-                        </h3>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handleFocusIncidentLocation(inc)}
+                            className="px-3 py-2 rounded-xl bg-[#11131F] hover:bg-[#1A1F36] border border-[#22263C] text-xs font-bold text-slate-200 transition cursor-pointer"
+                          >
+                            Focus on Map
+                          </button>
+                          <button
+                            onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
+                            className="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-bold text-emerald-300 transition cursor-pointer"
+                          >
+                            Resolve Alert
+                          </button>
+                          <button
+                            onClick={() => handleDispatchPatrol(inc.id)}
+                            className="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <Phone className="size-3.5" />
+                            <span>
+                              {patrolDispatchedIds[inc.id]
+                                ? 'Dispatched (191)'
+                                : 'Call Emergency (191)'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-[#0A0D17]/90 border border-[#22263C] text-xs text-slate-200">
+                        <span className="text-slate-400 font-semibold">Incident Report: </span>
+                        <span>{inc.description}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-300">
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Device Battery
+                          </span>
+                          <div className="text-[#EF4444] font-bold text-sm mt-0.5 flex items-center gap-1">
+                            <Battery className="size-3.5" />
+                            <span>
+                              {typeof inc.reporterBattery === 'number'
+                                ? `${inc.reporterBattery}%`
+                                : '--%'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Contact Phone
+                          </span>
+                          <div className="text-white font-sans font-bold text-sm mt-0.5">
+                            {inc.reporterPhone || 'N/A'}
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Reported Time
+                          </span>
+                          <div className="text-white font-sans font-bold text-sm mt-0.5">
+                            {inc.reportedTimeFormatted || 'Just now'}
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Center Proximity
+                          </span>
+                          <div className="text-emerald-400 font-bold text-sm mt-0.5">
+                            {typeof inc.reporterDistance === 'number'
+                              ? inc.reporterDistance >= 1000
+                                ? `${(inc.reporterDistance / 1000).toFixed(1)} km`
+                                : `${inc.reporterDistance} m`
+                              : 'No telemetry'}
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                      <button
-                        onClick={handleFocusSamuelQuaye}
-                        className="px-3.5 py-2.5 rounded-xl bg-[#11131F] hover:bg-[#1A1F36] active:bg-[#0D0F1A] border border-[#22263C] text-xs font-bold text-slate-200 transition cursor-pointer text-center"
-                      >
-                        Focus on Map
-                      </button>
-                      <button
-                        onClick={handleDispatchPatrol}
-                        className="px-4 py-2.5 rounded-xl bg-[#EF4444] hover:bg-red-600 active:bg-red-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
-                      >
-                        <Phone className="size-3.5" />
-                        <span>{patrolDispatched ? 'Emergency Dispatched (191)' : 'Call Emergency (191)'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-[#0A0D17]/90 border border-[#22263C] text-xs text-slate-200">
-                    <span className="text-slate-400 font-semibold">Incident Report: </span>
-                    <span>{sosOfficer.sosDetails}</span>
-                  </div>
-
-                  {/* Bento Telemetry Stats */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-300">
-                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                      <span className="text-slate-400 block text-[11px] font-medium">Device Battery</span>
-                      <div className="text-[#EF4444] font-bold text-sm mt-0.5 flex items-center gap-1">
-                        <Battery className="size-3.5" />
-                        <span>{sosOfficer.battery}% (Critical)</span>
-                      </div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                      <span className="text-slate-400 block text-[11px] font-medium">Contact Phone</span>
-                      <div className="text-white font-sans font-bold text-sm mt-0.5">{sosOfficer.phone}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                      <span className="text-slate-400 block text-[11px] font-medium">Trigger Time</span>
-                      <div className="text-white font-sans font-bold text-sm mt-0.5">{sosOfficer.verifiedTime}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                      <span className="text-slate-400 block text-[11px] font-medium">Center Proximity</span>
-                      <div className="text-emerald-400 font-bold text-sm mt-0.5">{sosOfficer.distanceFromDatum}m (Inside)</div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
 
-              {/* Bento Row: System Integrity + Audit Trail Timeline */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
-                {/* Audit Trail Timeline (Spans 2 columns on lg) */}
-                <div className="lg:col-span-2 rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
-                      Audit Trail & Telematics Timeline
-                    </h3>
-                    <span className="text-[11px] text-slate-400 font-sans">Today's Session</span>
-                  </div>
+              {/* All Incidents Workflow Table / List */}
+              <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                    Recorded Incidents ({filteredIncidents.length})
+                  </h3>
 
-                  <div className="space-y-2.5 text-xs">
-                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-rose-500/30 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[#EF4444] font-sans font-bold shrink-0">[07:48 GMT]</span>
-                        <span className="text-slate-200">SOS triggered by Officer Samuel Quaye (Opoku Ware Center A)</span>
-                      </div>
-                      <span className="text-rose-400 font-bold shrink-0 text-[10px] bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/30">
-                        UNRESOLVED
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-emerald-400 font-sans font-bold shrink-0">[07:54 GMT]</span>
-                        <span className="text-slate-200">Kofi Mensah verified on-site at Prempeh College Center A</span>
-                      </div>
-                      <span className="text-emerald-400 font-bold shrink-0 text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                        VERIFIED
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-emerald-400 font-sans font-bold shrink-0">[08:02 GMT]</span>
-                        <span className="text-slate-200">Akua Owusu verified on-site at Prempeh College Center B</span>
-                      </div>
-                      <span className="text-emerald-400 font-bold shrink-0 text-[10px] bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                        VERIFIED
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-[#0C0F1D] border border-[#22263C] flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-amber-400 font-sans font-bold shrink-0">[08:05 GMT]</span>
-                        <span className="text-slate-200">Emmanuel Boateng moving en route (450m from Kumasi High School)</span>
-                      </div>
-                      <span className="text-amber-400 font-bold shrink-0 text-[10px] bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
-                        IN TRANSIT
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setIncidentFilter(tab)}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                          incidentFilter === tab
+                            ? 'bg-[#1E2B7B] text-white border border-sky-400/30'
+                            : 'text-slate-400 hover:text-white bg-[#0A0D17]'
+                        }`}
+                      >
+                        {tab === 'ALL'
+                          ? `All (${incidents.length})`
+                          : tab === 'OPEN'
+                          ? `Open (${unresolvedIncidents.length})`
+                          : `Resolved (${incidents.length - unresolvedIncidents.length})`}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* System Readiness Bento Tile */}
+                {filteredIncidents.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+                    No incidents recorded in this filter view.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {filteredIncidents.map((inc) => {
+                      const isClosed = ['RESOLVED', 'CLOSED'].includes(inc.status)
+                      return (
+                        <div
+                          key={inc.id}
+                          className="rounded-xl bg-[#0C0F1D] border border-[#22263C] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  inc.severity === 'CRITICAL'
+                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                    : inc.severity === 'HIGH'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
+                                }`}
+                              >
+                                {inc.severity} · {inc.category}
+                              </span>
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {inc.incidentNumber}
+                              </span>
+                              <span className="text-slate-500">•</span>
+                              <span className="text-slate-400">
+                                {inc.reportedTimeFormatted}
+                              </span>
+                            </div>
+                            <div className="font-bold text-white text-sm">{inc.title}</div>
+                            <div className="text-slate-300">{inc.description}</div>
+                            <div className="text-[11px] text-slate-400">
+                              Center: <span className="text-slate-200">{inc.centerName}</span> ·
+                              Reported by:{' '}
+                              <span className="text-slate-200">{inc.reporterName}</span>
+                              {inc.resolutionNotes ? ` · Note: ${inc.resolutionNotes}` : ''}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                isClosed
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                              }`}
+                            >
+                              {inc.status}
+                            </span>
+
+                            {!isClosed && inc.status === 'REPORTED' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateIncidentStatus(inc.id, 'INVESTIGATING')
+                                }
+                                className="px-2.5 py-1.5 rounded-lg bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-sky-300 font-semibold transition cursor-pointer"
+                              >
+                                Investigate
+                              </button>
+                            )}
+                            {!isClosed && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-semibold transition cursor-pointer"
+                              >
+                                Resolve
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Bento Row: Live Audit Trail + Security Readiness */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
+                <div className="lg:col-span-2 rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                      Audit Trail & Telematics Timeline
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {auditOfficerFilterId && (
+                        <button
+                          type="button"
+                          onClick={() => setAuditOfficerFilterId(null)}
+                          className="text-[11px] bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Officer: {filteredAuditOfficerName}</span>
+                          <X className="size-3" />
+                        </button>
+                      )}
+                      <span className="text-[11px] text-slate-400 font-sans">
+                        Live Neon DB Log ({filteredAuditLogs.length})
+                      </span>
+                    </div>
+                  </div>
+
+                  {filteredAuditLogs.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+                      No operational audit events recorded yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-xs max-h-[360px] overflow-y-auto pr-1">
+                      {filteredAuditLogs.map((log) => {
+                        const isCrit = [
+                          'SOS_TRIGGERED',
+                          'GEOFENCE_BREACH',
+                          'USER_REVOKED',
+                        ].includes(log.action)
+                        const isOk = [
+                          'CHECK_IN_LOGGED',
+                          'SOS_STAND_DOWN',
+                          'INCIDENT_RESOLVED',
+                          'USER_RESTORED',
+                        ].includes(log.action)
+
+                        const badgeClass = isCrit
+                          ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                          : isOk
+                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                          : 'text-sky-400 bg-sky-500/10 border-sky-500/30'
+
+                        const timeColor = isCrit
+                          ? 'text-[#EF4444]'
+                          : isOk
+                          ? 'text-emerald-400'
+                          : 'text-amber-400'
+
+                        return (
+                          <div
+                            key={log.id}
+                            className={`p-3 rounded-xl bg-[#0C0F1D] border flex items-center justify-between gap-2 ${
+                              isCrit ? 'border-rose-500/30' : 'border-[#22263C]'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2 min-w-0">
+                              <span
+                                className={`${timeColor} font-sans font-bold shrink-0 tabular-nums`}
+                              >
+                                [{log.timeFormatted || '--:--'}]
+                              </span>
+                              <span className="text-slate-200 leading-snug">
+                                {log.details?.message ||
+                                  `${log.actorName} — ${log.action.replace(/_/g, ' ')}`}
+                              </span>
+                            </div>
+                            <span
+                              className={`font-bold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${badgeClass}`}
+                            >
+                              {log.action.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Live Security Network Status */}
                 <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 space-y-4 shadow-md flex flex-col justify-between">
                   <div>
                     <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
@@ -1017,43 +1790,70 @@ export default function AdminPage() {
                     <div className="mt-3 space-y-2.5 text-xs">
                       <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
                         <span className="text-slate-400">Station Verification:</span>
-                        <span className="text-emerald-400 font-bold">3 / 4 Centers Safe</span>
+                        <span className="text-emerald-400 font-bold">
+                          {safeCentersCount} / {examCenters.length} Centers Clear
+                        </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Emergency Unit:</span>
-                        <span className="text-sky-400 font-bold">Police Command 191</span>
+                        <span className="text-slate-400">Officers On-Site:</span>
+                        <span className="text-sky-400 font-bold">
+                          {verifiedOnSiteCount} / {deployedMonitorsCount} On-Site
+                        </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Corridor Transit:</span>
-                        <span className="text-amber-400 font-bold">Normal Traffic</span>
+                        <span className="text-slate-400">Open Incidents:</span>
+                        <span
+                          className={`font-bold ${
+                            incidentSummary.openIncidentsCount > 0
+                              ? 'text-amber-400'
+                              : 'text-emerald-400'
+                          }`}
+                        >
+                          {incidentSummary.openIncidentsCount} Open ({incidentSummary.breachCount}{' '}
+                          Breaches)
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-slate-300">
-                    <span className="text-sky-400 font-bold block mb-1">WAEC Incident Protocol:</span>
-                    <span>All emergency events trigger immediate audio communication and central dispatch recording.</span>
+                    <span className="text-sky-400 font-bold block mb-1">
+                      WAEC Incident Protocol:
+                    </span>
+                    <span>
+                      Emergency SOS dispatches and status transitions are persisted immediately to
+                      Neon PostgreSQL with full operator audit history.
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
+          {/* ========================================================= */}
           {/* TAB 5: SYSTEM SETTINGS VIEW */}
+          {/* ========================================================= */}
           {activeTab === 'settings' && (
-            <SystemSettingsTab onFeedback={setFeedback} />
+            <SystemSettingsTab
+              initialSettings={systemSettings}
+              session={session}
+              onSave={(saved) => {
+                setSystemSettings(saved)
+                loadDashboardData(true)
+              }}
+              onFeedback={setFeedback}
+            />
           )}
         </main>
 
-        {/* Mobile Fixed 4-Tab Bottom Navigation Bar (< 1024px) */}
         <MobileBottomNav
           activeTab={activeTab}
           onSelectTab={setActiveTab}
-          sosCount={activeSosCount}
+          sosCount={totalCriticalSosCount}
         />
       </div>
 
-      {/* Mobile Slide-Over Navigation Modal */}
+      {/* Mobile Slide-Over Navigation Drawer */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
@@ -1068,7 +1868,9 @@ export default function AdminPage() {
                     <Shield className="size-4" />
                   </div>
                   <div>
-                    <h2 className="text-xs font-sans font-bold text-white tracking-wider">M.O.S ADMIN</h2>
+                    <h2 className="text-xs font-sans font-bold text-white tracking-wider">
+                      M.O.S ADMIN
+                    </h2>
                     <p className="text-[10px] font-sans text-slate-400">EXAM MONITORING</p>
                   </div>
                 </div>
@@ -1081,13 +1883,17 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* Nav items */}
               <div className="space-y-1">
                 {[
                   { id: 'map' as const, label: 'Live Fleet Map', icon: Compass },
                   { id: 'directory' as const, label: 'Monitor Directory', icon: Users },
                   { id: 'centers' as const, label: 'Exam Centers', icon: Building2 },
-                  { id: 'incidents' as const, label: 'Incident Logs', icon: Siren, badge: activeSosCount },
+                  {
+                    id: 'incidents' as const,
+                    label: 'Incident Logs',
+                    icon: Siren,
+                    badge: totalCriticalSosCount,
+                  },
                   { id: 'settings' as const, label: 'Settings', icon: Settings },
                 ].map((item) => {
                   const Icon = item.icon
@@ -1106,7 +1912,9 @@ export default function AdminPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Icon className={`size-4 ${isActive ? 'text-[#F6D300]' : 'text-slate-500'}`} />
+                        <Icon
+                          className={`size-4 ${isActive ? 'text-[#F6D300]' : 'text-slate-500'}`}
+                        />
                         <span>{item.label}</span>
                       </div>
                       {Boolean(item.badge && item.badge > 0) && (
@@ -1118,7 +1926,6 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Profile & Signout at bottom */}
             <div className="pt-3 border-t border-[#22263C] space-y-2">
               <button
                 onClick={() => {
@@ -1127,11 +1934,20 @@ export default function AdminPage() {
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-sans text-slate-300 hover:text-white hover:bg-[#11131F] cursor-pointer"
               >
-                <div className="size-7 rounded-full bg-[#1E2B7B] text-white flex items-center justify-center font-bold text-[10px]">
-                  AV
+                <div className="size-7 rounded-full bg-[#1E2B7B] text-white flex items-center justify-center font-bold text-[10px] overflow-hidden">
+                  {session?.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={session.photo}
+                      alt={adminDisplayName}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    adminInitials
+                  )}
                 </div>
                 <div className="text-left">
-                  <div className="font-bold">{session?.name || 'Dr. Mensah Osei'}</div>
+                  <div className="font-bold">{adminDisplayName}</div>
                   <div className="text-[10px] text-[#10B981]">● System Admin</div>
                 </div>
               </button>
@@ -1163,6 +1979,27 @@ export default function AdminPage() {
         onSave={handleSaveResetPin}
       />
 
+      {/* MODAL: REGISTER / EDIT EXAM CENTER */}
+      <ExamCenterModal
+        isOpen={Boolean(centerModalState)}
+        mode={centerModalState?.mode || 'create'}
+        initialCenter={centerModalState?.center}
+        districts={districts}
+        defaultRadius={defaultRadiusMeters}
+        onClose={() => setCenterModalState(null)}
+        onSubmit={handleSaveExamCenter}
+      />
+
+      {/* MODAL: LOG NEW INCIDENT */}
+      <LogIncidentModal
+        isOpen={showLogIncidentModal}
+        onClose={() => setShowLogIncidentModal(false)}
+        onSubmit={handleCreateIncident}
+        examCenters={examCenters}
+        officers={officers}
+        currentUserId={session?.userId || 'usr-admin-hq'}
+      />
+
       {/* MODAL: OFFICER DOSSIER (Inspected by Admin) */}
       {inspectedOfficer && (
         <ProfileModal
@@ -1183,6 +2020,7 @@ export default function AdminPage() {
             assignedCenter: inspectedOfficer.assignedCenter,
             assignedCenterCode: inspectedOfficer.assignedCenterCode,
             photo: inspectedOfficer.photo,
+            bio: inspectedOfficer.bio,
             mustChangePassword: inspectedOfficer.mustChangePassword,
           }}
           onDutyStatus={inspectedOfficer.dutyStatus === 'ON_DUTY' ? 'ON DUTY' : 'OFF DUTY'}
@@ -1196,7 +2034,7 @@ export default function AdminPage() {
         onClose={() => setShowAdminProfile(false)}
         session={session}
         onDutyStatus="HQ ACTIVE"
-        onSave={(updated) => setSession((prev) => (prev ? { ...prev, ...updated } : null))}
+        onSave={handleSaveAdminProfile}
         onLogout={handleSignOut}
       />
     </div>

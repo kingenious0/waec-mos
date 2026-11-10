@@ -25,7 +25,6 @@ export function CommandHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -40,7 +39,17 @@ export function CommandHeader({
     }
   }, [dropdownOpen])
 
-  // Extract center short name, e.g. "Opoku Ware School Center A" -> "Opoku Ware"
+  const displayName = session?.name || 'Regional Command'
+  const initials =
+    displayName
+      .replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, '')
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'HQ'
+
   const centerShortName = activeSosOfficer?.assignedCenter
     ? activeSosOfficer.assignedCenter.replace(/(School|College|Center|\b[A-Z0-9]\b).*$/i, '').trim() ||
       activeSosOfficer.assignedCenter
@@ -48,7 +57,6 @@ export function CommandHeader({
 
   return (
     <header className="h-14 shrink-0 border-b border-border bg-card/60 backdrop-blur-xs px-4 flex items-center justify-between z-30 select-none">
-      {/* Left: Brand mark, Title & Region Hub */}
       <div className="flex items-center gap-3">
         <div className="size-8 rounded-md bg-brand flex items-center justify-center text-background shadow-xs shrink-0">
           <Shield className="size-4.5 fill-background stroke-background" />
@@ -58,12 +66,11 @@ export function CommandHeader({
             MOS Command
           </span>
           <span className="text-sm text-muted-foreground font-normal">
-            Ashanti regional hub
+            {session?.region ? `${session.region} hub` : 'Ashanti regional hub'}
           </span>
         </div>
       </div>
 
-      {/* Centre: Active SOS emergency pill (only when active distress exists) */}
       <div className="flex items-center">
         {activeSosOfficer && (
           <button
@@ -80,15 +87,12 @@ export function CommandHeader({
         )}
       </div>
 
-      {/* Right: Gateway Online status + User Menu */}
       <div className="flex items-center gap-4">
-        {/* Gateway Online status */}
         <div className="flex items-center gap-2 text-xs font-medium text-status-ok">
           <span className="size-2 rounded-full bg-status-ok motion-safe:animate-pulse" />
           <span>Online</span>
         </div>
 
-        {/* User avatar menu dropdown */}
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
@@ -96,9 +100,9 @@ export function CommandHeader({
             aria-expanded={dropdownOpen}
             aria-haspopup="menu"
             className="size-8 rounded-full bg-primary/20 text-primary border border-primary/30 flex items-center justify-center font-medium text-xs hover:border-primary transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
-            title={session?.name || 'User Profile'}
+            title={displayName}
           >
-            MO
+            {initials}
           </button>
 
           {dropdownOpen && (
@@ -108,10 +112,10 @@ export function CommandHeader({
             >
               <div className="px-2.5 py-2 border-b border-border/50 mb-1">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {session?.name || 'Dr. Mensah Osei'}
+                  {displayName}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {session?.email || 'm.osei@waec.org'}
+                  {session?.email || 'controller@waec.org'}
                 </p>
                 <span className="inline-block mt-1 text-[11px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                   Regional Controller
@@ -128,7 +132,7 @@ export function CommandHeader({
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
               >
                 <User className="size-3.5" />
-                <span>Officer Profile</span>
+                <span>Controller Profile</span>
               </button>
 
               <button

@@ -14,35 +14,40 @@ import {
 interface EmergencySosModalProps {
   isOpen: boolean
   onClose: () => void
-  officerPin?: string
+  initialTriggered?: boolean
   officerName?: string
   venueName?: string
   centerCode?: string
   coords?: { lat: string; lng: string; acc: string }
   batteryLevel?: string
+  onDispatchSos?: (notes?: string) => Promise<void>
+  onStandDown?: (pin: string) => Promise<{ ok: boolean; error?: string }>
 }
 
 export function EmergencySosModal({
   isOpen,
   onClose,
-  officerPin = '0412',
-  officerName = 'Kofi Mensah',
-  venueName = 'Prempeh College Center A',
-  centerCode = '050102',
-  coords = { lat: '6.7028° N', lng: '1.6369° W', acc: '±4.2m' },
-  batteryLevel = '84%',
+  initialTriggered = false,
+  officerName = 'Field Officer',
+  venueName = 'Assigned Center',
+  centerCode = '',
+  coords = { lat: '--', lng: '--', acc: '--' },
+  batteryLevel = '--%',
+  onDispatchSos,
+  onStandDown,
 }: EmergencySosModalProps) {
   const [isHolding, setIsHolding] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [isTriggered, setIsTriggered] = useState(false)
+  const [progress, setProgress] = useState(initialTriggered ? 100 : 0)
+  const [isTriggered, setIsTriggered] = useState(initialTriggered)
   const [standDownPin, setStandDownPin] = useState('')
   const [showStandDown, setShowStandDown] = useState(false)
   const [pinError, setPinError] = useState('')
+  const [isSubmittingStandDown, setIsSubmittingStandDown] = useState(false)
+  const [notes, setNotes] = useState('')
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const HOLD_DURATION = 1500 // 1.5 seconds
 
-  // Web Audio Synthetic Siren/Alert Tone
   const playSirenAlert = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
@@ -69,12 +74,27 @@ export function EmergencySosModal({
     }
   }
 
+  useEffect(() => {
+    if (isOpen) {
+      setIsTriggered(initialTriggered)
+      setProgress(initialTriggered ? 100 : 0)
+      if (!initialTriggered) {
+        setIsHolding(false)
+        setStandDownPin('')
+        setShowStandDown(false)
+        setPinError('')
+      } else {
+        playSirenAlert()
+      }
+    }
+  }, [isOpen, initialTriggered])
+
   const startHold = () => {
     if (isTriggered) return
     setIsHolding(true)
     const startTime = Date.now()
 
-    timerRef.current = setInterval(() => {
+    timerRef.current = setInterval(async () => {
       const elapsed = Date.now() - startTime
       const pct = Math.min((elapsed / HOLD_DURATION) * 100, 100)
       setProgress(pct)
@@ -85,6 +105,9 @@ export function EmergencySosModal({
         setProgress(100)
         setIsTriggered(true)
         playSirenAlert()
+        if (onDispatchSos) {
+          await onDispatchSos(notes)
+        }
       }
     }, 20)
   }
@@ -96,34 +119,38 @@ export function EmergencySosModal({
     setProgress(0)
   }
 
-  const verifyStandDown = () => {
-    const targetPin = officerPin.trim() || '0412'
-    if (standDownPin.trim() === targetPin || standDownPin.trim() === '0412') {
+  const verifyStandDown = async () => {
+    if (!standDownPin.trim()) {
+      setPinError('Enter your 4-digit security PIN.')
+      return
+    }
+
+    setIsSubmittingStandDown(true)
+    setPinError('')
+
+    try {
+      if (onStandDown) {
+        const result = await onStandDown(standDownPin.trim())
+        if (!result.ok) {
+          setPinError(result.error || 'Invalid 4-digit security PIN. Emergency alert remains active.')
+          return
+        }
+      }
+
       setIsTriggered(false)
       setShowStandDown(false)
       setProgress(0)
       setStandDownPin('')
+      setNotes('')
       setPinError('')
       onClose()
-    } else {
-      setPinError('Invalid 4-digit security PIN. Emergency alert remains active.')
+    } finally {
+      setIsSubmittingStandDown(false)
     }
   }
 
-  // Reset states when modal is opened afresh
-  useEffect(() => {
-    if (isOpen && !isTriggered) {
-      setProgress(0)
-      setIsHolding(false)
-      setStandDownPin('')
-      setShowStandDown(false)
-      setPinError('')
-    }
-  }, [isOpen, isTriggered])
-
   if (!isOpen) return null
 
-  // Circumference for radius 62: 2 * pi * 62 = ~389.56
   const CIRCLE_CIRCUMFERENCE = 390
   const strokeOffset = CIRCLE_CIRCUMFERENCE - (CIRCLE_CIRCUMFERENCE * progress) / 100
 
@@ -145,7 +172,7 @@ export function EmergencySosModal({
               }`}
             />
             <span className="text-xs font-bold uppercase tracking-wider text-zinc-200">
-              {isTriggered ? '🔴 EMERGENCY TRANSMISSION ACTIVE' : 'EMERGENCY ASSISTANCE'}
+              {isTriggered ? 'EMERGENCY TRANSMISSION ACTIVE' : 'EMERGENCY ASSISTANCE'}
             </span>
           </div>
 
@@ -165,11 +192,9 @@ export function EmergencySosModal({
           </div>
         </div>
 
-        {/* ============================================================ */}
-        {/* STATE 2A: Pre-Activation Countdown (Radial Press & Hold) */}
-        {/* ============================================================ */}
+        {/* STATE 2A: Pre-Activation Hold */}
         {!isTriggered ? (
-          <div className="py-7 flex flex-col items-center text-center space-y-6">
+          <div className="py-6 flex flex-col items-center text-center space-y-5">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold mb-2">
                 <AlertTriangle className="size-3.5" />
@@ -179,14 +204,25 @@ export function EmergencySosModal({
                 Immediate Assistance Request
               </h3>
               <p className="text-xs text-zinc-300 max-w-xs mt-1.5 leading-relaxed">
-                Transmits your real-time GPS location and center details directly to the Ashanti Regional Control Room. Use for security emergencies or serious exam incidents.
+                Transmits your real-time GPS location and center details directly to the Regional Control Room.
               </p>
             </div>
 
-            {/* Circular Radial Hold Button with Clockwise SVG Ring */}
+            <div className="w-full text-left">
+              <label className="text-[11px] font-semibold text-zinc-400 block mb-1">
+                Optional Incident Summary
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Unauthorised intrusion or material escort delay"
+                className="w-full rounded-xl bg-[#090C18] border border-white/10 px-3 py-2 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-red-500"
+              />
+            </div>
+
             <div className="relative flex items-center justify-center size-36 select-none">
               <svg className="size-36 transform -rotate-90">
-                {/* Background Ring Track */}
                 <circle
                   cx="72"
                   cy="72"
@@ -195,7 +231,6 @@ export function EmergencySosModal({
                   strokeWidth="8"
                   fill="transparent"
                 />
-                {/* Active Progress Fill Ring (Fills Clockwise) */}
                 <circle
                   cx="72"
                   cy="72"
@@ -231,7 +266,7 @@ export function EmergencySosModal({
             <div className="space-y-1">
               <p className="text-xs font-bold text-zinc-200">
                 {isHolding
-                  ? `Broadcasting in ${((1500 - (progress * 15)) / 1000).toFixed(1)}s...`
+                  ? `Broadcasting in ${((1500 - progress * 15) / 1000).toFixed(1)}s...`
                   : 'Press and maintain contact to dispatch'}
               </p>
               <p className="text-xs text-zinc-400">
@@ -248,11 +283,8 @@ export function EmergencySosModal({
             </button>
           </div>
         ) : (
-          /* ============================================================ */
           /* STATE 2B: Active Distress Transmission Mode */
-          /* ============================================================ */
           <div className="py-4 space-y-4">
-            {/* Live Telemetry Card */}
             <div className="rounded-xl bg-red-950/40 border border-red-500/30 p-4 space-y-2.5">
               <div className="flex items-center justify-between text-xs text-red-400">
                 <span className="flex items-center gap-1.5 font-bold">
@@ -263,7 +295,7 @@ export function EmergencySosModal({
                 </span>
               </div>
               <div className="text-sm text-zinc-100 font-bold">
-                {venueName} (Code: {centerCode})
+                {venueName} {centerCode ? `(Code: ${centerCode})` : ''}
               </div>
               <div className="text-xs text-zinc-300">
                 Officer: <strong className="text-white">{officerName}</strong>
@@ -275,12 +307,11 @@ export function EmergencySosModal({
               </div>
             </div>
 
-            {/* Simulated Live Audio Stream Waveform */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-black/60 border border-red-500/20">
               <div className="flex items-center gap-2">
                 <Volume2 className="size-4 text-red-400 animate-pulse" />
                 <span className="text-xs text-zinc-200 font-semibold">
-                  Direct Audio Channel Active
+                  Command Alert Active in Regional Hub
                 </span>
               </div>
               <div className="flex items-center gap-1 h-5">
@@ -297,7 +328,6 @@ export function EmergencySosModal({
               </div>
             </div>
 
-            {/* Direct Emergency Contact Lines */}
             <div className="grid grid-cols-2 gap-2">
               <a
                 href="tel:191"
@@ -315,12 +345,11 @@ export function EmergencySosModal({
               </button>
             </div>
 
-            {/* Stand Down PIN Shield Interlock */}
             {showStandDown && (
               <div className="p-4 rounded-xl bg-[#090D1A] border border-[#232C47] space-y-3 animate-in fade-in duration-150">
                 <div className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
                   <ShieldCheck className="size-4 text-amber-400" />
-                  <span>Enter 4-digit security PIN to cancel:</span>
+                  <span>Enter your 4-digit security PIN to stand down:</span>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -328,7 +357,7 @@ export function EmergencySosModal({
                     maxLength={4}
                     value={standDownPin}
                     onChange={(e) => {
-                      setStandDownPin(e.target.value)
+                      setStandDownPin(e.target.value.replace(/\D/g, '').slice(0, 4))
                       setPinError('')
                     }}
                     placeholder="••••"
@@ -336,18 +365,16 @@ export function EmergencySosModal({
                   />
                   <button
                     type="button"
+                    disabled={isSubmittingStandDown}
                     onClick={verifyStandDown}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition cursor-pointer"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-xs rounded-lg transition cursor-pointer"
                   >
-                    CONFIRM
+                    {isSubmittingStandDown ? 'VERIFYING...' : 'CONFIRM'}
                   </button>
                 </div>
                 {pinError && (
                   <p className="text-xs text-red-400 leading-tight">{pinError}</p>
                 )}
-                <p className="text-[11px] text-zinc-400">
-                  Demo PIN: <strong className="text-zinc-300">{officerPin || '0412'}</strong>
-                </p>
               </div>
             )}
           </div>

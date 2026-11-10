@@ -47,30 +47,37 @@ export function PreProvisionOfficerModal({
   const [name, setName] = useState('')
   const [staffId, setStaffId] = useState('WAEC-ASH-0105')
   const [phone, setPhone] = useState('')
-  const [pin, setPin] = useState('2324')
+  const [pin, setPin] = useState('')
   const [region, setRegion] = useState('Ashanti Region')
   const [group, setGroup] = useState('Group 1')
-  const [centerCode, setCenterCode] = useState(examCenters[0]?.code || '050102')
-  const [centerName, setCenterName] = useState(examCenters[0]?.name || 'Prempeh College Center A')
+  const [centerCode, setCenterCode] = useState('')
+  const [centerName, setCenterName] = useState('')
   const [isGroupLeader, setIsGroupLeader] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // Auto-generate random ID and PIN if empty
+  // Auto-generate fresh Staff ID and 4-digit PIN only when the modal opens
   useEffect(() => {
     if (isOpen) {
       const randNum = Math.floor(1000 + Math.random() * 9000)
       const randId = `WAEC-ASH-${Math.floor(100 + Math.random() * 900)}`
       setPin(randNum.toString())
       setStaffId(randId)
-      if (examCenters.length > 0 && !centerName) {
+    }
+  }, [isOpen])
+
+  // Sync default exam center from live DB centers without touching PIN/Staff ID
+  useEffect(() => {
+    if (isOpen && examCenters.length > 0) {
+      const currentExists = examCenters.some((c) => c.name === centerName)
+      if (!centerName || !currentExists) {
         setCenterName(examCenters[0].name)
         setCenterCode(examCenters[0].code)
       }
     }
-  }, [isOpen, examCenters])
+  }, [isOpen, examCenters, centerName])
 
   if (!isOpen || !mounted) return null
 

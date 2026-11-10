@@ -36,22 +36,19 @@ export default function SignupPage() {
     setResult(null)
 
     try {
-      const res = await fetch('/api/officers')
-      const data = await res.json()
-      const cleanInput = phoneQuery.trim().replace(/\D/g, '')
-      const last9 = cleanInput.length >= 9 ? cleanInput.slice(-9) : cleanInput
-
-      const found = (data.officers || []).find((o: any) => {
-        const pDigits = (o.phone || '').replace(/\D/g, '')
-        const pLast9 = pDigits.length >= 9 ? pDigits.slice(-9) : pDigits
-        return pLast9 === last9
+      const res = await fetch('/api/officers/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneQuery.trim() }),
       })
+      const data = await res.json()
 
-      if (found) {
-        setResult(found)
+      if (res.ok && data.verified && data.officer) {
+        setResult(data.officer)
       } else {
         setErrorMsg(
-          'No deployment record was found for this phone number. Please contact your Zonal Coordinator or Regional Controller.'
+          data.error ||
+            'No deployment record was found for this phone number. Please contact your Zonal Coordinator or Regional Controller.'
         )
       }
     } catch {
@@ -188,10 +185,17 @@ export default function SignupPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-400">Status</span>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold text-[11px]">
-                      <span className="size-1.5 rounded-full bg-emerald-400" />
-                      Active On Duty
-                    </span>
+                    {result.status === 'REVOKED' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold text-[11px]">
+                        <span className="size-1.5 rounded-full bg-rose-400" />
+                        Access Revoked
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold text-[11px]">
+                        <span className="size-1.5 rounded-full bg-emerald-400" />
+                        Active On Roster
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -255,27 +259,27 @@ export default function SignupPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() => handleQuickCheck('0244128900')}
+                      onClick={() => handleQuickCheck('0244101001')}
                       className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
                     >
                       <div className="font-semibold text-white text-[11px] truncate">
                         Kofi Mensah
                       </div>
                       <div className="text-[10px] text-zinc-400 font-mono">
-                        Prempeh College
+                        Prempeh College Center A
                       </div>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => handleQuickCheck('0241002345')}
+                      onClick={() => handleQuickCheck('0244101002')}
                       className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
                     >
                       <div className="font-semibold text-white text-[11px] truncate">
                         Akua Owusu
                       </div>
                       <div className="text-[10px] text-zinc-400 font-mono">
-                        Yaa Asantewaa Girls
+                        Prempeh College Center A
                       </div>
                     </button>
                   </div>

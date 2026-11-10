@@ -10,10 +10,12 @@ export type StatusCardState =
   | 'gps-denied'
   | 'gps-searching'
   | 'offline'
+  | 'unassigned'
 
 interface StatusCardProps {
   state: StatusCardState
   distanceMeters: number
+  geofenceRadius?: number
   checkInTime?: string
   elapsedFormatted?: string
   onRetryGps?: () => void
@@ -22,7 +24,8 @@ interface StatusCardProps {
 export function StatusCard({
   state,
   distanceMeters,
-  checkInTime = '07:54 GMT',
+  geofenceRadius = 150,
+  checkInTime = 'Just now',
   elapsedFormatted = '00:00:00',
   onRetryGps,
 }: StatusCardProps) {
@@ -43,7 +46,7 @@ export function StatusCard({
               Checked in at {checkInTime}
             </div>
             <div className="text-xs text-slate-400 mt-0.5">
-              Verified on duty · Inside 150 m perimeter
+              Verified on duty · Inside {geofenceRadius} m perimeter
             </div>
           </div>
         </div>
@@ -113,6 +116,29 @@ export function StatusCard({
     )
   }
 
+  // 3b. Unassigned Center
+  if (state === 'unassigned') {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="w-full rounded-2xl bg-[#0F1320] border border-[#1E253A] p-4 flex items-center gap-3 text-zinc-100 shadow-md select-none"
+      >
+        <div className="size-11 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+          <MapPin className="size-5 text-slate-400" />
+        </div>
+        <div>
+          <div className="text-sm font-bold text-slate-200">
+            No Examination Center Assigned
+          </div>
+          <div className="text-xs text-slate-400 mt-0.5">
+            Contact Regional Command to assign a center before check-in
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // 4. Inside vs Outside Perimeter (Primary Operational States)
   const isInside = state === 'inside'
 
@@ -151,7 +177,9 @@ export function StatusCard({
             {isInside ? "You're at the venue" : "You're outside the perimeter"}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5 truncate">
-            {isInside ? 'Inside the 150 m perimeter' : 'Move within 150 m to check in'}
+            {isInside
+              ? `Inside the ${geofenceRadius} m perimeter`
+              : `Move within ${geofenceRadius} m to check in`}
           </p>
         </div>
       </div>

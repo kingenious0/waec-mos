@@ -17,6 +17,7 @@ export interface SessionData {
   assignedCenter: string
   assignedCenterCode: string
   photo?: string
+  bio?: string
   mustChangePassword: boolean
 }
 
@@ -48,6 +49,7 @@ export function setClientSession(user: UserAccount) {
     assignedCenter: user.assignedCenter,
     assignedCenterCode: user.assignedCenterCode,
     photo: user.photo || '',
+    bio: user.bio || '',
     mustChangePassword: user.mustChangePassword,
   }
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data))

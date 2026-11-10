@@ -61,8 +61,8 @@ export default function ChangePasswordPage() {
         localStorage.setItem('waec_mos_session', JSON.stringify(updated))
       }
 
-      // Redirect to field workspace
-      router.push('/field')
+      // Redirect based on role
+      router.push(session?.role === 'ADMIN' ? '/admin' : '/field')
     } catch {
       setErrorMsg('Failed to reach authentication server.')
       setLoading(false)

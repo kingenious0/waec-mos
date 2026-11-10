@@ -4,16 +4,39 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
 import { NationalOperationsShowcase } from '@/components/auth/NationalOperationsShowcase'
-import { ArrowLeft, ArrowRight, CheckCircle2, KeyRound, Shield } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, Shield } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [identifier, setIdentifier] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const [submitted, setSubmitted] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!identifier.trim()) return
-    setSubmitted(true)
+
+    setLoading(true)
+    setErrorMsg('')
+
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier.trim() }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErrorMsg(data.error || 'Unable to submit recovery request.')
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      setErrorMsg('Failed to connect to WAEC regional command.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -40,9 +63,19 @@ export default function ForgotPasswordPage() {
                 Reset account PIN
               </h1>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Enter your registered phone number or Staff ID. Your regional coordinator will dispatch a secure 4-digit verification token.
+                Enter your registered phone number or Staff ID. Your regional coordinator will review the request and issue a fresh 4-digit access PIN.
               </p>
             </div>
+
+            {errorMsg && (
+              <div
+                role="alert"
+                className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5"
+              >
+                <AlertCircle className="size-4 shrink-0 text-red-400 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
             {submitted ? (
               <div className="rounded-2xl bg-[#0D1224] border border-emerald-500/30 p-6 space-y-4 text-center animate-in fade-in zoom-in-95 duration-200">
@@ -52,7 +85,7 @@ export default function ForgotPasswordPage() {
                 <div>
                   <h3 className="text-lg font-bold text-white">Recovery Request Transmitted</h3>
                   <p className="text-xs text-zinc-300 leading-relaxed mt-1.5 max-w-sm mx-auto">
-                    If this identifier matches an accredited officer or administrator, verification instructions have been dispatched to your regional command hub.
+                    Your recovery request has been logged in the regional operations queue. If verified by Command HQ, your new PIN or password reset instructions will be dispatched.
                   </p>
                 </div>
 
@@ -70,7 +103,7 @@ export default function ForgotPasswordPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1.5">
                   <label htmlFor="identifier" className="text-xs font-medium text-zinc-300">
-                    Phone number or Staff ID
+                    Phone number, email, or Staff ID
                   </label>
                   <div className="relative">
                     <input
@@ -78,8 +111,11 @@ export default function ForgotPasswordPage() {
                       type="text"
                       required
                       value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="e.g. 024 412 8900 or WAEC-GH-0412"
+                      onChange={(e) => {
+                        setIdentifier(e.target.value)
+                        setErrorMsg('')
+                      }}
+                      placeholder="e.g. 024 410 1001 or WAEC-ASH-0101"
                       className="w-full h-12 rounded-xl bg-[#0D1224] border border-white/10 px-4 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:border-[#375DFB] focus:ring-1 focus:ring-[#375DFB] transition"
                     />
                   </div>
@@ -87,9 +123,10 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="submit"
-                  className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] text-white font-semibold text-sm sm:text-base shadow-lg shadow-[#375DFB]/25 transition flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={loading}
+                  className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] text-white font-semibold text-sm sm:text-base shadow-lg shadow-[#375DFB]/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
-                  <span>Transmit recovery request</span>
+                  <span>{loading ? 'Transmitting...' : 'Transmit recovery request'}</span>
                   <ArrowRight className="size-4" />
                 </button>
               </form>
@@ -99,7 +136,7 @@ export default function ForgotPasswordPage() {
             <div className="p-3.5 sm:p-4 rounded-xl bg-[#141824] border border-amber-500/20 text-xs text-zinc-300 flex items-start gap-3">
               <Shield className="size-4 text-[#FACC15] shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                Security tokens are encrypted and valid for 15 minutes. Contact your regional coordinator for immediate on-duty assistance.
+                Recovery requests notify your regional controller immediately in Command Alerts. Contact HQ for urgent on-duty access.
               </p>
             </div>
 

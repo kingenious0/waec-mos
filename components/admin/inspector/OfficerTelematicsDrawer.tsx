@@ -1,19 +1,8 @@
 'use client'
 
 import React from 'react'
-import {
-  Radio,
-  Clock,
-  Flag,
-  Phone,
-  Shield,
-  Battery,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  X,
-} from 'lucide-react'
-import type { FleetOfficer } from '@/components/admin/FleetMap'
+import { Radio, Clock, Flag, X } from 'lucide-react'
+import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
 interface OfficerTelematicsDrawerProps {
   officer: FleetOfficer | null
@@ -28,16 +17,65 @@ export function OfficerTelematicsDrawer({
   officer,
   onCallOfficer,
   onViewLogs,
-  isMobileDrawerExpanded = false,
   onToggleMobileDrawer,
   onClose,
 }: OfficerTelematicsDrawerProps) {
   if (!officer) return null
 
-  // Extract short unit code, e.g. "off-1" -> "01", "off-4" -> "04"
-  const unitNumber = officer.id.replace('off-', '').padStart(2, '0')
+  const unitCode = getOfficerUnitCode(officer)
   const isSos = officer.status === 'SOS'
   const isOnSite = officer.status === 'ON_SITE'
+  const radiusMeters = officer.centerRadius || 150
+  const dist = officer.distanceFromDatum
+
+  const distLabel =
+    dist === null || dist === undefined
+      ? '--'
+      : dist >= 1000
+      ? `${(dist / 1000).toFixed(1)}`
+      : `${dist}`
+  const distUnit =
+    dist === null || dist === undefined ? 'No ping' : dist >= 1000 ? 'km' : 'm'
+
+  const speedDisplay =
+    typeof officer.speedKmh === 'number' ? String(officer.speedKmh) : '--'
+
+  const batteryVal = officer.battery
+  const batteryDisplay = typeof batteryVal === 'number' ? `${batteryVal}%` : '--%'
+  const batteryHealth =
+    typeof batteryVal !== 'number'
+      ? 'No data'
+      : batteryVal <= 20
+      ? 'Critical'
+      : batteryVal <= 40
+      ? 'Low'
+      : 'Good'
+
+  const signalState = officer.isOnline
+    ? 'Online'
+    : officer.lastPingAt
+    ? 'Stale'
+    : 'Offline'
+  const lastPingFormatted = officer.lastPingAt
+    ? new Date(officer.lastPingAt).toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }) + ' GMT'
+    : 'Never'
+
+  // Compute perimeter readiness percentage dynamically
+  let perimeterPct = 0
+  if (isOnSite) {
+    perimeterPct = 100
+  } else if (typeof dist === 'number') {
+    if (dist <= radiusMeters) {
+      perimeterPct = 100
+    } else {
+      perimeterPct = Math.max(8, Math.min(95, Math.round((radiusMeters / dist) * 100)))
+    }
+  }
+
+  const checkpoints = officer.checkpoints || []
 
   return (
     <div className="flex flex-col h-full bg-[#0C0F17] select-none text-foreground">
@@ -50,19 +88,18 @@ export function OfficerTelematicsDrawer({
       </div>
 
       <div className="p-4 flex-1 flex flex-col overflow-y-auto space-y-4">
-        {/* --- Top Officer Header Card --- */}
+        {/* Top Officer Header Card */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3">
-            {/* Unit Badge (04 / U-04) */}
-            <div className="relative">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="relative shrink-0">
               <div
-                className={`size-12 rounded-xl flex items-center justify-center font-sans font-bold text-base border ${
+                className={`size-12 rounded-xl flex items-center justify-center font-sans font-bold text-sm border ${
                   isSos
                     ? 'bg-status-sos/15 text-status-sos border-status-sos/30'
                     : 'bg-amber-500/10 text-amber-400 border-amber-500/25'
                 }`}
               >
-                {unitNumber}
+                {unitCode.slice(0, 4)}
               </div>
               <span
                 className={`absolute -bottom-1 -right-1 size-3 rounded-full border-2 border-[#0C0F17] ${
@@ -70,44 +107,44 @@ export function OfficerTelematicsDrawer({
                     ? 'bg-status-sos animate-ping'
                     : isOnSite
                     ? 'bg-status-ok'
-                    : 'bg-amber-400'
+                    : officer.isOnline
+                    ? 'bg-sky-400'
+                    : 'bg-slate-500'
                 }`}
               />
             </div>
 
-            {/* Officer Name & Assigned Center */}
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm text-foreground">
+                <span className="font-semibold text-sm text-foreground truncate">
                   {officer.name}
                 </span>
                 {officer.isLeader && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
                     LEAD
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                 <span className="truncate max-w-[150px]">
-                  {officer.assignedCenter.split(' School')[0].split(' College')[0]}
+                  {officer.assignedCenter}
                 </span>
                 <span>•</span>
                 <span
                   className={
                     isSos
-                      ? 'text-status-sos font-semibold'
+                      ? 'text-status-sos font-semibold shrink-0'
                       : isOnSite
-                      ? 'text-status-ok'
-                      : 'text-amber-400'
+                      ? 'text-status-ok shrink-0'
+                      : 'text-amber-400 shrink-0'
                   }
                 >
-                  {isSos ? 'SOS Alert' : isOnSite ? 'On Site' : 'In Transit'}
+                  {isSos ? 'SOS Alert' : isOnSite ? 'On Site' : 'Pending'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Priority / Status tag & Close Button */}
           <div className="flex items-start gap-2.5 shrink-0">
             <div className="text-right">
               <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground block">
@@ -115,10 +152,14 @@ export function OfficerTelematicsDrawer({
               </span>
               <span
                 className={`text-xs font-sans font-bold ${
-                  isSos ? 'text-status-sos' : 'text-sky-400'
+                  isSos
+                    ? 'text-status-sos'
+                    : isOnSite
+                    ? 'text-emerald-400'
+                    : 'text-sky-400'
                 }`}
               >
-                {isSos ? 'CRITICAL' : 'On Track'}
+                {isSos ? 'CRITICAL' : isOnSite ? 'Verified' : 'Standby'}
               </span>
             </div>
 
@@ -136,126 +177,164 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* --- 4-Stat Telematics Grid --- */}
+        {/* 4-Stat Live Telematics Grid */}
         <div className="grid grid-cols-4 gap-2 pt-2 border-t border-border/50">
-          {/* Speed */}
           <div className="flex flex-col">
             <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
               SPEED
             </span>
-            <span className="text-base font-semibold font-sans text-foreground mt-0.5">
-              {isOnSite ? '0' : '42'}
+            <span className="text-base font-semibold font-sans text-foreground mt-0.5 tabular-nums">
+              {speedDisplay}
             </span>
             <span className="text-[10px] text-muted-foreground font-sans">km/h</span>
           </div>
 
-          {/* ETA */}
           <div className="flex flex-col">
             <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
-              ETA
+              RANGE
             </span>
-            <span className="text-base font-semibold font-sans text-amber-400 mt-0.5">
-              {isOnSite ? 'ARR' : '06'}
+            <span className="text-base font-semibold font-sans text-amber-400 mt-0.5 tabular-nums">
+              {distLabel}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans">
-              {isOnSite ? 'Site' : 'min'}
+            <span className="text-[10px] text-muted-foreground font-sans">{distUnit}</span>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
+              TELEMETRY
+            </span>
+            <span
+              className={`text-sm font-semibold font-sans mt-1 ${
+                officer.isOnline
+                  ? 'text-emerald-400'
+                  : officer.lastPingAt
+                  ? 'text-amber-400'
+                  : 'text-slate-400'
+              }`}
+            >
+              {signalState}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-sans truncate">
+              {lastPingFormatted}
             </span>
           </div>
 
-          {/* Payload Lock Status */}
-          <div className="flex flex-col">
-            <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
-              EXAM PAPERS
-            </span>
-            <span className="text-base font-semibold font-sans text-foreground mt-0.5">
-              #{unitNumber}
-            </span>
-            <span className="text-[10px] text-status-ok font-medium">Secured</span>
-          </div>
-
-          {/* Power / Battery */}
           <div className="flex flex-col">
             <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
               BATTERY
             </span>
             <span
-              className={`text-base font-semibold font-sans mt-0.5 ${
-                officer.battery <= 20
+              className={`text-base font-semibold font-sans mt-0.5 tabular-nums ${
+                typeof batteryVal !== 'number'
+                  ? 'text-slate-400'
+                  : batteryVal <= 20
                   ? 'text-status-sos'
-                  : officer.battery <= 50
+                  : batteryVal <= 40
                   ? 'text-amber-400'
                   : 'text-status-ok'
               }`}
             >
-              {officer.battery}%
+              {batteryDisplay}
             </span>
-            <span className="text-[10px] text-status-ok font-medium">Good</span>
+            <span
+              className={`text-[10px] font-medium ${
+                typeof batteryVal !== 'number'
+                  ? 'text-slate-500'
+                  : batteryVal <= 20
+                  ? 'text-status-sos'
+                  : 'text-status-ok'
+              }`}
+            >
+              {batteryHealth}
+            </span>
           </div>
         </div>
 
-        {/* --- Destination & Progress Bar Card --- */}
+        {/* Venue & Live Perimeter Progress Card */}
         <div className="rounded-xl bg-[#111522] border border-border/80 p-3.5 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 font-medium text-foreground">
-              <Flag className="size-3.5 text-sky-400" />
+          <div className="flex items-center justify-between text-xs gap-2">
+            <div className="flex items-center gap-2 font-medium text-foreground min-w-0">
+              <Flag className="size-3.5 text-sky-400 shrink-0" />
               <span className="truncate">{officer.assignedCenter}</span>
             </div>
-            <span className="font-sans font-semibold text-sky-400">
-              {isOnSite ? '100%' : '72%'}
+            <span className="font-sans font-semibold text-sky-400 shrink-0 tabular-nums">
+              {perimeterPct}%
             </span>
           </div>
 
-          {/* Progress Bar */}
           <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-amber-400 via-sky-400 to-sky-500 rounded-full transition-all duration-300"
-              style={{ width: isOnSite ? '100%' : '72%' }}
+              className={`h-full rounded-full transition-all duration-300 ${
+                isSos
+                  ? 'bg-red-500'
+                  : isOnSite
+                  ? 'bg-emerald-400'
+                  : 'bg-gradient-to-r from-amber-400 via-sky-400 to-sky-500'
+              }`}
+              style={{ width: `${perimeterPct}%` }}
             />
           </div>
 
           <div className="flex items-center justify-between text-[11px] font-sans text-muted-foreground">
-            <span>{isOnSite ? 'Stationed at Center' : 'Departed Depository'}</span>
-            <span className="text-foreground">
-              {isOnSite ? 'Within Perimeter' : '3.4 / 4.7 km'}
+            <span>
+              {isOnSite
+                ? officer.verifiedTime
+                  ? `Checked in at ${officer.verifiedTime}`
+                  : 'Stationed at Center'
+                : officer.hasLiveTelemetry
+                ? 'Live GPS Tracking'
+                : 'Awaiting GPS ping'}
+            </span>
+            <span className="text-foreground tabular-nums">
+              {typeof dist === 'number'
+                ? dist <= radiusMeters
+                  ? `Within ${radiusMeters}m perimeter`
+                  : `${dist >= 1000 ? `${(dist / 1000).toFixed(1)} km` : `${dist} m`} from center`
+                : 'No telemetry fix'}
             </span>
           </div>
         </div>
 
-        {/* --- Waypoints List (Visible on desktop or when expanded on mobile) --- */}
+        {/* Live Duty Checkpoints from Neon audit_logs */}
         <div className="space-y-2 pt-1">
           <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground block">
-            CHECKPOINTS
+            RECENT ACTIVITY LOGS
           </span>
 
-          <div className="space-y-2.5 text-xs font-sans">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-status-ok" />
-                <span>HQ Vault Departure</span>
-              </div>
-              <span className="text-muted-foreground">08:15 GMT</span>
+          {checkpoints.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-slate-500">
+              No duty activity logged yet for this officer.
             </div>
+          ) : (
+            <div className="space-y-2 text-xs font-sans">
+              {checkpoints.map((cp) => {
+                const dotColor =
+                  cp.tone === 'critical'
+                    ? 'bg-status-sos'
+                    : cp.tone === 'ok'
+                    ? 'bg-status-ok'
+                    : 'bg-sky-400'
+                const textTone =
+                  cp.tone === 'critical'
+                    ? 'text-red-300 font-medium'
+                    : 'text-slate-300'
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-400 font-medium">
-                <span className="size-1.5 rounded-full bg-amber-400" />
-                <span>Sector B4 (In Transit)</span>
-              </div>
-              <span className="text-amber-400">08:48 GMT</span>
+                return (
+                  <div key={cp.id} className="flex items-start justify-between gap-2">
+                    <div className={`flex items-start gap-2 min-w-0 ${textTone}`}>
+                      <span className={`size-1.5 rounded-full ${dotColor} mt-1.5 shrink-0`} />
+                      <span className="leading-snug">{cp.label}</span>
+                    </div>
+                    <span className="text-muted-foreground shrink-0 tabular-nums">{cp.time}</span>
+                  </div>
+                )
+              })}
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-muted-foreground/60">
-                <span className="size-1.5 rounded-full bg-muted-foreground/40" />
-                <span>Exam Center 07 Arrival</span>
-              </div>
-              <span className="text-muted-foreground/60">08:54 GMT</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* --- Action Buttons (Fixed at bottom of Drawer) --- */}
+      {/* Action Buttons */}
       <div className="p-4 border-t border-border/80 bg-[#0B0D14] grid grid-cols-2 gap-3">
         <button
           type="button"

@@ -2,15 +2,15 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
-import {
-  Compass,
-  Plus,
-  Minus,
-  Crosshair,
-  Layers,
-  Search,
-  SlidersHorizontal,
-} from 'lucide-react'
+import { Plus, Minus, Crosshair } from 'lucide-react'
+
+export interface OfficerCheckpoint {
+  id: string
+  action: string
+  label: string
+  time: string
+  tone: 'critical' | 'ok' | 'info'
+}
 
 export interface FleetOfficer {
   id: string
@@ -19,25 +19,59 @@ export interface FleetOfficer {
   staffId: string
   group: string
   isLeader?: boolean
+  accountStatus?: string
   assignedCenter: string
   centerCode: string
+  centerRadius?: number
   status: 'ON_SITE' | 'PENDING' | 'SOS'
+  assignmentStatus?: string
   verifiedTime?: string
-  distanceFromDatum: number // meters
-  battery: number
+  distanceFromDatum: number | null // meters, null if no telemetry ping yet
+  battery: number | null
+  speedKmh?: number | null
+  accuracyMeters?: number | null
+  lastPingAt?: string | null
+  hasLiveTelemetry?: boolean
+  isOnline?: boolean
   lat: number
   lng: number
   sosDetails?: string
+  sosIncidentId?: string
+  sosIncidentNumber?: string
+  checkpoints?: OfficerCheckpoint[]
 }
 
 export interface ExamCenter {
+  id?: string
   name: string
   code: string
   lat: number
   lng: number
-  radius: number // 150m
+  radius: number
   depotLocked: boolean
   totalMonitors: number
+  onSiteMonitors?: number
+  openIncidentsCount?: number
+  supervisorContact?: string
+  districtId?: string
+  districtName?: string
+  regionName?: string
+}
+
+export function getOfficerUnitCode(officer: Pick<FleetOfficer, 'staffId' | 'name' | 'id'>): string {
+  const parts = (officer.staffId || '').split('-').filter(Boolean)
+  const tail = parts[parts.length - 1]
+  if (tail && /^\d+$/.test(tail)) {
+    return tail
+  }
+  const initials = (officer.name || '')
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+  return initials || officer.id.slice(-2).toUpperCase()
 }
 
 interface FleetMapProps {
@@ -56,20 +90,17 @@ export default function FleetMap({
   centers,
   selectedOfficer,
   onSelectOfficer,
-  onCallOfficer,
-  onNavigate,
   focusTarget,
-  activeSectorName = 'Ashanti Metro Zone',
+  activeSectorName = 'Ashanti Regional Zone',
 }: FleetMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const tileLayerRef = useRef<any>(null)
-  const markersRef = useRef<{ [id: string]: any }>({})
-  const trailPolylineRef = useRef<any>(null)
+  const centersLayerRef = useRef<any>(null)
+  const officersLayerRef = useRef<any>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapMode, setMapMode] = useState<'map' | 'satellite'>('map')
 
-  // Helper to create Real Leaflet OSM map or Satellite tiles (No API key needed)
   const createTileLayer = (L: any, mode: 'map' | 'satellite') => {
     if (mode === 'satellite') {
       return L.tileLayer(
@@ -81,7 +112,6 @@ export default function FleetMap({
       )
     }
 
-    // Real OpenStreetMap (OSM) Standard Tile Layer
     return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       subdomains: ['a', 'b', 'c'],
@@ -89,47 +119,88 @@ export default function FleetMap({
     })
   }
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet map once
   useEffect(() => {
-    let map: any = null
+    let isCancelled = false
 
     async function initMap() {
       if (!mapContainerRef.current) return
-
       const L = (await import('leaflet')).default
-      if (mapInstanceRef.current) return
+      if (isCancelled || !mapContainerRef.current || mapInstanceRef.current) return
 
-      map = L.map(mapContainerRef.current, {
-        center: [6.6924, -1.6241], // Kumasi, Ghana
+      const map = L.map(mapContainerRef.current, {
+        center: [6.6924, -1.6241],
         zoom: 13,
         zoomControl: false,
         attributionControl: false,
       })
 
-      // Real Leaflet OSM Layer
       tileLayerRef.current = createTileLayer(L, mapMode).addTo(map)
+      centersLayerRef.current = L.layerGroup().addTo(map)
+      officersLayerRef.current = L.layerGroup().addTo(map)
 
-      // Add Center Geofences & Polygon Zones
+      mapInstanceRef.current = map
+      setMapLoaded(true)
+    }
+
+    initMap()
+
+    return () => {
+      isCancelled = true
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+      centersLayerRef.current = null
+      officersLayerRef.current = null
+      setMapLoaded(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Handle Map / Satellite mode toggle without rebuilding map
+  useEffect(() => {
+    if (!mapInstanceRef.current || !mapLoaded) return
+    import('leaflet').then((leafletModule) => {
+      if (!mapInstanceRef.current) return
+      const L = leafletModule.default
+      if (tileLayerRef.current) {
+        mapInstanceRef.current.removeLayer(tileLayerRef.current)
+      }
+      tileLayerRef.current = createTileLayer(L, mapMode).addTo(mapInstanceRef.current)
+    })
+  }, [mapMode, mapLoaded])
+
+  // Render / update Examination Center geofence circles smoothly when centers change
+  useEffect(() => {
+    if (!mapInstanceRef.current || !centersLayerRef.current || !mapLoaded) return
+    import('leaflet').then((leafletModule) => {
+      if (!centersLayerRef.current) return
+      const L = leafletModule.default
+      const group = centersLayerRef.current
+      group.clearLayers()
+
       centers.forEach((center) => {
-        // Geofence Circle
+        const hasBreach = (center.openIncidentsCount || 0) > 0
+        const color = hasBreach ? '#EF4444' : '#0284c7'
+
         L.circle([center.lat, center.lng], {
           radius: center.radius,
-          color: '#0284c7', // Sky blue border
+          color,
           weight: 2,
           opacity: 0.9,
-          fillColor: '#0284c7',
+          fillColor: color,
           fillOpacity: 0.2,
           dashArray: '5, 5',
-        }).addTo(map)
+        }).addTo(group)
 
-        // Center Marker Pill (Clean sans-serif)
         const centerIcon = L.divIcon({
           className: 'custom-center-marker',
           html: `
             <div style="
               background: rgba(12, 15, 23, 0.95);
-              border: 1px solid rgba(56, 189, 248, 0.4);
-              color: #38bdf8;
+              border: 1px solid ${hasBreach ? 'rgba(239, 68, 68, 0.5)' : 'rgba(56, 189, 248, 0.4)'};
+              color: ${hasBreach ? '#FCA5A5' : '#38bdf8'};
               padding: 2px 8px;
               border-radius: 6px;
               font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
@@ -141,7 +212,9 @@ export default function FleetMap({
               align-items: center;
               gap: 5px;
             ">
-              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#38bdf8; box-shadow: 0 0 6px #38bdf8;"></span>
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${
+                hasBreach ? '#EF4444' : '#38bdf8'
+              }; box-shadow: 0 0 6px ${hasBreach ? '#EF4444' : '#38bdf8'};"></span>
               ${center.name.split(' School')[0].split(' College')[0]} (${center.code})
             </div>
           `,
@@ -149,60 +222,30 @@ export default function FleetMap({
           iconAnchor: [70, 24],
         })
 
-        L.marker([center.lat, center.lng], { icon: centerIcon, interactive: false }).addTo(map)
+        L.marker([center.lat, center.lng], { icon: centerIcon, interactive: false }).addTo(group)
       })
-
-      mapInstanceRef.current = map
-      setMapLoaded(true)
-    }
-
-    initMap()
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-      }
-    }
-  }, [centers])
-
-  // Handle Map / Satellite mode change dynamically
-  useEffect(() => {
-    if (!mapInstanceRef.current || !mapLoaded) return
-    import('leaflet').then((leafletModule) => {
-      const L = leafletModule.default
-      if (tileLayerRef.current) {
-        mapInstanceRef.current.removeLayer(tileLayerRef.current)
-      }
-      tileLayerRef.current = createTileLayer(L, mapMode).addTo(mapInstanceRef.current)
     })
-  }, [mapMode, mapLoaded])
+  }, [centers, mapLoaded])
 
-  // Update Officer Markers & Active Corridor Trail
+  // Render / update Officer Markers & Active Corridor Trail without touching tile/center layers
   useEffect(() => {
-    if (!mapInstanceRef.current || !mapLoaded) return
-    const map = mapInstanceRef.current
+    if (!mapInstanceRef.current || !officersLayerRef.current || !mapLoaded) return
 
     import('leaflet').then((leafletModule) => {
+      if (!officersLayerRef.current) return
       const L = leafletModule.default
+      const group = officersLayerRef.current
+      group.clearLayers()
 
-      // Clear previous markers
-      Object.values(markersRef.current).forEach((marker: any) => {
-        map.removeLayer(marker)
-      })
-      markersRef.current = {}
-
-      // Add each officer as a tactical marker
       officers.forEach((officer) => {
         const isSelected = selectedOfficer?.id === officer.id
         const isSos = officer.status === 'SOS'
         const isOnSite = officer.status === 'ON_SITE'
-        const unitId = officer.id.replace('off-', '').padStart(2, '0')
+        const unitId = getOfficerUnitCode(officer)
 
         let markerHtml = ''
 
         if (isSos) {
-          // SOS Pulsing Beacon Marker
           markerHtml = `
             <div class="relative flex items-center justify-center cursor-pointer">
               <div style="
@@ -229,7 +272,7 @@ export default function FleetMap({
                 position: relative;
                 z-index: 2;
               ">
-                ⚠️
+                !
               </div>
               <div style="
                 position: absolute;
@@ -251,7 +294,6 @@ export default function FleetMap({
             </div>
           `
         } else if (isSelected) {
-          // Selected Unit Active Marker (with golden/radar ring and unit pill)
           markerHtml = `
             <div class="relative flex items-center justify-center cursor-pointer">
               <div style="
@@ -286,7 +328,6 @@ export default function FleetMap({
             </div>
           `
         } else if (isOnSite) {
-          // Emerald Verified Dot Marker
           markerHtml = `
             <div class="relative flex items-center justify-center cursor-pointer group">
               <div style="
@@ -300,7 +341,6 @@ export default function FleetMap({
             </div>
           `
         } else {
-          // In Transit Cyan / Amber Marker
           markerHtml = `
             <div class="relative flex items-center justify-center cursor-pointer group">
               <div style="
@@ -322,77 +362,74 @@ export default function FleetMap({
           iconAnchor: [16, 16],
         })
 
-        const marker = L.marker([officer.lat, officer.lng], { icon })
-          .addTo(map)
+        L.marker([officer.lat, officer.lng], { icon })
+          .addTo(group)
           .on('click', () => {
             onSelectOfficer(officer)
           })
-
-        markersRef.current[officer.id] = marker
       })
 
-      // Add Dotted Trail Line if an officer is selected
-      if (trailPolylineRef.current) {
-        map.removeLayer(trailPolylineRef.current)
-        trailPolylineRef.current = null
-      }
-
       if (selectedOfficer) {
-        const matchingCenter = centers.find(
-          (c) => c.code === selectedOfficer.centerCode || c.name === selectedOfficer.assignedCenter
-        ) || centers[0]
+        const matchingCenter =
+          centers.find(
+            (c) => c.code === selectedOfficer.centerCode || c.name === selectedOfficer.assignedCenter
+          ) || centers[0]
 
         if (matchingCenter) {
-          const latlngs: [number, number][] = [
-            [selectedOfficer.lat, selectedOfficer.lng],
-            [matchingCenter.lat, matchingCenter.lng],
-          ]
-
-          trailPolylineRef.current = L.polyline(latlngs, {
-            color: selectedOfficer.status === 'SOS' ? '#ef4444' : '#bef264', // Lime / Cyan dashed route
-            weight: 2.5,
-            opacity: 0.85,
-            dashArray: '6, 8',
-          }).addTo(map)
+          L.polyline(
+            [
+              [selectedOfficer.lat, selectedOfficer.lng],
+              [matchingCenter.lat, matchingCenter.lng],
+            ],
+            {
+              color: selectedOfficer.status === 'SOS' ? '#ef4444' : '#bef264',
+              weight: 2.5,
+              opacity: 0.85,
+              dashArray: '6, 8',
+            }
+          ).addTo(group)
         }
       }
     })
   }, [officers, selectedOfficer, centers, mapLoaded, onSelectOfficer])
 
-  // Handle Focus Target Changes
   useEffect(() => {
     if (!mapInstanceRef.current || !focusTarget) return
-    mapInstanceRef.current.flyTo(
-      [focusTarget.lat, focusTarget.lng],
-      focusTarget.zoom || 15,
-      { duration: 1.2 }
-    )
+    mapInstanceRef.current.flyTo([focusTarget.lat, focusTarget.lng], focusTarget.zoom || 15, {
+      duration: 1.2,
+    })
   }, [focusTarget])
 
   const handleZoomIn = () => mapInstanceRef.current?.zoomIn()
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut()
-  const handleResetView = () => mapInstanceRef.current?.flyTo([6.6924, -1.6241], 13)
+  const handleResetView = () => {
+    const first = centers[0]
+    if (first) {
+      mapInstanceRef.current?.flyTo([first.lat, first.lng], 13)
+    } else {
+      mapInstanceRef.current?.flyTo([6.6924, -1.6241], 13)
+    }
+  }
 
   return (
     <div className="relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans">
-      {/* Real Interactive Leaflet Container */}
       <div ref={mapContainerRef} className="size-full z-0" />
 
-      {/* --- Google Maps Style: Top-Left Floating Zone Status Pill --- */}
+      {/* Top-Left Floating Zone Status Pill */}
       <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 z-10 pointer-events-auto">
         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-xl text-xs font-sans">
           <span className="size-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_8px_#34d399] animate-pulse" />
           <span className="font-semibold text-white tracking-tight">
-            {activeSectorName || 'Ashanti Regional Zone'}
+            {activeSectorName}
           </span>
           <span className="text-slate-600">•</span>
           <span className="text-emerald-400 font-bold">
-            {officers.length || 48} Active
+            {officers.length} Officers
           </span>
         </div>
       </div>
 
-      {/* --- Google Maps Style: Top-Right Map / Satellite Switcher --- */}
+      {/* Top-Right Map / Satellite Switcher */}
       <div className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 pointer-events-auto">
         <div className="flex items-center rounded-full bg-[#0C0F17]/90 border border-[#22263C] p-1 backdrop-blur-md shadow-xl text-xs font-sans">
           <button
@@ -420,9 +457,8 @@ export default function FleetMap({
         </div>
       </div>
 
-      {/* --- Google Maps Style: Bottom-Right Vertical Floating Tool Cluster --- */}
+      {/* Bottom-Right Vertical Floating Tool Cluster */}
       <div className="absolute bottom-6 right-3.5 sm:bottom-6 sm:right-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
-        {/* Zoom In / Out Buttons Stack */}
         <div className="flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-2xl overflow-hidden divide-y divide-[#22263C]">
           <button
             type="button"
@@ -444,13 +480,12 @@ export default function FleetMap({
           </button>
         </div>
 
-        {/* Center / Location Target Crosshair Button */}
         <button
           type="button"
           onClick={handleResetView}
           aria-label="Center view"
           className="size-9 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
-          title="Recenter to Kumasi Center"
+          title="Recenter Map"
         >
           <Crosshair className="size-4" />
         </button>

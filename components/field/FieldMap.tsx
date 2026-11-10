@@ -11,40 +11,51 @@ interface FieldMapProps {
   centerLng?: number
   radiusMeters?: number
   isInside?: boolean
-  distanceMeters?: number
+  distanceMeters?: number | null
   userLat?: number
   userLng?: number
 }
 
 export default function FieldMap({
-  centerName = 'Prempeh College Center A',
-  centerCode = '050102',
+  centerName = 'Unassigned Center',
+  centerCode = '',
   centerLat = 6.7028,
   centerLng = -1.6369,
   radiusMeters = 150,
-  isInside = true,
-  distanceMeters = isInside ? 42 : 450,
+  isInside = false,
+  distanceMeters = null,
   userLat,
   userLng,
 }: FieldMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
+  const overlayLayerRef = useRef<any>(null)
+  const hasFittedRef = useRef(false)
 
-  const officerLat = userLat !== undefined ? userLat : (isInside ? centerLat + 0.00028 : centerLat + 0.0028)
-  const officerLng = userLng !== undefined ? userLng : (isInside ? centerLng + 0.00024 : centerLng + 0.0031)
+  const hasOfficerCoords = userLat !== undefined && userLng !== undefined
+  const officerLat = hasOfficerCoords ? userLat! : centerLat
+  const officerLng = hasOfficerCoords ? userLng! : centerLng
 
-  const distanceFormatted = distanceMeters >= 1000
-    ? `${(distanceMeters / 1000).toFixed(1)} km`
-    : `${distanceMeters} m`
+  const distanceFormatted =
+    distanceMeters === null || distanceMeters === undefined
+      ? 'Acquiring GPS'
+      : distanceMeters >= 1000
+      ? `${(distanceMeters / 1000).toFixed(1)} km from centre`
+      : `${distanceMeters} m from centre`
 
   const fitView = (map: any, L: any) => {
     if (!map || !L) return
-    map.fitBounds(
-      L.latLngBounds([[centerLat, centerLng], [officerLat, officerLng]]),
-      { padding: [60, 60], maxZoom: isInside ? 17 : 16 }
-    )
+    if (hasOfficerCoords) {
+      map.fitBounds(
+        L.latLngBounds([[centerLat, centerLng], [officerLat, officerLng]]),
+        { padding: [60, 60], maxZoom: isInside ? 17 : 16 }
+      )
+    } else {
+      map.setView([centerLat, centerLng], 16)
+    }
   }
 
+  // Initialize Leaflet map once
   useEffect(() => {
     if (!containerRef.current) return
     let isCancelled = false
@@ -71,43 +82,13 @@ export default function FieldMap({
         subdomains: ['a', 'b', 'c'],
       }).addTo(map)
 
-      L.circle([centerLat, centerLng], {
-        radius: radiusMeters,
-        color: '#3B57F0',
-        weight: 2,
-        fillColor: '#3B57F0',
-        fillOpacity: 0.16,
-      }).addTo(map)
-
-      const venueIcon = L.divIcon({
-        className: 'custom-venue-pin',
-        html: '<div style="width:20px;height:20px;border-radius:50%;background:#F6D300;border:3px solid #111420;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      })
-      L.marker([centerLat, centerLng], { icon: venueIcon }).addTo(map)
-
-      const officerIcon = L.divIcon({
-        className: 'custom-officer-dot',
-        html: `<div style="position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(59,87,240,0.28);"></div>
-          <div style="width:12px;height:12px;border-radius:50%;background:#3B57F0;border:2px solid #FFFFFF;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
-        </div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      })
-      L.marker([officerLat, officerLng], { icon: officerIcon }).addTo(map)
-
-      L.polyline([[centerLat, centerLng], [officerLat, officerLng]], {
-        color: isInside ? '#10B981' : '#F59E0B',
-        weight: 2.5,
-        dashArray: isInside ? undefined : '6, 6',
-      }).addTo(map)
+      overlayLayerRef.current = L.layerGroup().addTo(map)
 
       setTimeout(() => {
         if (!isCancelled && mapInstanceRef.current) {
           mapInstanceRef.current.invalidateSize()
           fitView(mapInstanceRef.current, L)
+          hasFittedRef.current = true
         }
       }, 100)
 
@@ -119,11 +100,71 @@ export default function FieldMap({
 
     return () => {
       isCancelled = true
+      hasFittedRef.current = false
       ro?.disconnect()
       mapInstanceRef.current?.remove()
       mapInstanceRef.current = null
+      overlayLayerRef.current = null
     }
-  }, [centerLat, centerLng, officerLat, officerLng, radiusMeters, isInside, userLat, userLng])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Update dynamic venue geofence, officer marker, and vector line without tearing down tiles
+  useEffect(() => {
+    if (!mapInstanceRef.current || !overlayLayerRef.current) return
+    let isCancelled = false
+
+    import('leaflet').then((m) => {
+      if (isCancelled || !mapInstanceRef.current || !overlayLayerRef.current) return
+      const L = m.default || m
+      const group = overlayLayerRef.current
+      group.clearLayers()
+
+      L.circle([centerLat, centerLng], {
+        radius: radiusMeters,
+        color: '#3B57F0',
+        weight: 2,
+        fillColor: '#3B57F0',
+        fillOpacity: 0.16,
+      }).addTo(group)
+
+      const venueIcon = L.divIcon({
+        className: 'custom-venue-pin',
+        html: '<div style="width:20px;height:20px;border-radius:50%;background:#F6D300;border:3px solid #111420;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      })
+      L.marker([centerLat, centerLng], { icon: venueIcon }).addTo(group)
+
+      if (hasOfficerCoords) {
+        const officerIcon = L.divIcon({
+          className: 'custom-officer-dot',
+          html: `<div style="position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
+            <div style="position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(59,87,240,0.28);"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#3B57F0;border:2px solid #FFFFFF;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+          </div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        })
+        L.marker([officerLat, officerLng], { icon: officerIcon }).addTo(group)
+
+        L.polyline([[centerLat, centerLng], [officerLat, officerLng]], {
+          color: isInside ? '#10B981' : '#F59E0B',
+          weight: 2.5,
+          dashArray: isInside ? undefined : '6, 6',
+        }).addTo(group)
+      }
+
+      if (!hasFittedRef.current || hasOfficerCoords) {
+        fitView(mapInstanceRef.current, L)
+        hasFittedRef.current = true
+      }
+    })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [centerLat, centerLng, officerLat, officerLng, radiusMeters, isInside, hasOfficerCoords])
 
   const handleRecenter = () => {
     if (!mapInstanceRef.current) return
@@ -145,8 +186,8 @@ export default function FieldMap({
         </span>
       </div>
       <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md tabular-nums">
-        <span className={`size-2 rounded-full ${isInside ? 'bg-emerald-400' : 'bg-[#F6D300]'}`} />
-        <span>{distanceFormatted} from centre</span>
+        <span className={`size-2 rounded-full ${hasOfficerCoords ? (isInside ? 'bg-emerald-400' : 'bg-[#F6D300]') : 'bg-sky-400 animate-pulse'}`} />
+        <span>{distanceFormatted}</span>
       </div>
       <button
         type="button"

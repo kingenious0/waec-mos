@@ -22,6 +22,16 @@ export const user = pgTable('user', {
   districtId: text('district_id'),
   mustChangePassword: boolean('must_change_password').notNull().default(true),
   lastLoginAt: timestamp('last_login_at'),
+  bio: text('bio'),
+  passwordHash: text('password_hash'),
+  lastLatitude: decimal('last_latitude', { precision: 10, scale: 8 }),
+  lastLongitude: decimal('last_longitude', { precision: 11, scale: 8 }),
+  lastBattery: integer('last_battery'),
+  lastSpeedKmh: integer('last_speed_kmh'),
+  lastAccuracyMeters: integer('last_accuracy_meters'),
+  lastDistanceMeters: integer('last_distance_meters'),
+  lastPingAt: timestamp('last_ping_at'),
+  isSosActive: boolean('is_sos_active').notNull().default(false),
 })
 
 export const session = pgTable('session', {
@@ -140,6 +150,7 @@ export const incidents = pgTable('incidents', {
   resolutionNotes: text('resolution_notes'),
   reportedAt: timestamp('reported_at').notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at'),
+  isRead: boolean('is_read').notNull().default(false),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
@@ -166,5 +177,25 @@ export const auditLogs = pgTable('audit_logs', {
   details: jsonb('details'),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
+  isRead: boolean('is_read').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// --- Regional Hub Settings ---
+
+export const systemSettings = pgTable('system_settings', {
+  id: text('id').primaryKey(), // e.g. 'default-ashanti'
+  lowBatteryThreshold: text('low_battery_threshold').notNull().default('Below 25%'),
+  outsideGeofenceAlert: boolean('outside_geofence_alert').notNull().default(true),
+  officerOfflineTimeout: text('officer_offline_timeout').notNull().default('After 2 minutes'),
+  inAppNotifications: boolean('in_app_notifications').notNull().default(true),
+  sosAlarmSound: boolean('sos_alarm_sound').notNull().default(true),
+  smsToController: boolean('sms_to_controller').notNull().default(true),
+  dailyEmailSummary: boolean('daily_email_summary').notNull().default(false),
+  geofenceRadius: text('geofence_radius').notNull().default('150 m'),
+  locationRefreshInterval: text('location_refresh_interval').notNull().default('Every 10 s'),
+  hideOfficerPins: boolean('hide_officer_pins').notNull().default(true),
+  sessionTimeout: text('session_timeout').notNull().default('30 minutes'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  updatedBy: text('updated_by'),
 })

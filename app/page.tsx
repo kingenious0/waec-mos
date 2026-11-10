@@ -12,9 +12,11 @@ export default function RootPage() {
     const session = getCurrentClientSession()
     if (session) {
       if (session.role === 'ADMIN') {
-        router.replace('/admin')
-      } else if (session.mustChangePassword) {
-        router.replace('/change-password')
+        if (session.mustChangePassword) {
+          router.replace('/change-password')
+        } else {
+          router.replace('/admin')
+        }
       } else {
         router.replace('/field')
       }

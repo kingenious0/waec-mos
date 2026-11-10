@@ -5,7 +5,7 @@ import { ArrowRight, Check, AlertCircle } from 'lucide-react'
 
 interface CheckInButtonProps {
   isInside: boolean
-  distanceMeters: number
+  distanceMeters: number | null
   geofenceRadius?: number
   isCheckedIn: boolean
   onCheckIn: () => void
@@ -21,7 +21,8 @@ export function CheckInButton({
   onCheckOut,
 }: CheckInButtonProps) {
   const [confirmingCheckout, setConfirmingCheckout] = useState(false)
-  const excessDistance = Math.max(0, distanceMeters - geofenceRadius)
+  const excessDistance =
+    distanceMeters === null ? null : Math.max(0, distanceMeters - geofenceRadius)
 
   if (isCheckedIn) {
     if (confirmingCheckout) {
@@ -70,11 +71,13 @@ export function CheckInButton({
         className="w-full h-[60px] rounded-xl font-semibold text-sm tracking-wide flex items-center justify-center gap-2 border border-dashed border-[#283556] bg-[#0D111D]/80 text-slate-400 cursor-not-allowed select-none transition"
       >
         <span>
-          Check in opens{' '}
-          {excessDistance >= 1000
-            ? `${(excessDistance / 1000).toFixed(1)} km`
-            : `${excessDistance} m`}{' '}
-          closer
+          {excessDistance === null
+            ? 'Awaiting GPS fix to check in'
+            : `Check in opens ${
+                excessDistance >= 1000
+                  ? `${(excessDistance / 1000).toFixed(1)} km`
+                  : `${excessDistance} m`
+              } closer`}
         </span>
       </button>
     )
