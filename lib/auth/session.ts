@@ -19,6 +19,9 @@ export interface SessionData {
   photo?: string
   bio?: string
   mustChangePassword: boolean
+  paperName?: string
+  startTime?: string
+  endTime?: string
 }
 
 export function getCurrentClientSession(): SessionData | null {
@@ -51,6 +54,9 @@ export function setClientSession(user: UserAccount) {
     photo: user.photo || '',
     bio: user.bio || '',
     mustChangePassword: user.mustChangePassword,
+    paperName: user.paperName,
+    startTime: user.startTime,
+    endTime: user.endTime,
   }
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data))
   // Also set cookie for middleware compatibility

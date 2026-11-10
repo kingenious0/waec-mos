@@ -27,6 +27,9 @@ export async function GET() {
           assignmentId: schema.assignments.id,
           assignmentStatus: schema.assignments.status,
           checkInTime: schema.assignments.checkInTime,
+          paperName: schema.assignments.paperName,
+          startTime: schema.assignments.startTime,
+          endTime: schema.assignments.endTime,
           centerName: schema.examinationCenters.centerName,
           centerCode: schema.examinationCenters.centerCode,
         })
@@ -68,6 +71,9 @@ export async function GET() {
           checkInTime: u.checkInTime
             ? new Date(u.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT'
             : undefined,
+          paperName: u.paperName || 'Core Mathematics Paper 1 & 2',
+          startTime: u.startTime || '08:30 GMT',
+          endTime: u.endTime || '12:00 GMT',
         })
       }
 
@@ -239,6 +245,9 @@ async function updateOfficerRecord(body: any) {
     dutyStatus,
     actorId,
     actorName,
+    paperName,
+    startTime,
+    endTime,
   } = body
 
   if (!id) {
@@ -278,44 +287,54 @@ async function updateOfficerRecord(body: any) {
       await db.update(schema.user).set(userUpdates).where(eq(schema.user.id, id))
     }
 
-    if (assignedCenter || assignedCenterCode) {
-      const center = await db
-        .select()
-        .from(schema.examinationCenters)
-        .where(
-          assignedCenterCode
-            ? eq(schema.examinationCenters.centerCode, assignedCenterCode)
-            : eq(schema.examinationCenters.centerName, assignedCenter)
-        )
-        .limit(1)
-
-      if (center.length > 0) {
-        const centerId = center[0].id
-        const existingAsg = await db
+    if (assignedCenter || assignedCenterCode || paperName || startTime || endTime) {
+      let centerId: string | undefined = undefined
+      if (assignedCenter || assignedCenterCode) {
+        const center = await db
           .select()
-          .from(schema.assignments)
-          .where(eq(schema.assignments.officerId, id))
-          .orderBy(desc(schema.assignments.updatedAt))
+          .from(schema.examinationCenters)
+          .where(
+            assignedCenterCode
+              ? eq(schema.examinationCenters.centerCode, assignedCenterCode)
+              : eq(schema.examinationCenters.centerName, assignedCenter)
+          )
           .limit(1)
 
-        if (existingAsg.length > 0) {
-          await db
-            .update(schema.assignments)
-            .set({ centerId, updatedAt: new Date() })
-            .where(eq(schema.assignments.id, existingAsg[0].id))
-        } else {
-          await db.insert(schema.assignments).values({
-            id: `asg-${Date.now()}`,
-            operationId: 'op-wassce-2026',
-            centerId,
-            officerId: id,
-            date: new Date().toISOString().split('T')[0],
-            paperName: 'Core Mathematics Paper 1 & 2',
-            startTime: '08:30 GMT',
-            endTime: '12:00 GMT',
-            status: 'PENDING',
-          })
+        if (center.length > 0) {
+          centerId = center[0].id
         }
+      }
+
+      const existingAsg = await db
+        .select()
+        .from(schema.assignments)
+        .where(eq(schema.assignments.officerId, id))
+        .orderBy(desc(schema.assignments.updatedAt))
+        .limit(1)
+
+      const asgUpdates: Record<string, unknown> = { updatedAt: new Date() }
+      if (centerId) asgUpdates.centerId = centerId
+      if (paperName) asgUpdates.paperName = String(paperName).trim()
+      if (startTime) asgUpdates.startTime = String(startTime).trim()
+      if (endTime) asgUpdates.endTime = String(endTime).trim()
+
+      if (existingAsg.length > 0) {
+        await db
+          .update(schema.assignments)
+          .set(asgUpdates)
+          .where(eq(schema.assignments.id, existingAsg[0].id))
+      } else if (centerId) {
+        await db.insert(schema.assignments).values({
+          id: `asg-${Date.now()}`,
+          operationId: 'op-wassce-2026',
+          centerId,
+          officerId: id,
+          date: new Date().toISOString().split('T')[0],
+          paperName: paperName ? String(paperName).trim() : 'Core Mathematics Paper 1 & 2',
+          startTime: startTime ? String(startTime).trim() : '08:30 GMT',
+          endTime: endTime ? String(endTime).trim() : '12:00 GMT',
+          status: 'PENDING',
+        })
       }
     }
 
@@ -360,6 +379,9 @@ async function updateOfficerRecord(body: any) {
   if (assignedCenterCode !== undefined) storeUpdates.assignedCenterCode = assignedCenterCode
   if (bio !== undefined) storeUpdates.bio = bio
   if (dutyStatus !== undefined) storeUpdates.dutyStatus = dutyStatus as any
+  if (paperName !== undefined) storeUpdates.paperName = paperName
+  if (startTime !== undefined) storeUpdates.startTime = startTime
+  if (endTime !== undefined) storeUpdates.endTime = endTime
 
   const updatedStoreOfficer = store.updateUser(id, storeUpdates)
 
@@ -391,5 +413,72 @@ export async function PATCH(request: Request) {
   } catch (error) {
     console.error('Failed to update officer (PATCH):', error)
     return NextResponse.json({ error: 'Failed to update field officer' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const actorId = searchParams.get('actorId') || 'usr-admin-hq'
+    const actorName = searchParams.get('actorName') || 'HQ Command'
+
+    if (!id) {
+      return NextResponse.json({ error: 'Officer ID is required' }, { status: 400 })
+    }
+
+    let deletedName = 'Officer'
+    let deletedStaffId = ''
+
+    if (isLiveDatabase && db) {
+      const existing = await db
+        .select({ id: schema.user.id, name: schema.user.name, staffId: schema.user.staffId })
+        .from(schema.user)
+        .where(eq(schema.user.id, id))
+        .limit(1)
+
+      if (existing.length === 0) {
+        return NextResponse.json({ error: 'Officer not found in database' }, { status: 404 })
+      }
+
+      deletedName = existing[0].name
+      deletedStaffId = existing[0].staffId || ''
+
+      // Clean up assignments
+      await db.delete(schema.assignments).where(eq(schema.assignments.officerId, id))
+
+      // Clean up incident updates and incidents reported by this officer
+      await db.delete(schema.incidentUpdates).where(eq(schema.incidentUpdates.actorId, id))
+      await db.delete(schema.incidents).where(eq(schema.incidents.reportedBy, id))
+
+      // Delete from Better Auth account, session, & user
+      await db.delete(schema.account).where(eq(schema.account.userId, id))
+      await db.delete(schema.session).where(eq(schema.session.userId, id))
+      await db.delete(schema.user).where(eq(schema.user.id, id))
+
+      await recordAuditLog({
+        actorId,
+        actorName,
+        actorRole: 'ADMIN',
+        action: 'USER_DELETED',
+        entityType: 'users',
+        entityId: id,
+        details: {
+          message: `${actorName} decommissioned field officer ${deletedName} (${deletedStaffId || id})`,
+          targetName: deletedName,
+          staffId: deletedStaffId,
+        },
+      })
+    }
+
+    store.users = store.users.filter((u) => u.id !== id && u.staffId !== id)
+
+    return NextResponse.json({
+      success: true,
+      message: `Officer ${deletedName} decommissioned successfully`,
+    })
+  } catch (error) {
+    console.error('Failed to delete officer:', error)
+    return NextResponse.json({ error: 'Failed to delete field officer' }, { status: 500 })
   }
 }

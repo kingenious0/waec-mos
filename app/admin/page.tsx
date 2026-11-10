@@ -40,6 +40,9 @@ import {
   EyeOff,
   Plus,
   Pencil,
+  Trash2,
+  Filter,
+  RefreshCw,
 } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
@@ -165,6 +168,11 @@ export default function AdminPage() {
     center?: ExamCenter
   } | null>(null)
   const [showLogIncidentModal, setShowLogIncidentModal] = useState(false)
+  const [centerToDelete, setCenterToDelete] = useState<ExamCenter | null>(null)
+  const [officerToDelete, setOfficerToDelete] = useState<UserAccount | null>(null)
+  const [isDeletingRecord, setIsDeletingRecord] = useState(false)
+  const [centerSearchQuery, setCenterSearchQuery] = useState('')
+  const [centerDistrictFilter, setCenterDistrictFilter] = useState('ALL')
 
   const hasInitializedSelectionRef = useRef(false)
   const prevSosCountRef = useRef(0)
@@ -393,6 +401,23 @@ export default function AdminPage() {
     [examCenters]
   )
 
+  const filteredCenters = useMemo(() => {
+    let list = examCenters
+    if (centerDistrictFilter !== 'ALL') {
+      list = list.filter((c) => c.districtId === centerDistrictFilter)
+    }
+    const q = centerSearchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.code.toLowerCase().includes(q) ||
+          (c.districtName && c.districtName.toLowerCase().includes(q))
+      )
+    }
+    return list
+  }, [examCenters, centerDistrictFilter, centerSearchQuery])
+
   const totalCriticalSosCount = Math.max(activeSosCount, criticalSosIncidents.length)
   const defaultRadiusMeters = parseGeofenceRadiusMeters(systemSettings.geofenceRadius)
 
@@ -574,6 +599,9 @@ export default function AdminPage() {
         pin: updated.pin,
         photo: updated.photo,
         bio: updated.bio,
+        paperName: updated.paperName,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
         actorId: session?.userId,
         actorName: session?.name,
       }),
@@ -584,10 +612,64 @@ export default function AdminPage() {
       throw new Error(errData.error || 'Failed to save officer profile')
     }
 
-    setFeedback(`Profile for ${updated.name || inspectedOfficer.name} saved to database`)
+    setFeedback(`Profile & assignment for ${updated.name || inspectedOfficer.name} saved to database`)
     setInspectedOfficer(null)
     loadDashboardData(true)
     return true
+  }
+
+  const handleDeleteCenterConfirm = async () => {
+    if (!centerToDelete) return
+    setIsDeletingRecord(true)
+    try {
+      const res = await fetch(
+        `/api/centers?id=${encodeURIComponent(centerToDelete.id || '')}&actorId=${encodeURIComponent(
+          session?.userId || ''
+        )}&actorName=${encodeURIComponent(session?.name || '')}`,
+        {
+          method: 'DELETE',
+        }
+      )
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFeedback(`Failed to delete center: ${data.error || 'Server error'}`)
+        return
+      }
+      setFeedback(`Center ${centerToDelete.name} decommissioned successfully`)
+      setCenterToDelete(null)
+      loadDashboardData(true)
+    } catch {
+      setFeedback('Failed to connect to central registry.')
+    } finally {
+      setIsDeletingRecord(false)
+    }
+  }
+
+  const handleDeleteOfficerConfirm = async () => {
+    if (!officerToDelete) return
+    setIsDeletingRecord(true)
+    try {
+      const res = await fetch(
+        `/api/officers?id=${encodeURIComponent(officerToDelete.id)}&actorId=${encodeURIComponent(
+          session?.userId || ''
+        )}&actorName=${encodeURIComponent(session?.name || '')}`,
+        {
+          method: 'DELETE',
+        }
+      )
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFeedback(`Failed to delete officer: ${data.error || 'Server error'}`)
+        return
+      }
+      setFeedback(`Officer ${officerToDelete.name} decommissioned from roster`)
+      setOfficerToDelete(null)
+      loadDashboardData(true)
+    } catch {
+      setFeedback('Failed to connect to central registry.')
+    } finally {
+      setIsDeletingRecord(false)
+    }
   }
 
   const handleSaveAdminProfile = async (
@@ -1094,40 +1176,55 @@ export default function AdminPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="grid grid-cols-3 gap-2 pt-1">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                           <button
+                            type="button"
                             onClick={() => setInspectedOfficer(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 px-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+                            title="View & Edit Officer Profile & Assignment"
                           >
-                            <User className="size-3 text-slate-400" />
+                            <User className="size-3.5 text-slate-400 shrink-0" />
                             <span>Profile</span>
                           </button>
                           <button
+                            type="button"
                             onClick={() => setShowResetPinModal(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer"
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 px-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+                            title="Reset 4-Digit Field PIN"
                           >
-                            <KeyRound className="size-3 text-[#F6D300]" />
+                            <KeyRound className="size-3.5 text-[#F6D300] shrink-0" />
                             <span>PIN</span>
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleToggleStatus(officer)}
-                            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition cursor-pointer ${
+                            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-xs font-bold transition cursor-pointer min-h-[44px] ${
                               officer.status === 'ACTIVE'
                                 ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
                                 : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
                             }`}
+                            title={officer.status === 'ACTIVE' ? 'Revoke Security Access' : 'Activate Security Access'}
                           >
                             {officer.status === 'ACTIVE' ? (
                               <>
-                                <ShieldAlert className="size-3" />
+                                <ShieldAlert className="size-3.5 shrink-0" />
                                 <span>Revoke</span>
                               </>
                             ) : (
                               <>
-                                <ShieldCheck className="size-3" />
+                                <ShieldCheck className="size-3.5 shrink-0" />
                                 <span>Activate</span>
                               </>
                             )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOfficerToDelete(officer)}
+                            className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/20 py-2 px-2 text-xs font-semibold text-rose-400 hover:bg-rose-900/40 hover:text-rose-300 transition cursor-pointer min-h-[44px]"
+                            title="Decommission Field Officer"
+                          >
+                            <Trash2 className="size-3.5 shrink-0" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -1296,6 +1393,52 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Search & Filter Toolbar for Exam Centers */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-[#101423] p-3 rounded-2xl border border-[#22263C]">
+                <div className="flex-1 relative">
+                  <Search className="size-4 absolute left-3 top-3 text-slate-500" />
+                  <input
+                    type="text"
+                    value={centerSearchQuery}
+                    onChange={(e) => setCenterSearchQuery(e.target.value)}
+                    placeholder="Search center name, code (e.g. 050102), or district..."
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] py-2.5 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans min-h-[44px]"
+                  />
+                  {centerSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCenterSearchQuery('')}
+                      className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
+                      aria-label="Clear search"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative min-w-[160px]">
+                    <Filter className="size-3.5 absolute left-3 top-3 text-slate-400 pointer-events-none" />
+                    <select
+                      value={centerDistrictFilter}
+                      onChange={(e) => setCenterDistrictFilter(e.target.value)}
+                      className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] py-2.5 pl-8 pr-7 text-xs text-slate-200 focus:outline-hidden focus:border-sky-400 font-sans appearance-none cursor-pointer min-h-[44px]"
+                    >
+                      <option value="ALL">All Districts ({examCenters.length})</option>
+                      {districts.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <span className="text-[11px] font-mono text-slate-400 px-2.5 py-1.5 rounded-xl bg-[#090A0F] border border-[#1E243A] shrink-0 whitespace-nowrap">
+                    {filteredCenters.length} of {examCenters.length}
+                  </span>
+                </div>
+              </div>
+
               {/* Centers Cards Grid */}
               {examCenters.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
@@ -1307,9 +1450,29 @@ export default function AdminPage() {
                     Click &ldquo;Register Center&rdquo; to add an examination venue and geofence.
                   </p>
                 </div>
+              ) : filteredCenters.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-3">
+                  <Building2 className="size-7 text-slate-500 mx-auto" />
+                  <p className="text-sm font-semibold text-slate-300">
+                    No examination centers match your filters
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Try adjusting your search query or reset the district filter.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCenterSearchQuery('')
+                      setCenterDistrictFilter('ALL')
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-semibold text-white transition cursor-pointer"
+                  >
+                    <span>Reset Filters</span>
+                  </button>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
-                  {examCenters.map((center, index) => {
+                  {filteredCenters.map((center, index) => {
                     const hasOpenInc = (center.openIncidentsCount || 0) > 0
                     return (
                       <div
@@ -1326,7 +1489,7 @@ export default function AdminPage() {
                                 {center.name}
                               </h3>
                               <div className="flex items-center gap-2 mt-0.5 text-xs">
-                                <span className="text-sky-400 font-semibold">{center.code}</span>
+                                <span className="text-sky-400 font-mono font-bold">{center.code}</span>
                                 <span className="text-slate-600">•</span>
                                 <span className="text-slate-400 truncate">
                                   {center.districtName || 'Kumasi Metro'}
@@ -1335,7 +1498,7 @@ export default function AdminPage() {
                             </div>
                           </div>
                           <span
-                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold shrink-0 flex items-center gap-1.5 ${
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-bold shrink-0 flex items-center gap-1.5 ${
                               hasOpenInc
                                 ? 'bg-rose-500/15 border-rose-500/35 text-rose-400'
                                 : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
@@ -1356,7 +1519,7 @@ export default function AdminPage() {
                               Perimeter Boundary:
                             </span>
                             <div className="text-white font-bold text-sm mt-0.5 flex items-center gap-1">
-                              <Radio className="size-3 text-sky-400" />
+                              <Radio className="size-3 text-sky-400 shrink-0" />
                               <span>{center.radius}m Radius</span>
                             </div>
                           </div>
@@ -1366,7 +1529,7 @@ export default function AdminPage() {
                               Assigned / On-Site:
                             </span>
                             <div className="text-[#F6D300] font-bold text-sm mt-0.5 flex items-center gap-1">
-                              <Users className="size-3 text-[#F6D300]" />
+                              <Users className="size-3 text-[#F6D300] shrink-0" />
                               <span>
                                 {center.onSiteMonitors || 0} / {center.totalMonitors} Officers
                               </span>
@@ -1375,9 +1538,9 @@ export default function AdminPage() {
 
                           <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
                             <span className="text-slate-400 text-[11px] block">
-                              GPS Coordinates:
+                              GPS Datum:
                             </span>
-                            <div className="text-slate-200 font-sans text-xs mt-0.5 font-medium truncate">
+                            <div className="text-slate-200 font-mono text-xs mt-0.5 font-medium truncate">
                               {center.lat.toFixed(4)}° {center.lat >= 0 ? 'N' : 'S'},{' '}
                               {Math.abs(center.lng).toFixed(4)}° {center.lng >= 0 ? 'E' : 'W'}
                             </div>
@@ -1393,9 +1556,9 @@ export default function AdminPage() {
                               }`}
                             >
                               {hasOpenInc ? (
-                                <AlertTriangle className="size-3" />
+                                <AlertTriangle className="size-3 shrink-0" />
                               ) : (
-                                <ShieldCheck className="size-3" />
+                                <ShieldCheck className="size-3 shrink-0" />
                               )}
                               <span>
                                 {hasOpenInc
@@ -1408,21 +1571,36 @@ export default function AdminPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Responsive HCI 3-action buttons with >= 44px touch targets */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                           <button
+                            type="button"
                             onClick={() => handleCenterFocus(center)}
-                            className="py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                            className="py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
+                            title="Focus center on fleet map"
                           >
-                            <MapPin className="size-3.5 text-[#F6D300]" />
-                            <span>Focus on Map</span>
+                            <MapPin className="size-3.5 text-[#F6D300] shrink-0" />
+                            <span>Focus Map</span>
                           </button>
 
                           <button
+                            type="button"
                             onClick={() => setCenterModalState({ mode: 'edit', center })}
-                            className="py-2.5 px-3 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-xs font-semibold text-slate-200 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            className="py-2.5 px-3 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-xs font-semibold text-slate-200 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+                            title="Edit center coordinates or boundary"
                           >
-                            <Pencil className="size-3.5 text-sky-400" />
-                            <span>Edit Geofence</span>
+                            <Pencil className="size-3.5 text-sky-400 shrink-0" />
+                            <span>Edit Boundary</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setCenterToDelete(center)}
+                            className="py-2.5 px-3 rounded-xl bg-rose-950/20 hover:bg-rose-900/40 border border-rose-500/30 text-xs font-semibold text-rose-400 hover:text-rose-300 transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+                            title="Decommission Examination Center"
+                          >
+                            <Trash2 className="size-3.5 shrink-0" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </div>
@@ -2022,6 +2200,9 @@ export default function AdminPage() {
             photo: inspectedOfficer.photo,
             bio: inspectedOfficer.bio,
             mustChangePassword: inspectedOfficer.mustChangePassword,
+            paperName: inspectedOfficer.paperName,
+            startTime: inspectedOfficer.startTime,
+            endTime: inspectedOfficer.endTime,
           }}
           onDutyStatus={inspectedOfficer.dutyStatus === 'ON_DUTY' ? 'ON DUTY' : 'OFF DUTY'}
           onSave={handleSaveOfficerProfile}
@@ -2037,6 +2218,137 @@ export default function AdminPage() {
         onSave={handleSaveAdminProfile}
         onLogout={handleSignOut}
       />
+
+      {/* MODAL: CONFIRM DELETE EXAMINATION CENTER */}
+      {centerToDelete && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-center-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="size-11 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="size-5.5" />
+              </div>
+              <div>
+                <h3 id="delete-center-title" className="text-base font-bold text-white">
+                  Decommission Center
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Permanent removal from central examination registry
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 text-xs text-rose-300 space-y-1">
+              <p className="font-semibold text-white">
+                {centerToDelete.name} ({centerToDelete.code})
+              </p>
+              <p className="text-[11px] text-rose-300/90 leading-relaxed">
+                Decommissioning will dissolve this geofence ({centerToDelete.radius}m perimeter) and unlink all active officer deployments and incidents from this venue. This action is permanently audited.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setCenterToDelete(null)}
+                disabled={isDeletingRecord}
+                className="px-4 py-2.5 rounded-xl border border-[#22263C] bg-[#161B2E] text-xs font-semibold text-slate-300 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCenterConfirm}
+                disabled={isDeletingRecord}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
+              >
+                {isDeletingRecord ? (
+                  <>
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    <span>Decommissioning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="size-3.5" />
+                    <span>Confirm Decommission</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM DELETE FIELD OFFICER */}
+      {officerToDelete && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-officer-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="size-11 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                <Trash2 className="size-5.5" />
+              </div>
+              <div>
+                <h3 id="delete-officer-title" className="text-base font-bold text-white">
+                  Decommission Field Officer
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Permanently purge credentials and officer record
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 text-xs text-rose-300 space-y-1">
+              <p className="font-semibold text-white">
+                {officerToDelete.name} ({officerToDelete.phone})
+              </p>
+              <p className="text-[11px] text-slate-300">
+                Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned: {officerToDelete.assignedCenter || 'Unassigned'}
+              </p>
+              <p className="text-[11px] text-rose-300/90 leading-relaxed pt-1">
+                This will delete the officer account, revoke active login sessions, remove exam center shift assignments, and archive incident audit references. This action is irreversible.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setOfficerToDelete(null)}
+                disabled={isDeletingRecord}
+                className="px-4 py-2.5 rounded-xl border border-[#22263C] bg-[#161B2E] text-xs font-semibold text-slate-300 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteOfficerConfirm}
+                disabled={isDeletingRecord}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
+              >
+                {isDeletingRecord ? (
+                  <>
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    <span>Decommissioning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="size-3.5" />
+                    <span>Confirm Decommission</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

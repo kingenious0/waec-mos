@@ -213,3 +213,68 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Failed to update examination center' }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    if (!isLiveDatabase || !db) {
+      return NextResponse.json({ error: 'Database not connected' }, { status: 500 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    const actorId = searchParams.get('actorId') || 'usr-admin-hq'
+    const actorName = searchParams.get('actorName') || 'HQ Command'
+
+    if (!id) {
+      return NextResponse.json({ error: 'Center ID is required' }, { status: 400 })
+    }
+
+    const existing = await db
+      .select({
+        id: schema.examinationCenters.id,
+        name: schema.examinationCenters.centerName,
+        code: schema.examinationCenters.centerCode,
+      })
+      .from(schema.examinationCenters)
+      .where(eq(schema.examinationCenters.id, id))
+      .limit(1)
+
+    if (existing.length === 0) {
+      return NextResponse.json({ error: 'Examination center not found' }, { status: 404 })
+    }
+
+    const center = existing[0]
+
+    // 1. Remove assignments associated with this center
+    await db.delete(schema.assignments).where(eq(schema.assignments.centerId, id))
+
+    // 2. Unlink any incidents linked to this center
+    await db.update(schema.incidents).set({ centerId: null }).where(eq(schema.incidents.centerId, id))
+
+    // 3. Delete the examination center record
+    await db.delete(schema.examinationCenters).where(eq(schema.examinationCenters.id, id))
+
+    await recordAuditLog({
+      actorId,
+      actorName,
+      actorRole: 'ADMIN',
+      action: 'CENTER_DELETED',
+      entityType: 'examination_centers',
+      entityId: id,
+      details: {
+        message: `${actorName} decommissioned examination center ${center.name} (${center.code})`,
+        centerName: center.name,
+        centerCode: center.code,
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: `Center ${center.name} decommissioned successfully`,
+    })
+  } catch (error) {
+    console.error('Failed to delete center:', error)
+    return NextResponse.json({ error: 'Failed to delete examination center' }, { status: 500 })
+  }
+}
+

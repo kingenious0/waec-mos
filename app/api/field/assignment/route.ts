@@ -58,7 +58,7 @@ function calculateTimeline(paperName: string, startTimeRaw: string, endTimeRaw: 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const officerId = searchParams.get('officerId')
+    const officerId = searchParams.get('officerId') || searchParams.get('userId')
     const staffId = searchParams.get('staffId')
 
     let assignmentRow: any = null
