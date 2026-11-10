@@ -31,3 +31,4 @@ export async function recordAuditLog(entry: AuditEntryInput): Promise<void> {
     console.error('Failed to record audit log:', err)
   }
 }
+

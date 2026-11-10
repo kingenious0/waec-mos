@@ -56,3 +56,4 @@ export function parseSessionTimeoutMs(val: string | undefined): number | null {
   if (val.toLowerCase().includes('hour')) return num * 60 * 60 * 1000
   return num * 60 * 1000
 }
+
