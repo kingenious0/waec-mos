@@ -18,6 +18,8 @@ export default function ChangePasswordPage() {
     const s = getCurrentClientSession()
     if (!s) {
       router.push('/login')
+    } else if (s.role !== 'ADMIN') {
+      router.replace('/field')
     } else {
       setSession(s)
     }

@@ -158,7 +158,7 @@ class MosV1Store {
       ...officer,
       id: `usr-${Date.now()}`,
       dutyStatus: 'OFF_DUTY',
-      mustChangePassword: true,
+      mustChangePassword: officer.role === 'ADMIN',
     }
     this.users.unshift(newUser)
     return newUser
