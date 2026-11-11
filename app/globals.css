@@ -112,3 +112,20 @@
     font-family: var(--font-sans), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 }
+
+/* --- Live Fleet Map marker interactions --- */
+.custom-center-marker {
+  cursor: pointer;
+}
+.leaflet-marker-icon.waec-officer-marker {
+  cursor: pointer;
+}
+.waec-officer-label {
+  opacity: 0;
+  transition: opacity 150ms ease;
+  pointer-events: none;
+}
+.waec-officer-marker:hover .waec-officer-label,
+.waec-officer-label.is-selected {
+  opacity: 1;
+}

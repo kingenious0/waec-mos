@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  LogOut,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
@@ -21,7 +20,6 @@ interface AdminSidebarProps {
   adminName?: string
   adminPhoto?: string
   onOpenProfile?: () => void
-  onSignOut?: () => void
 }
 
 export function AdminSidebar({
@@ -33,7 +31,6 @@ export function AdminSidebar({
   adminName = 'Regional Command',
   adminPhoto,
   onOpenProfile,
-  onSignOut,
 }: AdminSidebarProps) {
   const initials =
     adminName
@@ -128,11 +125,11 @@ export function AdminSidebar({
                 title={isCollapsed ? item.label : undefined}
                 className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer relative ${
                   isActive
-                    ? 'bg-brand/10 text-brand border border-brand/25 font-semibold'
+                    ? 'bg-[#1E2B7B]/30 text-white border border-[#1E2B7B] font-semibold'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
                 } ${isCollapsed ? 'justify-center px-0' : ''}`}
               >
-                <Icon className={`size-4 shrink-0 ${isActive ? 'text-brand' : ''}`} />
+                <Icon className={`size-4 shrink-0 ${isActive ? 'text-indigo-300' : ''}`} />
                 {!isCollapsed && <span className="truncate">{item.label}</span>}
 
                 {item.badge !== undefined && (
@@ -185,7 +182,7 @@ export function AdminSidebar({
               aria-label="Settings"
               className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                 activeTab === 'settings'
-                  ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
+                  ? 'bg-[#1E2B7B]/30 text-white ring-1 ring-[#1E2B7B]'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
@@ -202,7 +199,7 @@ export function AdminSidebar({
             aria-label="Settings"
             className={`w-full flex items-center justify-center p-1.5 rounded-md transition-colors cursor-pointer ${
               activeTab === 'settings'
-                ? 'bg-brand/20 text-brand ring-1 ring-brand/40'
+                ? 'bg-[#1E2B7B]/30 text-white ring-1 ring-[#1E2B7B]'
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             }`}
           >
@@ -210,28 +207,6 @@ export function AdminSidebar({
           </button>
         )}
 
-        {onSignOut &&
-          (isCollapsed ? (
-            <button
-              type="button"
-              onClick={onSignOut}
-              title="Sign Out"
-              aria-label="Sign Out"
-              className="w-full flex items-center justify-center p-1.5 rounded-md text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer"
-            >
-              <LogOut className="size-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onSignOut}
-              title="Sign Out / Switch Account"
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 transition-colors cursor-pointer"
-            >
-              <LogOut className="size-3.5 shrink-0" />
-              <span>Sign Out</span>
-            </button>
-          ))}
       </div>
     </aside>
   )

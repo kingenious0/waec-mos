@@ -29,7 +29,6 @@ import {
   Radio,
   AlertTriangle,
   Battery,
-  LogOut,
   Compass,
   Shield,
   Siren,
@@ -851,7 +850,6 @@ export default function AdminPage() {
         adminName={adminDisplayName}
         adminPhoto={session?.photo}
         onOpenProfile={() => setShowAdminProfile(true)}
-        onSignOut={handleSignOut}
       />
 
       {/* Main Stage */}
@@ -880,7 +878,6 @@ export default function AdminPage() {
           unreadAlertsCount={
             systemSettings.inAppNotifications ? notificationsUnreadCount : 0
           }
-          onSignOut={handleSignOut}
           onFocusOfficer={(officerId) => handleFocusOfficer(officerId)}
           onFocusSos={() => handleFocusOfficer()}
           onCallEmergency={() => {
@@ -950,6 +947,12 @@ export default function AdminPage() {
                       setAuditOfficerFilterId(officerId)
                       setActiveTab('incidents')
                     }}
+                    onAcknowledgeSos={(off) =>
+                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'ACKNOWLEDGED')
+                    }
+                    onResolveSos={(off) =>
+                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'RESOLVED')
+                    }
                     onClose={() => setSelectedOfficer(null)}
                   />
                 </aside>
@@ -973,6 +976,12 @@ export default function AdminPage() {
                     isMobileDrawerExpanded={isMobileDrawerExpanded}
                     onToggleMobileDrawer={() =>
                       setIsMobileDrawerExpanded(!isMobileDrawerExpanded)
+                    }
+                    onAcknowledgeSos={(off) =>
+                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'ACKNOWLEDGED')
+                    }
+                    onResolveSos={(off) =>
+                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'RESOLVED')
                     }
                     onClose={() => setSelectedOfficer(null)}
                   />
@@ -1007,9 +1016,9 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer shrink-0"
+                    className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
                   >
-                    <UserPlus className="size-3.5 text-[#F6D300]" />
+                    <UserPlus className="size-3.5 text-white" />
                     <span>+ Register Officer</span>
                   </button>
                 </div>
@@ -1037,9 +1046,9 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="sm:hidden flex items-center justify-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white py-2.5 px-4 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer w-full"
+                    className="sm:hidden flex items-center justify-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white py-2.5 px-4 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer w-full"
                   >
-                    <UserPlus className="size-4 text-[#F6D300]" />
+                    <UserPlus className="size-4 text-white" />
                     <span>+ Register Field Officer</span>
                   </button>
                 </div>
@@ -1318,9 +1327,9 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setCenterModalState({ mode: 'create' })}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-[#F6D300]/40 transition shadow-md cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
                   >
-                    <Plus className="size-3.5 text-[#F6D300]" />
+                    <Plus className="size-3.5 text-white" />
                     <span>Register Center</span>
                   </button>
                 </div>
@@ -1429,9 +1438,9 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => setActiveTab('map')}
-                    className="w-full py-2 px-3 rounded-xl bg-[#1E2B7B]/70 hover:bg-[#1E2B7B] border border-[#F6D300]/30 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                    className="w-full py-2 px-3 rounded-xl bg-[#1E2B7B]/70 hover:bg-[#1E2B7B] border border-white/10 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
                   >
-                    <MapPin className="size-3.5 text-[#F6D300]" />
+                    <MapPin className="size-3.5 text-indigo-300" />
                     <span>View All On Map</span>
                   </button>
                 </div>
@@ -1620,10 +1629,10 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => handleCenterFocus(center)}
-                            className="py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
+                            className="py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
                             title="Focus center on fleet map"
                           >
-                            <MapPin className="size-3.5 text-[#F6D300] shrink-0" />
+                            <MapPin className="size-3.5 text-white shrink-0" />
                             <span>Focus Map</span>
                           </button>
 
@@ -2086,7 +2095,7 @@ export default function AdminPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#22263C]">
                 <div className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-[#1E2B7B]/60 border border-[#F6D300]/40 flex items-center justify-center text-[#F6D300]">
+                  <div className="size-8 rounded-lg bg-[#1E2B7B]/60 border border-white/10 flex items-center justify-center text-[#F6D300]">
                     <Shield className="size-4" />
                   </div>
                   <div>
@@ -2129,13 +2138,13 @@ export default function AdminPage() {
                       }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-sans font-medium transition cursor-pointer ${
                         isActive
-                          ? 'bg-[#1E2B7B] text-[#F6D300] font-bold border border-[#F6D300]/40'
+                          ? 'bg-[#1E2B7B] text-white font-bold border border-white/10'
                           : 'text-slate-400 hover:text-white hover:bg-[#11131F]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
                         <Icon
-                          className={`size-4 ${isActive ? 'text-[#F6D300]' : 'text-slate-500'}`}
+                          className={`size-4 ${isActive ? 'text-white' : 'text-slate-500'}`}
                         />
                         <span>{item.label}</span>
                       </div>
@@ -2174,13 +2183,6 @@ export default function AdminPage() {
                 </div>
               </button>
 
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-sans font-medium text-red-400 hover:bg-red-500/10 cursor-pointer"
-              >
-                <LogOut className="size-4" />
-                <span>Sign Out</span>
-              </button>
             </div>
           </div>
         </div>

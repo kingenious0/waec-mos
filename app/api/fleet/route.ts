@@ -126,6 +126,11 @@ export async function GET() {
 
       const officerLogs = recentLogs
         .filter((l) => l.actorId === r.userId || l.entityId === r.userId)
+        .filter(
+          (l) =>
+            // Password-change / recovery events don't belong on the duty activity feed
+            l.action !== 'PASSWORD_ROTATED' && l.action !== 'PIN_RESET_REQUESTED'
+        )
         .slice(0, 5)
         .map((l) => {
           const details = (l.details as Record<string, any>) || {}
@@ -136,6 +141,7 @@ export async function GET() {
             time: l.createdAt
               ? new Date(l.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT'
               : '',
+            iso: l.createdAt ? new Date(l.createdAt).toISOString() : null,
             tone:
               l.action === 'SOS_TRIGGERED' || l.action === 'GEOFENCE_BREACH' || l.action === 'USER_REVOKED'
                 ? ('critical' as const)
@@ -172,6 +178,7 @@ export async function GET() {
         sosDetails: activeSos?.description || undefined,
         sosIncidentId: activeSos?.id || undefined,
         sosIncidentNumber: activeSos?.incidentNumber || undefined,
+        sosStatus: activeSos?.status || undefined,
         checkpoints: officerLogs,
       })
     }

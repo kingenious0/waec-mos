@@ -845,9 +845,9 @@ export function ExamCenterModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-[#F6D300]/40 disabled:opacity-60 text-xs font-bold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 disabled:opacity-60 text-xs font-bold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
             >
-              <CheckCircle2 className="size-3.5 text-[#F6D300]" />
+              <CheckCircle2 className="size-3.5 text-white" />
               <span>{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Save Center Changes' : 'Register Center'}</span>
             </button>
           </div>

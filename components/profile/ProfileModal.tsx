@@ -530,7 +530,7 @@ export function ProfileModal({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] disabled:opacity-60 border border-[#F6D300]/40 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] disabled:opacity-60 border border-white/10 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>

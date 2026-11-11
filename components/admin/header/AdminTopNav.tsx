@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Menu, Bell, Search, User, LogOut } from 'lucide-react'
+import { Menu, Bell, Search, User } from 'lucide-react'
 import type { SessionData } from '@/lib/auth/session'
 import {
   NotificationsPopover,
@@ -15,7 +15,6 @@ interface AdminTopNavProps {
   onSearchChange: (query: string) => void
   onToggleMobileMenu?: () => void
   onOpenProfile?: () => void
-  onSignOut?: () => void
   onFocusOfficer?: (officerId?: string) => void
   onFocusSos?: () => void
   onCallEmergency?: () => void
@@ -35,7 +34,6 @@ export function AdminTopNav({
   onSearchChange,
   onToggleMobileMenu,
   onOpenProfile,
-  onSignOut,
   onFocusOfficer,
   onFocusSos,
   onCallEmergency,
@@ -120,18 +118,6 @@ export function AdminTopNav({
               <User className="size-4" />
             )}
           </button>
-
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={onSignOut}
-              aria-label="Sign Out"
-              title="Sign Out / Switch Account"
-              className="p-2 text-red-400 hover:text-red-300 rounded-full hover:bg-red-500/10 transition-colors cursor-pointer"
-            >
-              <LogOut className="size-4" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -192,18 +178,6 @@ export function AdminTopNav({
               initials
             )}
           </button>
-
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={onSignOut}
-              title="Sign Out / Switch Account"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-medium transition cursor-pointer"
-            >
-              <LogOut className="size-3.5" />
-              <span>Sign Out</span>
-            </button>
-          )}
         </div>
       </div>
 

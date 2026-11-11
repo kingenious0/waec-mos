@@ -300,7 +300,7 @@ export function PreProvisionOfficerModal({
               onClick={() => setIsGroupLeader(!isGroupLeader)}
               className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                 isGroupLeader
-                  ? 'bg-[#1E2B7B]/30 border-[#F6D300]/40 text-white'
+                  ? 'bg-[#1E2B7B]/30 border-white/10 text-white'
                   : 'bg-[#0A0D17] border-[#22263C] text-slate-300 hover:border-slate-500'
               }`}
             >
@@ -369,9 +369,9 @@ export function PreProvisionOfficerModal({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-[#F6D300]/40 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                <CheckCircle2 className="size-3.5 text-[#F6D300]" />
+                <CheckCircle2 className="size-3.5 text-white" />
                 <span>Save & Register Officer</span>
               </button>
             </div>
