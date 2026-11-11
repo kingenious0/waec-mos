@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Radio, Clock, Flag, X } from 'lucide-react'
+import { Phone, Clock, Flag, X } from 'lucide-react'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
 interface OfficerTelematicsDrawerProps {
@@ -178,33 +178,33 @@ export function OfficerTelematicsDrawer({
         </div>
 
         {/* 4-Stat Live Telematics Grid */}
-        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-border/50">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
-              SPEED
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
+              Speed
             </span>
-            <span className="text-base font-semibold font-sans text-foreground mt-0.5 tabular-nums">
+            <span className="text-base font-semibold font-sans text-foreground mt-0.5 tabular-nums leading-none">
               {speedDisplay}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans">km/h</span>
+            <span className="text-[10px] text-muted-foreground font-sans mt-0.5">km/h</span>
           </div>
 
-          <div className="flex flex-col">
-            <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
-              RANGE
+          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
+              Range
             </span>
-            <span className="text-base font-semibold font-sans text-amber-400 mt-0.5 tabular-nums">
+            <span className="text-base font-semibold font-sans text-amber-400 mt-0.5 tabular-nums leading-none">
               {distLabel}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans">{distUnit}</span>
+            <span className="text-[10px] text-muted-foreground font-sans mt-0.5">{distUnit}</span>
           </div>
 
-          <div className="flex flex-col">
-            <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
-              TELEMETRY
+          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
+              Telemetry
             </span>
             <span
-              className={`text-sm font-semibold font-sans mt-1 ${
+              className={`text-sm font-semibold font-sans mt-1 leading-none ${
                 officer.isOnline
                   ? 'text-emerald-400'
                   : officer.lastPingAt
@@ -214,17 +214,17 @@ export function OfficerTelematicsDrawer({
             >
               {signalState}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans truncate">
+            <span className="text-[10px] text-muted-foreground font-sans mt-0.5 truncate">
               {lastPingFormatted}
             </span>
           </div>
 
-          <div className="flex flex-col">
-            <span className="text-[10px] font-sans text-muted-foreground tracking-wider uppercase">
-              BATTERY
+          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
+              Battery
             </span>
             <span
-              className={`text-base font-semibold font-sans mt-0.5 tabular-nums ${
+              className={`text-base font-semibold font-sans mt-0.5 tabular-nums leading-none ${
                 typeof batteryVal !== 'number'
                   ? 'text-slate-400'
                   : batteryVal <= 20
@@ -237,7 +237,7 @@ export function OfficerTelematicsDrawer({
               {batteryDisplay}
             </span>
             <span
-              className={`text-[10px] font-medium ${
+              className={`text-[10px] font-medium mt-0.5 ${
                 typeof batteryVal !== 'number'
                   ? 'text-slate-500'
                   : batteryVal <= 20
@@ -296,9 +296,9 @@ export function OfficerTelematicsDrawer({
         </div>
 
         {/* Live Duty Checkpoints from Neon audit_logs */}
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2 pt-1 flex-1">
           <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground block">
-            RECENT ACTIVITY LOGS
+            Recent Activity
           </span>
 
           {checkpoints.length === 0 ? (
@@ -306,29 +306,32 @@ export function OfficerTelematicsDrawer({
               No duty activity logged yet for this officer.
             </div>
           ) : (
-            <div className="space-y-2 text-xs font-sans">
-              {checkpoints.map((cp) => {
-                const dotColor =
-                  cp.tone === 'critical'
-                    ? 'bg-status-sos'
-                    : cp.tone === 'ok'
-                    ? 'bg-status-ok'
-                    : 'bg-sky-400'
-                const textTone =
-                  cp.tone === 'critical'
-                    ? 'text-red-300 font-medium'
-                    : 'text-slate-300'
+            <div className="relative pl-1">
+              <span className="absolute left-[6px] top-1.5 bottom-1.5 w-px bg-border/70" />
+              <div className="space-y-3 text-xs font-sans">
+                {checkpoints.map((cp) => {
+                  const dotColor =
+                    cp.tone === 'critical'
+                      ? 'bg-status-sos shadow-[0_0_6px_rgba(244,63,94,0.7)]'
+                      : cp.tone === 'ok'
+                      ? 'bg-status-ok shadow-[0_0_6px_rgba(16,185,129,0.6)]'
+                      : 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.6)]'
+                  const textTone =
+                    cp.tone === 'critical' ? 'text-red-300 font-medium' : 'text-slate-300'
 
-                return (
-                  <div key={cp.id} className="flex items-start justify-between gap-2">
-                    <div className={`flex items-start gap-2 min-w-0 ${textTone}`}>
-                      <span className={`size-1.5 rounded-full ${dotColor} mt-1.5 shrink-0`} />
-                      <span className="leading-snug">{cp.label}</span>
+                  return (
+                    <div key={cp.id} className="relative flex items-start justify-between gap-2">
+                      <div className={`flex items-start gap-2.5 min-w-0 ${textTone}`}>
+                        <span
+                          className={`absolute -left-1 top-1 size-2 rounded-full ${dotColor} ring-2 ring-[#0C0F17]`}
+                        />
+                        <span className="pl-3 leading-snug">{cp.label}</span>
+                      </div>
+                      <span className="text-muted-foreground shrink-0 tabular-nums">{cp.time}</span>
                     </div>
-                    <span className="text-muted-foreground shrink-0 tabular-nums">{cp.time}</span>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -339,16 +342,16 @@ export function OfficerTelematicsDrawer({
         <button
           type="button"
           onClick={() => onCallOfficer(officer.phone)}
-          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-sky-400 hover:bg-sky-300 active:bg-sky-500 text-slate-950 font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-sky-400 hover:bg-sky-300 active:bg-sky-500 text-slate-950 font-bold text-xs transition-colors cursor-pointer shadow-xs"
         >
-          <Radio className="size-4 shrink-0" />
-          <span>Comms Link</span>
+          <Phone className="size-4 shrink-0" />
+          <span>Call Officer</span>
         </button>
 
         <button
           type="button"
           onClick={() => onViewLogs(officer.id)}
-          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#111420] hover:bg-[#181D2E] text-foreground border border-border text-xs font-medium transition-colors cursor-pointer shadow-xs"
+          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#111420] hover:bg-[#181D2E] text-foreground border border-border text-xs font-semibold transition-colors cursor-pointer shadow-xs"
         >
           <Clock className="size-4 shrink-0 text-muted-foreground" />
           <span>View Logs</span>

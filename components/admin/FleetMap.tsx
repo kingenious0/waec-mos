@@ -193,8 +193,9 @@ export default function FleetMap({
       group.clearLayers()
 
       centers.forEach((center) => {
+        if (Number.isNaN(center.lat) || Number.isNaN(center.lng)) return
         const hasBreach = (center.openIncidentsCount || 0) > 0
-        const color = hasBreach ? '#EF4444' : '#0284c7'
+        const color = hasBreach ? '#EF4444' : '#38bdf8'
 
         L.circle([center.lat, center.lng], {
           radius: center.radius,
@@ -206,36 +207,75 @@ export default function FleetMap({
           dashArray: '5, 5',
         }).addTo(group)
 
+        const shortName =
+          center.name.length > 28 ? `${center.name.slice(0, 27).trimEnd()}…` : center.name
+
+        // Auto-width pill (no fixed iconSize → no text overflowing the pill),
+        // centered on the coordinate via translate.
         const centerIcon = L.divIcon({
           className: 'custom-center-marker',
           html: `
             <div style="
-              background: rgba(12, 15, 23, 0.95);
-              border: 1px solid ${hasBreach ? 'rgba(239, 68, 68, 0.5)' : 'rgba(56, 189, 248, 0.4)'};
-              color: ${hasBreach ? '#FCA5A5' : '#38bdf8'};
-              padding: 2px 8px;
-              border-radius: 6px;
-              font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-              font-size: 10px;
-              font-weight: 700;
-              white-space: nowrap;
-              box-shadow: 0 4px 14px rgba(0,0,0,0.8);
+              transform: translate(-50%, -50%);
               display: flex;
               align-items: center;
-              gap: 5px;
+              gap: 6px;
+              background: rgba(10, 13, 23, 0.92);
+              border: 1px solid ${hasBreach ? 'rgba(239, 68, 68, 0.55)' : 'rgba(56, 189, 248, 0.35)'};
+              color: #E2E8F0;
+              padding: 4px 9px;
+              border-radius: 9999px;
+              font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+              font-size: 11px;
+              font-weight: 700;
+              white-space: nowrap;
+              box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+              backdrop-filter: blur(6px);
             ">
-              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${
-                hasBreach ? '#EF4444' : '#38bdf8'
-              }; box-shadow: 0 0 6px ${hasBreach ? '#EF4444' : '#38bdf8'};"></span>
-              ${center.name.split(' School')[0].split(' College')[0]} (${center.code})
+              <span style="
+                display:inline-block; width:7px; height:7px; border-radius:50%;
+                background:${hasBreach ? '#EF4444' : '#38bdf8'};
+                box-shadow: 0 0 7px ${hasBreach ? '#EF4444' : '#38bdf8'};
+                flex-shrink: 0;
+              "></span>
+              <span style="overflow:hidden; text-overflow:ellipsis; max-width:180px;">${shortName}</span>
+              <span style="
+                color:${hasBreach ? '#FCA5A5' : '#38bdf8'};
+                background:${hasBreach ? 'rgba(239,68,68,0.12)' : 'rgba(56,189,248,0.12)'};
+                border:1px solid ${hasBreach ? 'rgba(239,68,68,0.3)' : 'rgba(56,189,248,0.28)'};
+                border-radius:6px;
+                padding:1px 5px;
+                font-size:9px;
+                font-weight:800;
+                letter-spacing:0.05em;
+                flex-shrink:0;
+              ">${center.code}</span>
             </div>
           `,
-          iconSize: [140, 20],
-          iconAnchor: [70, 24],
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
         })
 
         L.marker([center.lat, center.lng], { icon: centerIcon, interactive: false }).addTo(group)
       })
+    })
+  }, [centers, mapLoaded])
+
+  // Frame ALL centers on first load so newly registered centers (anywhere in
+  // Ghana) are visible instead of staying outside the default Kumasi view.
+  const didInitialFitRef = useRef(false)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !mapLoaded || didInitialFitRef.current) return
+    const valid = centers.filter(
+      (c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng)
+    )
+    if (valid.length === 0) return
+    didInitialFitRef.current = true
+    import('leaflet').then((leafletModule) => {
+      if (!mapInstanceRef.current) return
+      const L = leafletModule.default
+      const bounds = L.latLngBounds(valid.map((c) => [c.lat, c.lng]))
+      mapInstanceRef.current.fitBounds(bounds, { padding: [70, 70], maxZoom: 15 })
     })
   }, [centers, mapLoaded])
 
@@ -415,11 +455,21 @@ export default function FleetMap({
   const handleZoomIn = () => mapInstanceRef.current?.zoomIn()
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut()
   const handleResetView = () => {
-    const first = centers[0]
-    if (first) {
-      mapInstanceRef.current?.flyTo([first.lat, first.lng], BASE_ZOOM)
+    const map = mapInstanceRef.current
+    if (!map) return
+    const valid = centers.filter((c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng))
+    if (valid.length > 0) {
+      import('leaflet').then((leafletModule) => {
+        if (!mapInstanceRef.current) return
+        const L = leafletModule.default
+        map.fitBounds(L.latLngBounds(valid.map((c) => [c.lat, c.lng])), {
+          padding: [70, 70],
+          maxZoom: 15,
+          animate: true,
+        })
+      })
     } else {
-      mapInstanceRef.current?.flyTo([6.6924, -1.6241], BASE_ZOOM)
+      map.flyTo([6.6924, -1.6241], BASE_ZOOM)
     }
   }
 
