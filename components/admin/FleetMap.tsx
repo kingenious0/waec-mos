@@ -58,6 +58,40 @@ export interface ExamCenter {
   regionName?: string
 }
 
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }
+  return value.replace(/[&<>"']/g, (ch) => entities[ch])
+}
+
+/**
+ * The point with the most other points within ~40 km. Used to frame a tight,
+ * readable default view when centers are spread far apart (e.g. Kumasi vs
+ * Winneba) — fitting everything just zooms out to a useless country view.
+ */
+function densestCluster<T extends { lat: number; lng: number }>(points: T[]): T {
+  let best = points[0]
+  let bestCount = -1
+  for (const p of points) {
+    let count = 0
+    for (const q of points) {
+      const dx = (q.lng - p.lng) * 111.32 * Math.cos((p.lat * Math.PI) / 180)
+      const dy = (q.lat - p.lat) * 110.57
+      if (Math.hypot(dx, dy) <= 40) count++
+    }
+    if (count > bestCount) {
+      bestCount = count
+      best = p
+    }
+  }
+  return best
+}
+
 export function getOfficerUnitCode(officer: Pick<FleetOfficer, 'staffId' | 'name' | 'id'>): string {
   const parts = (officer.staffId || '').split('-').filter(Boolean)
   const tail = parts[parts.length - 1]
@@ -210,13 +244,15 @@ export default function FleetMap({
         const shortName =
           center.name.length > 28 ? `${center.name.slice(0, 27).trimEnd()}…` : center.name
 
-        // Auto-width pill (no fixed iconSize → no text overflowing the pill),
-        // centered on the coordinate via translate.
+        // Auto-width pill: `width: max-content` is critical — Leaflet sets the
+        // icon wrapper to width:0 (iconSize [0,0]), which otherwise collapses
+        // the flex row and squeezes the name span out of existence.
         const centerIcon = L.divIcon({
           className: 'custom-center-marker',
           html: `
             <div style="
               transform: translate(-50%, -50%);
+              width: max-content;
               display: flex;
               align-items: center;
               gap: 6px;
@@ -238,7 +274,7 @@ export default function FleetMap({
                 box-shadow: 0 0 7px ${hasBreach ? '#EF4444' : '#38bdf8'};
                 flex-shrink: 0;
               "></span>
-              <span style="overflow:hidden; text-overflow:ellipsis; max-width:180px;">${shortName}</span>
+              <span style="flex-shrink: 0;">${escapeHtml(shortName)}</span>
               <span style="
                 color:${hasBreach ? '#FCA5A5' : '#38bdf8'};
                 background:${hasBreach ? 'rgba(239,68,68,0.12)' : 'rgba(56,189,248,0.12)'};
@@ -249,7 +285,7 @@ export default function FleetMap({
                 font-weight:800;
                 letter-spacing:0.05em;
                 flex-shrink:0;
-              ">${center.code}</span>
+              ">${escapeHtml(center.code)}</span>
             </div>
           `,
           iconSize: [0, 0],
@@ -261,22 +297,74 @@ export default function FleetMap({
     })
   }, [centers, mapLoaded])
 
-  // Frame ALL centers on first load so newly registered centers (anywhere in
-  // Ghana) are visible instead of staying outside the default Kumasi view.
+  // Frame the map sensibly on first load: fit all centers when they're close
+  // together (tight, readable view), otherwise frame the densest cluster at
+  // BASE_ZOOM — fitting spread-out centers (e.g. Kumasi + Winneba) just zooms
+  // out to a useless country-level view.
+  const getValidCenters = () =>
+    centers.filter((c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng))
+
+  const frameDefaultView = async (animate: boolean) => {
+    const map = mapInstanceRef.current
+    if (!map) return
+    const L = (await import('leaflet')).default
+    if (!mapInstanceRef.current) return
+
+    const valid = getValidCenters()
+    if (valid.length === 0) {
+      map.setView([6.6924, -1.6241], BASE_ZOOM, { animate })
+      return
+    }
+
+    const bounds = L.latLngBounds(valid.map((c) => [c.lat, c.lng]))
+    const padding: [number, number] = [70, 70]
+    const fitZoom = Math.min(map.getBoundsZoom(bounds, false, padding), 15)
+
+    if (fitZoom >= 11) {
+      map.fitBounds(bounds, { padding, maxZoom: 15, animate })
+    } else {
+      const hub = densestCluster(valid)
+      map.setView([hub.lat, hub.lng], BASE_ZOOM, { animate })
+    }
+  }
+
   const didInitialFitRef = useRef(false)
   useEffect(() => {
     if (!mapInstanceRef.current || !mapLoaded || didInitialFitRef.current) return
-    const valid = centers.filter(
-      (c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng)
-    )
-    if (valid.length === 0) return
+    if (getValidCenters().length === 0) return
     didInitialFitRef.current = true
+    void frameDefaultView(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centers, mapLoaded])
+
+  // Track how many centers are inside the current viewport so we can offer a
+  // "Show all" chip when some are parked outside the tight default view.
+  const [viewStats, setViewStats] = useState({ visible: 0, total: 0 })
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapLoaded) return
+    let disposed = false
+    let handler: (() => void) | null = null
+
     import('leaflet').then((leafletModule) => {
-      if (!mapInstanceRef.current) return
+      if (disposed || !mapInstanceRef.current) return
       const L = leafletModule.default
-      const bounds = L.latLngBounds(valid.map((c) => [c.lat, c.lng]))
-      mapInstanceRef.current.fitBounds(bounds, { padding: [70, 70], maxZoom: 15 })
+      handler = () => {
+        const m = mapInstanceRef.current
+        if (!m) return
+        const valid = centers.filter((c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng))
+        const bounds = m.getBounds()
+        const visible = valid.filter((c) => bounds.contains(L.latLng(c.lat, c.lng))).length
+        setViewStats({ visible, total: valid.length })
+      }
+      map.on('moveend', handler)
+      handler()
     })
+
+    return () => {
+      disposed = true
+      if (handler) map.off('moveend', handler)
+    }
   }, [centers, mapLoaded])
 
   // Render / update Officer Markers & Active Corridor Trail without touching tile/center layers
@@ -455,22 +543,22 @@ export default function FleetMap({
   const handleZoomIn = () => mapInstanceRef.current?.zoomIn()
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut()
   const handleResetView = () => {
+    void frameDefaultView(true)
+  }
+  const handleShowAllCenters = () => {
     const map = mapInstanceRef.current
     if (!map) return
-    const valid = centers.filter((c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng))
-    if (valid.length > 0) {
-      import('leaflet').then((leafletModule) => {
-        if (!mapInstanceRef.current) return
-        const L = leafletModule.default
-        map.fitBounds(L.latLngBounds(valid.map((c) => [c.lat, c.lng])), {
-          padding: [70, 70],
-          maxZoom: 15,
-          animate: true,
-        })
+    const valid = getValidCenters()
+    if (valid.length === 0) return
+    import('leaflet').then((leafletModule) => {
+      if (!mapInstanceRef.current) return
+      const L = leafletModule.default
+      mapInstanceRef.current.fitBounds(L.latLngBounds(valid.map((c) => [c.lat, c.lng])), {
+        padding: [70, 70],
+        maxZoom: 15,
+        animate: true,
       })
-    } else {
-      map.flyTo([6.6924, -1.6241], BASE_ZOOM)
-    }
+    })
   }
 
   return (
@@ -532,6 +620,24 @@ export default function FleetMap({
           <LegendItem color="#0284c7" label="Center geofence (radius)" dashed />
         </div>
       </div>
+
+      {/* Bottom-Center "centers outside view" chip — appears only when some
+          centers are parked outside the tight default framing */}
+      {viewStats.total > 0 && viewStats.visible < viewStats.total && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+          <button
+            type="button"
+            onClick={handleShowAllCenters}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-sky-500/30 backdrop-blur-md shadow-xl text-[11px] font-sans cursor-pointer hover:border-sky-400/60 hover:bg-[#0C0F17] transition"
+          >
+            <span className="size-1.5 rounded-full bg-sky-400 shrink-0 shadow-[0_0_6px_#38bdf8]" />
+            <span className="text-slate-300 font-medium whitespace-nowrap">
+              {viewStats.visible} of {viewStats.total} centers in view
+            </span>
+            <span className="text-sky-400 font-bold whitespace-nowrap">Show all</span>
+          </button>
+        </div>
+      )}
 
       {/* Bottom-Right Vertical Floating Tool Cluster */}
       <div className="absolute bottom-6 right-3.5 sm:bottom-6 sm:right-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
