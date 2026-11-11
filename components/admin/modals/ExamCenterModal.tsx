@@ -63,7 +63,10 @@ const NOISE_WORDS = new Set([
 
 /**
  * Best-effort match of a geocoded address against the configured district
- * list, e.g. Nominatim's "Kumasi, Ashanti Region" → "Kumasi Metropolitan".
+ * list, e.g. Nominatim's "..., Bantama, Kumasi, Ashanti Region" → "Bantama Sub-Metro".
+ *
+ * Locality-level fields (suburb/town/...) weigh more than city/region so a
+ * sub-metro wins over the generic "Kumasi Metropolitan" catch-all.
  */
 function matchDistrictId(
   display: string,
@@ -71,12 +74,24 @@ function matchDistrictId(
   districts: DistrictOption[]
 ): string | null {
   if (districts.length === 0) return null
-  const haystack = [display, ...Object.values(address || {})]
+  const specific = [
+    address?.suburb,
+    address?.neighbourhood,
+    address?.quarter,
+    address?.locality,
+    address?.village,
+    address?.hamlet,
+    address?.town,
+  ]
+    .filter(Boolean)
     .join(' ')
     .toLowerCase()
-  if (!haystack.trim()) return null
+  const general = [display, ...Object.values(address || {})]
+    .join(' ')
+    .toLowerCase()
+  if (!general.trim()) return null
 
-  let best: { id: string; score: number } | null = null
+  let best: { id: string; score: number; weight: number } | null = null
   for (const d of districts) {
     const words = d.name
       .toLowerCase()
@@ -84,10 +99,19 @@ function matchDistrictId(
       .filter((w) => w.length > 3 && !NOISE_WORDS.has(w))
     if (words.length === 0) continue
     let score = 0
+    let weight = 0
     for (const w of words) {
-      if (haystack.includes(w)) score += 1
+      if (specific.includes(w)) {
+        score += 3
+        weight += w.length
+      } else if (general.includes(w)) {
+        score += 1
+        weight += w.length
+      }
     }
-    if (score > 0 && (!best || score > best.score)) best = { id: d.id, score }
+    if (score > 0 && (!best || score > best.score || (score === best.score && weight > best.weight))) {
+      best = { id: d.id, score, weight }
+    }
   }
   return best ? best.id : null
 }
@@ -128,6 +152,7 @@ export function ExamCenterModal({
   const [isSearching, setIsSearching] = useState(false)
   const [searchNotice, setSearchNotice] = useState('')
   const [districtAuto, setDistrictAuto] = useState(false)
+  const [districtHint, setDistrictHint] = useState(false)
   const [coordsAuto, setCoordsAuto] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -171,6 +196,7 @@ export function ExamCenterModal({
       setSuggestions([])
       setSearchNotice('')
       setDistrictAuto(false)
+      setDistrictHint(false)
       setCoordsAuto(false)
       setShowAdvanced(false)
       return
@@ -277,18 +303,37 @@ export function ExamCenterModal({
 
   const pickSchool = useCallback(
     (school: SchoolSuggestion) => {
-      lastPickedQueryRef.current = name.trim()
+      const typed = name.trim()
+      // Preserve a manually typed suffix: "Amaniampong SHS center A"
+      // → picked "Amaniampong SHS" + " center A"
+      const suffixMatch = typed.match(
+        /\b(?:center|centre|hall|block|site|campus)\s*[a-z0-9]+\b/i
+      )
+      const nextName = suffixMatch ? `${school.name} ${suffixMatch[0]}` : school.name
+
+      // Adopt the canonical school name without re-triggering the search
+      lastPickedQueryRef.current = nextName
+      setName(nextName)
+      setSuggestions([])
+      setSearchNotice('')
+
       setLat(school.lat.toFixed(6))
       setLng(school.lng.toFixed(6))
       setCoordsAuto(true)
-      flyTargetRef.current = { lat: school.lat, lng: school.lng }
+
       const matched = matchDistrictId(school.display, school.address, districts)
-      if (matched) {
-        setDistrictId(matched)
-        setDistrictAuto(true)
+      if (matched) setDistrictId(matched)
+      setDistrictAuto(Boolean(matched))
+      setDistrictHint(!matched)
+
+      // Move the map NOW if it's already mounted (the ref is only consumed
+      // during init otherwise — that was the "map never moves" bug)
+      if (mapRef.current) {
+        mapRef.current.invalidateSize()
+        mapRef.current.flyTo([school.lat, school.lng], 16, { duration: 1 })
+      } else {
+        flyTargetRef.current = { lat: school.lat, lng: school.lng }
       }
-      setSuggestions([])
-      setSearchNotice('')
     },
     [name, districts]
   )
@@ -366,6 +411,7 @@ export function ExamCenterModal({
       markerRef.current = marker
       circleRef.current = circle
 
+      map.invalidateSize()
       map.setView([posRef.current.lat, posRef.current.lng], 15)
       const fly = flyTargetRef.current
       if (fly) {
@@ -583,6 +629,7 @@ export function ExamCenterModal({
                   onChange={(e) => {
                     setDistrictId(e.target.value)
                     setDistrictAuto(false)
+                    setDistrictHint(false)
                   }}
                   className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white focus:outline-hidden focus:border-sky-400 cursor-pointer"
                 >
@@ -595,6 +642,12 @@ export function ExamCenterModal({
                     <option value="dist-kumasi-metro">Kumasi Metropolitan</option>
                   )}
                 </select>
+                {districtHint && (
+                  <p className="mt-1 text-[10px] leading-relaxed text-amber-400/85">
+                    This school&apos;s address has no matching district in your list — pick one
+                    manually.
+                  </p>
+                )}
               </div>
             </div>
 
