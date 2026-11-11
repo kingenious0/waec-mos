@@ -5,6 +5,107 @@ import { recordAuditLog } from '@/lib/db/audit'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { desc, eq } from 'drizzle-orm'
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function normName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
+ * Resolve a center's district without being limited to a hardcoded list:
+ * 1. use the given districtId when it exists,
+ * 2. else match an existing district by name (exact, then loose),
+ * 3. else auto-create the district — and its region from the geocoded
+ *    address — so admins only ever review the auto-filled name.
+ */
+async function resolveDistrictId(opts: {
+  districtId?: string
+  districtName?: string
+  regionName?: string
+}): Promise<string> {
+  if (!db) throw new Error('Database not connected')
+  const { districtId, districtName, regionName } = opts
+
+  const allDistricts = await db.select().from(schema.districts)
+  const trimmedId = (districtId || '').trim()
+  if (trimmedId && allDistricts.some((d) => d.id === trimmedId)) return trimmedId
+
+  const name = (districtName || '').trim()
+  if (!name) return 'dist-kumasi-metro'
+  const target = normName(name)
+
+  const exact = allDistricts.find((d) => normName(d.name) === target)
+  if (exact) return exact.id
+  const loose = allDistricts.find(
+    (d) => normName(d.name).includes(target) || target.includes(normName(d.name))
+  )
+  if (loose) return loose.id
+
+  // Unknown district → make sure the region exists first
+  const regName = (regionName || 'Ashanti Region').trim()
+  const allRegions = await db.select().from(schema.regions)
+  const regTarget = normName(regName)
+  let region =
+    allRegions.find((r) => normName(r.name) === regTarget) ||
+    allRegions.find(
+      (r) => normName(r.name).includes(regTarget) || regTarget.includes(normName(r.name))
+    )
+
+  if (!region) {
+    let base =
+      regName
+        .replace(/[^A-Za-z ]/g, '')
+        .split(/\s+/)
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 3)
+        .toUpperCase() || 'GH'
+    let code = base
+    let suffix = 2
+    while (allRegions.some((r) => r.code === code)) {
+      code = `${base}${suffix}`
+      suffix += 1
+    }
+    let regionId = `reg-${slugify(regName)}`
+    let idSuffix = 2
+    while (allRegions.some((r) => r.id === regionId)) {
+      regionId = `reg-${slugify(regName)}-${idSuffix}`
+      idSuffix += 1
+    }
+    const [createdRegion] = await db
+      .insert(schema.regions)
+      .values({ id: regionId, name: regName, code })
+      .returning()
+    region = createdRegion
+  }
+
+  // Finally create the district itself
+  let newDistrictId = `dist-${slugify(name)}`
+  let idSuffix = 2
+  while (allDistricts.some((d) => d.id === newDistrictId)) {
+    newDistrictId = `dist-${slugify(name)}-${idSuffix}`
+    idSuffix += 1
+  }
+  const codeBase = name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'DST'
+  let code = codeBase
+  let codeSuffix = 2
+  while (allDistricts.some((d) => d.code === code)) {
+    code = `${codeBase}${codeSuffix}`
+    codeSuffix += 1
+  }
+
+  await db
+    .insert(schema.districts)
+    .values({ id: newDistrictId, regionId: region.id, name, code })
+
+  return newDistrictId
+}
+
 export async function GET() {
   try {
     if (!isLiveDatabase || !db) {
@@ -110,11 +211,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, code, lat, lng, radius, districtId, supervisorContact, actorId, actorName } = body
+    const { name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact, actorId, actorName } = body
 
     if (!name || !code || lat === undefined || lng === undefined) {
       return NextResponse.json({ error: 'Name, code, latitude, and longitude are required' }, { status: 400 })
     }
+
+    const resolvedDistrictId = await resolveDistrictId({ districtId, districtName, regionName })
 
     const existing = await db
       .select({ id: schema.examinationCenters.id })
@@ -134,7 +237,7 @@ export async function POST(request: Request) {
         id: newCenterId,
         centerName: String(name).trim(),
         centerCode: String(code).trim(),
-        districtId: districtId || 'dist-kumasi-metro',
+        districtId: resolvedDistrictId,
         latitude: Number(lat).toFixed(8),
         longitude: Number(lng).toFixed(8),
         geofenceRadiusMeters: Number(radius) || 150,
@@ -169,7 +272,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, name, code, lat, lng, radius, districtId, supervisorContact, actorId, actorName } = body
+    const { id, name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact, actorId, actorName } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Center ID is required' }, { status: 400 })
@@ -181,7 +284,13 @@ export async function PUT(request: Request) {
     if (lat !== undefined && !Number.isNaN(Number(lat))) updates.latitude = Number(lat).toFixed(8)
     if (lng !== undefined && !Number.isNaN(Number(lng))) updates.longitude = Number(lng).toFixed(8)
     if (radius !== undefined && !Number.isNaN(Number(radius))) updates.geofenceRadiusMeters = Math.max(25, Number(radius))
-    if (districtId !== undefined && districtId) updates.districtId = districtId
+    if ((districtId && String(districtId).trim()) || (districtName && String(districtName).trim())) {
+      updates.districtId = await resolveDistrictId({
+        districtId: districtId ? String(districtId) : undefined,
+        districtName,
+        regionName,
+      })
+    }
     if (supervisorContact !== undefined) updates.supervisorContact = supervisorContact
 
     const [updated] = await db

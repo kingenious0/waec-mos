@@ -29,6 +29,8 @@ export interface ExamCenterFormPayload {
   lng: number
   radius: number
   districtId: string
+  districtName: string
+  regionName?: string
   supervisorContact: string
 }
 
@@ -62,17 +64,35 @@ const NOISE_WORDS = new Set([
 ])
 
 /**
- * Best-effort match of a geocoded address against the configured district
- * list, e.g. Nominatim's "..., Bantama, Kumasi, Ashanti Region" → "Bantama Sub-Metro".
- *
- * Locality-level fields (suburb/town/...) weigh more than city/region so a
- * sub-metro wins over the generic "Kumasi Metropolitan" catch-all.
+ * Derive a district/municipality name straight from a Nominatim address,
+ * e.g. "Effutu Municipal" or "Kumasi Metropolitan". Ghana addresses usually
+ * carry the district in `county` / `municipality`.
  */
-function matchDistrictId(
+function deriveDistrictName(address?: Record<string, string>): string | null {
+  if (!address) return null
+  const order = [
+    'municipality',
+    'city_district',
+    'county',
+    'district',
+    'borough',
+    'state_district',
+    'city',
+    'town',
+  ]
+  for (const key of order) {
+    const value = (address[key] || '').trim()
+    if (value && value.toLowerCase() !== 'ghana') return value
+  }
+  return null
+}
+
+/** Find the best matching entry from the configured district list. */
+function findDistrict(
   display: string,
   address: Record<string, string> | undefined,
   districts: DistrictOption[]
-): string | null {
+): DistrictOption | null {
   if (districts.length === 0) return null
   const specific = [
     address?.suburb,
@@ -91,7 +111,7 @@ function matchDistrictId(
     .toLowerCase()
   if (!general.trim()) return null
 
-  let best: { id: string; score: number; weight: number } | null = null
+  let best: { district: DistrictOption; score: number; weight: number } | null = null
   for (const d of districts) {
     const words = d.name
       .toLowerCase()
@@ -110,10 +130,10 @@ function matchDistrictId(
       }
     }
     if (score > 0 && (!best || score > best.score || (score === best.score && weight > best.weight))) {
-      best = { id: d.id, score, weight }
+      best = { district: d, score, weight }
     }
   }
-  return best ? best.id : null
+  return best ? best.district : null
 }
 
 /** "Amaniampong SHS Center A" → "Amaniampong SHS" for fallback geocoding. */
@@ -143,6 +163,10 @@ export function ExamCenterModal({
   const [lng, setLng] = useState('-1.6369')
   const [radius, setRadius] = useState(String(defaultRadius))
   const [districtId, setDistrictId] = useState('')
+  const [districtName, setDistrictName] = useState('')
+  const [regionName, setRegionName] = useState('')
+  const [districtAuto, setDistrictAuto] = useState(false)
+  const [coordsAuto, setCoordsAuto] = useState(false)
   const [supervisorContact, setSupervisorContact] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -151,9 +175,7 @@ export function ExamCenterModal({
   const [suggestions, setSuggestions] = useState<SchoolSuggestion[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchNotice, setSearchNotice] = useState('')
-  const [districtAuto, setDistrictAuto] = useState(false)
-  const [districtHint, setDistrictHint] = useState(false)
-  const [coordsAuto, setCoordsAuto] = useState(false)
+
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   // Map refs
@@ -196,7 +218,6 @@ export function ExamCenterModal({
       setSuggestions([])
       setSearchNotice('')
       setDistrictAuto(false)
-      setDistrictHint(false)
       setCoordsAuto(false)
       setShowAdvanced(false)
       return
@@ -213,28 +234,46 @@ export function ExamCenterModal({
       setLat(String(initialCenter.lat))
       setLng(String(initialCenter.lng))
       setRadius(String(initialCenter.radius || defaultRadius))
-      setDistrictId(initialCenter.districtId || districts[0]?.id || 'dist-kumasi-metro')
+      setDistrictId(initialCenter.districtId || '')
+      setDistrictName(
+        initialCenter.districtName ||
+          districts.find((d) => d.id === initialCenter.districtId)?.name ||
+          ''
+      )
+      setRegionName(initialCenter.regionName || '')
       setSupervisorContact(initialCenter.supervisorContact || '')
       setCoordsAuto(false)
+      setDistrictAuto(false)
     } else {
       setName('')
       setCode('')
       setLat('6.6924')
       setLng('-1.6241')
       setRadius(String(defaultRadius))
-      setDistrictId(districts[0]?.id || 'dist-kumasi-metro')
+      setDistrictId(districts[0]?.id || '')
+      setDistrictName(districts[0]?.name || 'Kumasi Metropolitan')
+      setRegionName('')
       setSupervisorContact('')
       setCoordsAuto(false)
+      setDistrictAuto(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode, initialCenter])
 
-  // Backfill the district selection once options arrive (fresh open only) —
-  // intentionally excludes typed fields so polling never clears them.
+  // Link the typed district name to an existing district row once the list
+  // arrives (or after polling refreshes it). Never touches typed text.
   useEffect(() => {
-    if (!isOpen || districtId || districts.length === 0) return
-    setDistrictId(districts[0].id)
-  }, [isOpen, districtId, districts])
+    if (!isOpen || districtId || !districtName.trim() || districts.length === 0) return
+    const target = districtName.trim().toLowerCase()
+    const match =
+      districts.find((d) => d.name.trim().toLowerCase() === target) ||
+      districts.find(
+        (d) =>
+          d.name.trim().toLowerCase().includes(target) ||
+          target.includes(d.name.trim().toLowerCase())
+      )
+    if (match) setDistrictId(match.id)
+  }, [isOpen, districtId, districtName, districts])
 
   /* ------------------------------------------------------------------ */
   /* School search against OpenStreetMap Nominatim (Ghana only)          */
@@ -321,10 +360,22 @@ export function ExamCenterModal({
       setLng(school.lng.toFixed(6))
       setCoordsAuto(true)
 
-      const matched = matchDistrictId(school.display, school.address, districts)
-      if (matched) setDistrictId(matched)
-      setDistrictAuto(Boolean(matched))
-      setDistrictHint(!matched)
+      const matched = findDistrict(school.display, school.address, districts)
+      const derived = deriveDistrictName(school.address)
+      if (matched) {
+        setDistrictId(matched.id)
+        setDistrictName(matched.name)
+        setDistrictAuto(true)
+      } else if (derived) {
+        // Not in our list — auto-fill the text; it gets created on save
+        setDistrictId('')
+        setDistrictName(derived)
+        setDistrictAuto(true)
+      } else {
+        setDistrictAuto(false)
+      }
+      const state = (school.address?.state || '').trim()
+      if (state) setRegionName(state)
 
       // Move the map NOW if it's already mounted (the ref is only consumed
       // during init otherwise — that was the "map never moves" bug)
@@ -465,6 +516,10 @@ export function ExamCenterModal({
       setError('Center name and index code are required.')
       return
     }
+    if (!districtName.trim()) {
+      setError('District is required — type it or pick from the suggestions.')
+      return
+    }
     if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
       setError('Locate the center on the map or enter valid coordinates.')
       return
@@ -484,6 +539,8 @@ export function ExamCenterModal({
         lng: parsedLng,
         radius: Math.round(parsedRadius),
         districtId,
+        districtName: districtName.trim(),
+        regionName: regionName.trim() || undefined,
         supervisorContact: supervisorContact.trim(),
       })
       onClose()
@@ -620,34 +677,48 @@ export function ExamCenterModal({
                   <span>District</span>
                   {districtAuto && (
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
-                      AUTO-MATCHED
+                      AUTO-FILLED
                     </span>
                   )}
                 </label>
-                <select
-                  value={districtId}
+                <input
+                  type="text"
+                  list="waec-district-options"
+                  required
+                  value={districtName}
                   onChange={(e) => {
-                    setDistrictId(e.target.value)
+                    const value = e.target.value
+                    setDistrictName(value)
                     setDistrictAuto(false)
-                    setDistrictHint(false)
+                    const exact = districts.find(
+                      (d) => d.name.trim().toLowerCase() === value.trim().toLowerCase()
+                    )
+                    setDistrictId(exact ? exact.id : '')
                   }}
-                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white focus:outline-hidden focus:border-sky-400 cursor-pointer"
-                >
+                  placeholder="e.g. Effutu Municipal"
+                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400"
+                />
+                <datalist id="waec-district-options">
                   {districts.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
+                    <option key={d.id} value={d.name} />
                   ))}
-                  {districts.length === 0 && (
-                    <option value="dist-kumasi-metro">Kumasi Metropolitan</option>
+                </datalist>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px]">
+                  {regionName && (
+                    <span className="text-slate-500">
+                      Region:{' '}
+                      <span className="font-medium text-slate-400">{regionName}</span>
+                    </span>
                   )}
-                </select>
-                {districtHint && (
-                  <p className="mt-1 text-[10px] leading-relaxed text-amber-400/85">
-                    This school&apos;s address has no matching district in your list — pick one
-                    manually.
-                  </p>
-                )}
+                  {!districtId && districtName.trim() && (
+                    <span className="text-amber-400/85">
+                      Not in your list yet — will be created automatically on save.
+                    </span>
+                  )}
+                  {districtId && districtAuto && (
+                    <span className="text-emerald-400/85">Matched existing district.</span>
+                  )}
+                </div>
               </div>
             </div>
 
