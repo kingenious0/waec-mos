@@ -1066,90 +1066,132 @@ export default function AdminPage() {
                     return (
                       <div
                         key={officer.id}
-                        className="rounded-2xl border border-[#22263C] bg-[#11131F]/90 hover:border-slate-500/50 transition-all p-4 space-y-3 shadow-md flex flex-col justify-between"
+                        className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-[#0E111D] transition-all duration-200 ${
+                          officer.status === 'ACTIVE'
+                            ? 'border-[#22263C] hover:border-emerald-500/40 hover:shadow-[0_18px_45px_-22px_rgba(16,185,129,0.35)]'
+                            : 'border-rose-950/70 hover:border-rose-500/40 hover:shadow-[0_18px_45px_-22px_rgba(244,63,94,0.3)]'
+                        }`}
                       >
-                        {/* Top Row */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1E2B7B] to-[#12162B] text-white font-bold text-xs shadow-sm border border-[#2B355A] overflow-hidden">
-                              {officer.photo ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={officer.photo}
-                                  alt={officer.name}
-                                  className="size-full object-cover"
-                                />
-                              ) : (
-                                officer.name
-                                  .split(' ')
-                                  .map((n) => n[0])
-                                  .join('')
-                                  .slice(0, 2)
-                              )}
+                        {/* Status accent strip */}
+                        <div
+                          className={`h-0.5 w-full shrink-0 ${
+                            officer.status === 'ACTIVE'
+                              ? 'bg-gradient-to-r from-emerald-400 via-emerald-500/40 to-transparent'
+                              : 'bg-gradient-to-r from-rose-500 via-rose-500/40 to-transparent'
+                          }`}
+                        />
+
+                        <div className="space-y-3.5 p-4">
+                          {/* Identity */}
+                          <div className="flex items-start gap-3">
+                            <div className="relative shrink-0">
+                              <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl border border-[#2B355A] bg-gradient-to-br from-[#1E2B7B] to-[#12162B] text-sm font-bold text-white shadow-md">
+                                {officer.photo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={officer.photo}
+                                    alt={officer.name}
+                                    className="size-full object-cover"
+                                  />
+                                ) : (
+                                  officer.name
+                                    .split(' ')
+                                    .map((n) => n[0])
+                                    .join('')
+                                    .slice(0, 2)
+                                )}
+                              </div>
+                              <span
+                                className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-[#0E111D] ${
+                                  officer.status === 'ACTIVE'
+                                    ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]'
+                                    : 'bg-rose-400'
+                                }`}
+                              />
                               {officer.isGroupLeader && (
-                                <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-[#F6D300] text-black shadow-xs">
+                                <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-[#F6D300] text-black shadow">
                                   <Star className="size-2.5 fill-black" />
                                 </span>
                               )}
                             </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-sm text-white flex items-center gap-1.5 truncate">
-                                <span className="truncate">{officer.name}</span>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <h3 className="min-w-0 text-sm font-bold leading-snug break-words text-white">
+                                  {officer.name}
+                                </h3>
+                                <span
+                                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                    officer.status === 'ACTIVE'
+                                      ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                      : 'border border-rose-500/30 bg-rose-500/10 text-rose-400'
+                                  }`}
+                                >
+                                  <span
+                                    className={`size-1.5 rounded-full ${
+                                      officer.status === 'ACTIVE'
+                                        ? 'animate-pulse bg-emerald-400'
+                                        : 'bg-rose-400'
+                                    }`}
+                                  />
+                                  <span>
+                                    {officer.status === 'ACTIVE' ? 'Active' : 'Revoked'}
+                                  </span>
+                                </span>
+                              </div>
+
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                                 {officer.isGroupLeader && (
-                                  <span className="text-[9px] font-bold text-[#F6D300] bg-[#F6D300]/15 border border-[#F6D300]/30 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5">
+                                  <span className="flex items-center gap-0.5 rounded-full border border-[#F6D300]/30 bg-[#F6D300]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#F6D300]">
                                     <Star className="size-2 fill-[#F6D300]" />
                                     <span>Leader</span>
                                   </span>
                                 )}
-                              </div>
-                              <div className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5">
-                                <Phone className="size-3 text-slate-500 shrink-0" />
-                                <span>{officer.phone}</span>
+                                <span className="flex items-center gap-1 text-xs text-slate-400 tabular-nums">
+                                  <Phone className="size-3 shrink-0 text-slate-500" />
+                                  <span>{officer.phone}</span>
+                                </span>
+                                {officer.staffId && (
+                                  <span className="rounded-md border border-[#22263C] bg-[#121626] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
+                                    {officer.staffId}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
 
-                          <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold shrink-0 flex items-center gap-1 ${
-                              officer.status === 'ACTIVE'
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                            }`}
-                          >
+                        {/* Assignment details */}
+                        <div className="divide-y divide-[#1C2237] overflow-hidden rounded-xl border border-[#1E243A] bg-[#0A0D17] text-xs">
+                          <div className="flex items-center gap-2.5 px-3 py-2.5">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
+                              <Building2 className="size-3.5 text-sky-400" />
+                            </span>
+                            <span className="shrink-0 font-semibold text-slate-500">Center</span>
                             <span
-                              className={`size-1.5 rounded-full ${
-                                officer.status === 'ACTIVE'
-                                  ? 'bg-emerald-400 animate-pulse'
-                                  : 'bg-rose-400'
-                              }`}
-                            />
-                            <span>{officer.status === 'ACTIVE' ? 'Active' : 'Revoked'}</span>
-                          </span>
-                        </div>
-
-                        {/* Details Section */}
-                        <div className="rounded-xl bg-[#0A0D17]/80 p-3 border border-[#1E243A] space-y-2 text-xs">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="size-3.5 text-slate-500 shrink-0" />
-                            <span className="text-slate-400 shrink-0">Center:</span>
-                            <span className="text-slate-200 font-medium truncate flex-1">
+                              className="ml-auto truncate text-right font-medium text-slate-200"
+                              title={officer.assignedCenter || 'Unassigned'}
+                            >
                               {officer.assignedCenter || 'Unassigned'}
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1C2237]">
-                            <div className="flex items-center gap-1.5 text-slate-300">
-                              <Users className="size-3.5 text-slate-500 shrink-0" />
-                              <span className="text-slate-400">Group:</span>
-                              <span className="font-semibold text-sky-400">
-                                {officer.group || 'Group 1'}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-2.5 px-3 py-2.5">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
+                              <Users className="size-3.5 text-indigo-400" />
+                            </span>
+                            <span className="shrink-0 font-semibold text-slate-500">Group</span>
+                            <span className="ml-auto font-bold text-sky-400">
+                              {officer.group || 'Group 1'}
+                            </span>
+                          </div>
 
-                            <div className="flex items-center gap-1.5 bg-[#121626] px-2 py-0.5 rounded-md border border-[#22263C]">
-                              <Lock className="size-3 text-[#F6D300]" />
-                              <span className="text-slate-400">PIN:</span>
-                              <span className="font-bold text-[#F6D300] tracking-wider tabular-nums">
+                          <div className="flex items-center gap-2.5 px-3 py-2.5">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
+                              <Lock className="size-3.5 text-[#F6D300]" />
+                            </span>
+                            <span className="shrink-0 font-semibold text-slate-500">PIN</span>
+                            <span className="ml-auto flex items-center gap-1.5">
+                              <span className="rounded-md border border-[#22263C] bg-[#121626] px-2 py-0.5 font-bold tracking-[0.18em] text-[#F6D300] tabular-nums">
                                 {isPinMasked ? '••••' : officer.pin || '••••'}
                               </span>
                               {systemSettings.hideOfficerPins && (
@@ -1162,25 +1204,27 @@ export default function AdminPage() {
                                     }))
                                   }
                                   aria-label={isPinMasked ? 'Reveal PIN' : 'Hide PIN'}
-                                  className="text-slate-400 hover:text-white cursor-pointer ml-0.5"
+                                  className="flex size-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-[#181D2E] hover:text-white cursor-pointer"
                                 >
                                   {isPinMasked ? (
-                                    <Eye className="size-3" />
+                                    <Eye className="size-3.5" />
                                   ) : (
-                                    <EyeOff className="size-3 text-sky-400" />
+                                    <EyeOff className="size-3.5 text-sky-400" />
                                   )}
                                 </button>
                               )}
-                            </div>
+                            </span>
                           </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                        </div>
+
+                        {/* Actions footer */}
+                        <div className="mt-auto grid grid-cols-4 gap-1.5 border-t border-[#1C2237] bg-[#0B0E18] p-3">
                           <button
                             type="button"
                             onClick={() => setInspectedOfficer(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 px-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2 px-1 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
                             title="View & Edit Officer Profile & Assignment"
                           >
                             <User className="size-3.5 text-slate-400 shrink-0" />
@@ -1189,7 +1233,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => setShowResetPinModal(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-[#22263C] bg-[#161B2E] py-2 px-2 text-xs font-semibold text-slate-200 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2 px-1 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
                             title="Reset 4-Digit Field PIN"
                           >
                             <KeyRound className="size-3.5 text-[#F6D300] shrink-0" />
@@ -1198,10 +1242,10 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => handleToggleStatus(officer)}
-                            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 px-2 text-xs font-bold transition cursor-pointer min-h-[44px] ${
+                            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-1 text-[11px] font-bold transition cursor-pointer border ${
                               officer.status === 'ACTIVE'
-                                ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30'
-                                : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30'
+                                ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300'
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300'
                             }`}
                             title={officer.status === 'ACTIVE' ? 'Revoke Security Access' : 'Activate Security Access'}
                           >
@@ -1220,7 +1264,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => setOfficerToDelete(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/20 py-2 px-2 text-xs font-semibold text-rose-400 hover:bg-rose-900/40 hover:text-rose-300 transition cursor-pointer min-h-[44px]"
+                            className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 py-2 px-1 text-[11px] font-semibold text-rose-400 transition cursor-pointer hover:bg-rose-900/40 hover:text-rose-300"
                             title="Decommission Field Officer"
                           >
                             <Trash2 className="size-3.5 shrink-0" />

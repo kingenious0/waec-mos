@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Building2, CheckCircle2 } from 'lucide-react'
 import type { ExamCenter } from '@/components/admin/FleetMap'
@@ -57,8 +57,21 @@ export function ExamCenterModal({
     setMounted(true)
   }, [])
 
+  // Reset the form ONLY when the modal is opened for a different center/mode.
+  // The dashboard polls /api/centers in the background and replaces the
+  // `districts` array with a new reference on every poll — that must never
+  // re-run this initializer, otherwise typed input gets wiped mid-edit.
+  const initKeyRef = useRef<string | null>(null)
+
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {
+      initKeyRef.current = null
+      return
+    }
+    const initKey = `${mode}:${initialCenter?.id || 'create'}:${initialCenter?.name || ''}`
+    if (initKeyRef.current === initKey) return
+    initKeyRef.current = initKey
+
     setError('')
     setIsSubmitting(false)
     if (mode === 'edit' && initialCenter) {
@@ -78,7 +91,15 @@ export function ExamCenterModal({
       setDistrictId(districts[0]?.id || 'dist-kumasi-metro')
       setSupervisorContact('')
     }
-  }, [isOpen, mode, initialCenter, districts, defaultRadius])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode, initialCenter])
+
+  // Backfill the district selection once options arrive (fresh open only) —
+  // intentionally excludes typed fields so polling never clears them.
+  useEffect(() => {
+    if (!isOpen || districtId || districts.length === 0) return
+    setDistrictId(districts[0].id)
+  }, [isOpen, districtId, districts])
 
   if (!isOpen || !mounted) return null
 

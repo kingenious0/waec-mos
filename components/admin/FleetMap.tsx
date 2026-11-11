@@ -101,6 +101,11 @@ export default function FleetMap({
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapMode, setMapMode] = useState<'map' | 'satellite'>('map')
 
+  // Default framing is intentionally tight: exam centres sit close together
+  // across Kumasi, so a wider view just scatters the labels off-screen.
+  const BASE_ZOOM = 14
+  const SATELLITE_MIN_ZOOM = 15
+
   const createTileLayer = (L: any, mode: 'map' | 'satellite') => {
     if (mode === 'satellite') {
       return L.tileLayer(
@@ -130,7 +135,7 @@ export default function FleetMap({
 
       const map = L.map(mapContainerRef.current, {
         center: [6.6924, -1.6241],
-        zoom: 13,
+        zoom: BASE_ZOOM,
         zoomControl: false,
         attributionControl: false,
       })
@@ -168,6 +173,13 @@ export default function FleetMap({
         mapInstanceRef.current.removeLayer(tileLayerRef.current)
       }
       tileLayerRef.current = createTileLayer(L, mapMode).addTo(mapInstanceRef.current)
+
+      // Satellite imagery reads much better a notch closer in — nudge the
+      // view tighter when switching, but never yank a zoomed-out map back.
+      const targetZoom = mapMode === 'satellite' ? SATELLITE_MIN_ZOOM : BASE_ZOOM
+      if (mapInstanceRef.current.getZoom() < targetZoom) {
+        mapInstanceRef.current.setZoom(targetZoom, { animate: true })
+      }
     })
   }, [mapMode, mapLoaded])
 
@@ -405,9 +417,9 @@ export default function FleetMap({
   const handleResetView = () => {
     const first = centers[0]
     if (first) {
-      mapInstanceRef.current?.flyTo([first.lat, first.lng], 13)
+      mapInstanceRef.current?.flyTo([first.lat, first.lng], BASE_ZOOM)
     } else {
-      mapInstanceRef.current?.flyTo([6.6924, -1.6241], 13)
+      mapInstanceRef.current?.flyTo([6.6924, -1.6241], BASE_ZOOM)
     }
   }
 
@@ -457,6 +469,20 @@ export default function FleetMap({
         </div>
       </div>
 
+      {/* Bottom-Left Marker Legend — decodes what every dot / circle means */}
+      <div className="absolute bottom-6 left-3.5 sm:left-4 z-10 hidden md:block pointer-events-none">
+        <div className="flex flex-col gap-1.5 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] px-3 py-2.5 backdrop-blur-md shadow-xl font-sans">
+          <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-0.5">
+            Map Legend
+          </span>
+          <LegendItem color="#10B981" label="Officer on-site" />
+          <LegendItem color="#38bdf8" label="Officer en-route / pending" />
+          <LegendItem color="#EF4444" label="SOS emergency" pulse />
+          <LegendItem color="#F6D300" label="Selected officer" />
+          <LegendItem color="#0284c7" label="Center geofence (radius)" dashed />
+        </div>
+      </div>
+
       {/* Bottom-Right Vertical Floating Tool Cluster */}
       <div className="absolute bottom-6 right-3.5 sm:bottom-6 sm:right-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
         <div className="flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-2xl overflow-hidden divide-y divide-[#22263C]">
@@ -490,6 +516,35 @@ export default function FleetMap({
           <Crosshair className="size-4" />
         </button>
       </div>
+    </div>
+  )
+}
+
+function LegendItem({
+  color,
+  label,
+  pulse,
+  dashed,
+}: {
+  color: string
+  label: string
+  pulse?: boolean
+  dashed?: boolean
+}) {
+  return (
+    <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300 whitespace-nowrap">
+      {dashed ? (
+        <span
+          className="size-3 shrink-0 rounded-full border-2 border-dashed"
+          style={{ borderColor: color }}
+        />
+      ) : (
+        <span
+          className={`size-2.5 shrink-0 rounded-full ${pulse ? 'animate-ping' : ''}`}
+          style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+        />
+      )}
+      <span>{label}</span>
     </div>
   )
 }
