@@ -48,6 +48,8 @@ import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTel
 import { MobileBottomNav } from '@/components/admin/mobile/MobileBottomNav'
 import { MobileTopBar } from '@/components/admin/mobile/MobileTopBar'
 import { MobileOfficerCard } from '@/components/admin/directory/MobileOfficerCard'
+import { MobileOfficerSheet } from '@/components/admin/inspector/MobileOfficerSheet'
+import { MobileCenterCard } from '@/components/admin/centers/MobileCenterCard'
 import { formatGhanaPhone } from '@/lib/phone'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 import type { NotificationItem } from '@/components/admin/notifications/NotificationsPopover'
@@ -151,11 +153,13 @@ export default function AdminPage() {
     'all' | 'active' | 'revoked' | 'nocentre'
   >('all')
   const [incidentFilter, setIncidentFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL')
+  const [showAllActivity, setShowAllActivity] = useState(false)
   const [auditOfficerFilterId, setAuditOfficerFilterId] = useState<string | null>(null)
 
   // Responsive Layout & Feedback
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [isMobileDrawerExpanded, setIsMobileDrawerExpanded] = useState(false)
+  const [mapStatusFilter, setMapStatusFilter] = useState<'all' | 'onsite' | 'enroute' | 'sos'>('all')
+  const [sheetSnap, setSheetSnap] = useState<'peek' | 'half' | 'full'>('peek')
   const [feedback, setFeedback] = useState('')
 
   // Modals
@@ -791,6 +795,16 @@ export default function AdminPage() {
     )
   }, [fleetOfficers, rosterSearch])
 
+  const mapSosOfficer = useMemo(
+    () => fleetOfficers.find((o) => o.status === 'SOS' && o.sosIncidentId) ?? null,
+    [fleetOfficers]
+  )
+
+  // Reset the mobile officer sheet to peek whenever a different officer is selected
+  useEffect(() => {
+    setSheetSnap('peek')
+  }, [selectedOfficer?.id])
+
   const filteredDirectoryOfficers = useMemo(() => {
     const q = directorySearch.toLowerCase()
     if (!q) return officers
@@ -854,6 +868,237 @@ export default function AdminPage() {
       auditOfficerFilterId
     )
   }, [auditOfficerFilterId, officers, fleetOfficers])
+
+
+  // --- Incident blocks shared by the mobile + desktop layouts (defined once) ---
+  const criticalSosCards = (
+    <>
+{/* Active Critical SOS Incident Cards */}
+              {criticalSosIncidents.length > 0 && (
+                <div className="space-y-3">
+                  {criticalSosIncidents.map((inc) => (
+                    <div
+                      key={inc.id}
+                      className="rounded-2xl border border-[#EF4444]/80 bg-gradient-to-br from-rose-950/40 via-[#14121F] to-[#0C0F17] p-4 sm:p-5 space-y-4 shadow-2xl"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="size-11 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg shadow-rose-950 shrink-0">
+                            <AlertTriangle className="size-6 animate-pulse" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-[#EF4444] px-2.5 py-0.5 text-[10px] font-black text-white tracking-wider">
+                                CRITICAL SOS
+                              </span>
+                              <span className="text-xs font-sans text-rose-300 font-semibold">
+                                {inc.incidentNumber}
+                              </span>
+                            </div>
+                            <h3 className="font-bold text-base sm:text-lg text-white mt-0.5">
+                              {inc.reporterName} — {inc.centerName}
+                            </h3>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => handleFocusIncidentLocation(inc)}
+                            className="px-3 py-2 rounded-xl bg-[#11131F] hover:bg-[#1A1F36] border border-[#22263C] text-xs font-bold text-slate-200 transition cursor-pointer"
+                          >
+                            Focus on Map
+                          </button>
+                          <button
+                            onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
+                            className="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-bold text-emerald-300 transition cursor-pointer"
+                          >
+                            Resolve Alert
+                          </button>
+                          <button
+                            onClick={() => handleDispatchPatrol(inc.id)}
+                            className="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <Phone className="size-3.5" />
+                            <span>
+                              {patrolDispatchedIds[inc.id]
+                                ? 'Dispatched (191)'
+                                : 'Call Emergency (191)'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-[#0A0D17]/90 border border-[#22263C] text-xs text-slate-200">
+                        <span className="text-slate-400 font-semibold">Incident Report: </span>
+                        <span>{inc.description}</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-300">
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Device Battery
+                          </span>
+                          <div className="text-[#EF4444] font-bold text-sm mt-0.5 flex items-center gap-1">
+                            <Battery className="size-3.5" />
+                            <span>
+                              {typeof inc.reporterBattery === 'number'
+                                ? `${inc.reporterBattery}%`
+                                : '--%'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Contact Phone
+                          </span>
+                          <div className="text-white font-sans font-bold text-sm mt-0.5">
+                            {inc.reporterPhone || 'N/A'}
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Reported Time
+                          </span>
+                          <div className="text-white font-sans font-bold text-sm mt-0.5">
+                            {inc.reportedTimeFormatted || 'Just now'}
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
+                          <span className="text-slate-400 block text-[11px] font-medium">
+                            Center Proximity
+                          </span>
+                          <div className="text-emerald-400 font-bold text-sm mt-0.5">
+                            {typeof inc.reporterDistance === 'number'
+                              ? inc.reporterDistance >= 1000
+                                ? `${(inc.reporterDistance / 1000).toFixed(1)} km`
+                                : `${inc.reporterDistance} m`
+                              : 'No telemetry'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+    </>
+  )
+
+  const recordedIncidentsBlock = (
+    <>
+{/* All Incidents Workflow Table / List */}
+              <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
+                    Recorded Incidents ({filteredIncidents.length})
+                  </h3>
+
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setIncidentFilter(tab)}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                          incidentFilter === tab
+                            ? 'bg-[#1E2B7B] text-white border border-sky-400/30'
+                            : 'text-slate-400 hover:text-white bg-[#0A0D17]'
+                        }`}
+                      >
+                        {tab === 'ALL'
+                          ? `All (${incidents.length})`
+                          : tab === 'OPEN'
+                          ? `Open (${unresolvedIncidents.length})`
+                          : `Resolved (${incidents.length - unresolvedIncidents.length})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredIncidents.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+                    No incidents recorded in this filter view.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {filteredIncidents.map((inc) => {
+                      const isClosed = ['RESOLVED', 'CLOSED'].includes(inc.status)
+                      return (
+                        <div
+                          key={inc.id}
+                          className="rounded-xl bg-[#0C0F1D] border border-[#22263C] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  inc.severity === 'CRITICAL'
+                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                    : inc.severity === 'HIGH'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
+                                }`}
+                              >
+                                {inc.severity} · {inc.category}
+                              </span>
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {inc.incidentNumber}
+                              </span>
+                              <span className="text-slate-500">•</span>
+                              <span className="text-slate-400">
+                                {inc.reportedTimeFormatted}
+                              </span>
+                            </div>
+                            <div className="font-bold text-white text-sm">{inc.title}</div>
+                            <div className="text-slate-300">{inc.description}</div>
+                            <div className="text-[11px] text-slate-400">
+                              Center: <span className="text-slate-200">{inc.centerName}</span> ·
+                              Reported by:{' '}
+                              <span className="text-slate-200">{inc.reporterName}</span>
+                              {inc.resolutionNotes ? ` · Note: ${inc.resolutionNotes}` : ''}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                isClosed
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                              }`}
+                            >
+                              {inc.status}
+                            </span>
+
+                            {!isClosed && inc.status === 'REPORTED' && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleUpdateIncidentStatus(inc.id, 'INVESTIGATING')
+                                }
+                                className="px-2.5 py-1.5 rounded-lg bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-sky-300 font-semibold transition cursor-pointer"
+                              >
+                                Investigate
+                              </button>
+                            )}
+                            {!isClosed && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-semibold transition cursor-pointer"
+                              >
+                                Resolve
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+    </>
+  )
+
 
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-[#090A0F] text-foreground font-sans select-none antialiased">
@@ -995,7 +1240,57 @@ export default function AdminPage() {
                   onNavigate={handleNavigate}
                   focusTarget={focusTarget}
                   activeSectorName={`${session?.region || 'Ashanti'} Telematics Grid`}
+                  statusFilter={mapStatusFilter}
+                  onStatusFilterChange={setMapStatusFilter}
                 />
+
+                {/* Unresolved SOS banner — mobile only, above the map */}
+                {mapSosOfficer && (
+                  <div
+                    role="alert"
+                    className="lg:hidden absolute top-14 left-3 right-3 z-20 flex items-center gap-2.5 rounded-2xl border border-status-sos/50 bg-[#1A0D12]/95 backdrop-blur-md px-3 py-2.5 shadow-xl"
+                  >
+                    <Siren className="size-5 shrink-0 text-status-sos animate-pulse" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9px] font-extrabold tracking-[0.14em] text-status-sos">
+                        ACTIVE SOS
+                      </div>
+                      <div className="text-[11px] text-red-100/85 truncate">
+                        {mapSosOfficer.name} · {mapSosOfficer.sosIncidentNumber || 'DISTRESS'}
+                      </div>
+                    </div>
+                    {mapSosOfficer.sosStatus === 'ACKNOWLEDGED' ? (
+                      <span className="shrink-0 inline-flex items-center rounded-lg border border-white/15 bg-white/5 px-2.5 py-2 text-[10px] font-bold text-slate-300">
+                        ACKED
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          mapSosOfficer.sosIncidentId &&
+                          handleUpdateIncidentStatus(mapSosOfficer.sosIncidentId, 'ACKNOWLEDGED')
+                        }
+                        className="shrink-0 h-10 px-3.5 rounded-xl border border-white/15 bg-white/5 text-[11px] font-bold text-slate-100 hover:bg-white/10 cursor-pointer"
+                      >
+                        Acknowledge
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Mobile officer bottom sheet — peek / half / full snap points */}
+                {selectedOfficer && (
+                  <MobileOfficerSheet
+                    officer={selectedOfficer}
+                    snap={sheetSnap}
+                    onSnapChange={setSheetSnap}
+                    onCallOfficer={handleCallOfficer}
+                    onViewLogs={(officerId) => {
+                      setAuditOfficerFilterId(officerId)
+                      setActiveTab('incidents')
+                    }}
+                  />
+                )}
               </div>
 
               {selectedOfficer && (
@@ -1018,35 +1313,6 @@ export default function AdminPage() {
                 </aside>
               )}
 
-              {selectedOfficer && (
-                <div
-                  className={`lg:hidden absolute left-3 right-3 sm:left-4 sm:right-auto sm:w-[380px] z-30 transition-all duration-300 ease-in-out border border-[#22263C] bg-[#0C0F17]/95 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden flex flex-col ${
-                    isMobileDrawerExpanded
-                      ? 'bottom-16 h-[70vh] max-h-[520px]'
-                      : 'bottom-16 max-h-[220px]'
-                  }`}
-                >
-                  <OfficerTelematicsDrawer
-                    officer={selectedOfficer}
-                    onCallOfficer={handleCallOfficer}
-                    onViewLogs={(officerId) => {
-                      setAuditOfficerFilterId(officerId)
-                      setActiveTab('incidents')
-                    }}
-                    isMobileDrawerExpanded={isMobileDrawerExpanded}
-                    onToggleMobileDrawer={() =>
-                      setIsMobileDrawerExpanded(!isMobileDrawerExpanded)
-                    }
-                    onAcknowledgeSos={(off) =>
-                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'ACKNOWLEDGED')
-                    }
-                    onResolveSos={(off) =>
-                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'RESOLVED')
-                    }
-                    onClose={() => setSelectedOfficer(null)}
-                  />
-                </div>
-              )}
             </div>
           )}
 
@@ -1414,7 +1680,83 @@ export default function AdminPage() {
           {/* TAB 3: EXAM CENTERS & GEOFENCES */}
           {/* ========================================================= */}
           {activeTab === 'centers' && (
-            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
+            <>
+            {/* ===== MOBILE (< lg) — compact cards, one FAB ===== */}
+            <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
+              <div className="p-4 space-y-3 pb-32">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="size-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={centerSearchQuery}
+                    onChange={(e) => setCenterSearchQuery(e.target.value)}
+                    placeholder="Search name or code"
+                    aria-label="Search centres"
+                    className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
+                  />
+                </div>
+
+                {/* Summary strip */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {unresolvedIncidents.length === 0 ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
+                      <span className="size-2 rounded-full bg-emerald-400" />
+                      {examCenters.length} of {examCenters.length} geofences clear
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-status-sos/30 bg-status-sos/10 px-3.5 py-2 text-xs font-semibold text-status-sos">
+                      <span className="size-2 rounded-full bg-status-sos animate-pulse" />
+                      {unresolvedIncidents.length} open incidents
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-500 tabular-nums">
+                    {incidentSummary.breachCount} breaches logged
+                  </span>
+                </div>
+
+                {/* Centre cards */}
+                {filteredCenters.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-8 text-center space-y-2">
+                    <Building2 className="size-7 text-slate-500 mx-auto" />
+                    <p className="text-sm font-semibold text-slate-300">
+                      {centerSearchQuery
+                        ? 'No centres matched your search'
+                        : 'No examination centres registered yet'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Register a WAEC examination centre to monitor its geofence.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3.5">
+                    {filteredCenters.map((center, idx) => (
+                      <MobileCenterCard
+                        key={center.id || center.code}
+                        index={idx + 1}
+                        center={center}
+                        onFocus={handleCenterFocus}
+                        onEdit={(c) => setCenterModalState({ mode: 'edit', center: c })}
+                        onDelete={setCenterToDelete}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Floating Register button — above the tab bar */}
+              <button
+                type="button"
+                onClick={() => setCenterModalState({ mode: 'create' })}
+                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+              >
+                <Plus className="size-5" />
+                Register centre
+              </button>
+            </div>
+
+            {/* ===== DESKTOP (lg+) — existing console layout ===== */}
+            <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#22263C] pb-3">
                 <div>
                   <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
@@ -1784,13 +2126,115 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+            </>
           )}
 
           {/* ========================================================= */}
           {/* TAB 4: INCIDENT LOGS & AUDIT TRAIL */}
           {/* ========================================================= */}
           {activeTab === 'incidents' && (
-            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
+            <>
+            {/* ===== MOBILE (< lg) — strip, chips, flat activity, FAB ===== */}
+            <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
+              <div className="p-4 space-y-4 pb-32">
+                {/* Status strip */}
+                {unresolvedIncidents.length === 0 ? (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
+                    <CheckCircle2 className="size-6 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-sm font-bold text-emerald-400">No open incidents</div>
+                      <div className="text-xs text-emerald-400/70">All stations nominal</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-[#EF4444]/40 bg-status-sos/10 p-4 flex items-center gap-3">
+                    <Siren className="size-6 text-status-sos shrink-0 animate-pulse" />
+                    <div>
+                      <div className="text-sm font-bold text-status-sos">
+                        {unresolvedIncidents.length} open incident
+                        {unresolvedIncidents.length > 1 ? 's' : ''}
+                      </div>
+                      <div className="text-xs text-red-100/75">Emergency response required</div>
+                    </div>
+                  </div>
+                )}
+
+                {criticalSosCards}
+                {recordedIncidentsBlock}
+
+                {/* Recent activity — flat list, no inner scroll */}
+                <div>
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <span className="text-[10px] font-sans uppercase tracking-wider text-slate-500">
+                      Recent activity
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllActivity((v) => !v)}
+                      className="text-xs font-semibold text-indigo-300 hover:text-indigo-200 transition cursor-pointer"
+                    >
+                      {showAllActivity
+                        ? 'Show less'
+                        : `View full audit log (${filteredAuditLogs.length})`}
+                    </button>
+                  </div>
+                  {filteredAuditLogs.length === 0 ? (
+                    <div className="mt-2 rounded-2xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+                      No operational audit events recorded yet.
+                    </div>
+                  ) : (
+                    <div className="mt-2 rounded-2xl border border-[#22263C] bg-[#11131F] overflow-hidden divide-y divide-[#1E243A]">
+                      {(showAllActivity
+                        ? filteredAuditLogs
+                        : filteredAuditLogs.slice(0, 8)
+                      ).map((log) => {
+                        const isCrit = [
+                          'SOS_TRIGGERED',
+                          'GEOFENCE_BREACH',
+                          'USER_REVOKED',
+                        ].includes(log.action)
+                        const isOk = [
+                          'CHECK_IN_LOGGED',
+                          'SOS_STAND_DOWN',
+                          'INCIDENT_RESOLVED',
+                          'USER_RESTORED',
+                        ].includes(log.action)
+                        const dot = isCrit
+                          ? 'bg-status-sos shadow-[0_0_6px_rgba(244,63,94,0.6)]'
+                          : isOk
+                          ? 'bg-status-ok'
+                          : 'bg-sky-400'
+                        return (
+                          <div key={log.id} className="flex items-center gap-3 px-3.5 py-3">
+                            <span className={`size-2 shrink-0 rounded-full ${dot}`} />
+                            <span className="text-[11px] font-semibold tabular-nums text-slate-500 w-10 shrink-0">
+                              {log.timeFormatted || '--:--'}
+                            </span>
+                            <span className="text-xs text-slate-200 leading-snug min-w-0">
+                              {log.details?.message ||
+                                `${log.actorName} — ${log.action.replace(/_/g, ' ')}`}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Floating Log incident button — above the tab bar */}
+              <button
+                type="button"
+                onClick={() => setShowLogIncidentModal(true)}
+                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+              >
+                <Plus className="size-5" />
+                Log incident
+              </button>
+            </div>
+
+            {/* ===== DESKTOP (lg+) — existing console layout ===== */}
+            <div className="hidden lg:block flex-1 overflow-y-auto p-5 pb-6 space-y-5 bg-[#090A0F] font-sans">
               <div className="border-b border-[#22263C] pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
                   <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
@@ -1829,225 +2273,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Active Critical SOS Incident Cards */}
-              {criticalSosIncidents.length > 0 && (
-                <div className="space-y-3">
-                  {criticalSosIncidents.map((inc) => (
-                    <div
-                      key={inc.id}
-                      className="rounded-2xl border border-[#EF4444]/80 bg-gradient-to-br from-rose-950/40 via-[#14121F] to-[#0C0F17] p-4 sm:p-5 space-y-4 shadow-2xl"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="size-11 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg shadow-rose-950 shrink-0">
-                            <AlertTriangle className="size-6 animate-pulse" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-[#EF4444] px-2.5 py-0.5 text-[10px] font-black text-white tracking-wider">
-                                CRITICAL SOS
-                              </span>
-                              <span className="text-xs font-sans text-rose-300 font-semibold">
-                                {inc.incidentNumber}
-                              </span>
-                            </div>
-                            <h3 className="font-bold text-base sm:text-lg text-white mt-0.5">
-                              {inc.reporterName} — {inc.centerName}
-                            </h3>
-                          </div>
-                        </div>
+              {criticalSosCards}
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            onClick={() => handleFocusIncidentLocation(inc)}
-                            className="px-3 py-2 rounded-xl bg-[#11131F] hover:bg-[#1A1F36] border border-[#22263C] text-xs font-bold text-slate-200 transition cursor-pointer"
-                          >
-                            Focus on Map
-                          </button>
-                          <button
-                            onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
-                            className="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-bold text-emerald-300 transition cursor-pointer"
-                          >
-                            Resolve Alert
-                          </button>
-                          <button
-                            onClick={() => handleDispatchPatrol(inc.id)}
-                            className="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                          >
-                            <Phone className="size-3.5" />
-                            <span>
-                              {patrolDispatchedIds[inc.id]
-                                ? 'Dispatched (191)'
-                                : 'Call Emergency (191)'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-[#0A0D17]/90 border border-[#22263C] text-xs text-slate-200">
-                        <span className="text-slate-400 font-semibold">Incident Report: </span>
-                        <span>{inc.description}</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-300">
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Device Battery
-                          </span>
-                          <div className="text-[#EF4444] font-bold text-sm mt-0.5 flex items-center gap-1">
-                            <Battery className="size-3.5" />
-                            <span>
-                              {typeof inc.reporterBattery === 'number'
-                                ? `${inc.reporterBattery}%`
-                                : '--%'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Contact Phone
-                          </span>
-                          <div className="text-white font-sans font-bold text-sm mt-0.5">
-                            {inc.reporterPhone || 'N/A'}
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Reported Time
-                          </span>
-                          <div className="text-white font-sans font-bold text-sm mt-0.5">
-                            {inc.reportedTimeFormatted || 'Just now'}
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Center Proximity
-                          </span>
-                          <div className="text-emerald-400 font-bold text-sm mt-0.5">
-                            {typeof inc.reporterDistance === 'number'
-                              ? inc.reporterDistance >= 1000
-                                ? `${(inc.reporterDistance / 1000).toFixed(1)} km`
-                                : `${inc.reporterDistance} m`
-                              : 'No telemetry'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* All Incidents Workflow Table / List */}
-              <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
-                    Recorded Incidents ({filteredIncidents.length})
-                  </h3>
-
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setIncidentFilter(tab)}
-                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
-                          incidentFilter === tab
-                            ? 'bg-[#1E2B7B] text-white border border-sky-400/30'
-                            : 'text-slate-400 hover:text-white bg-[#0A0D17]'
-                        }`}
-                      >
-                        {tab === 'ALL'
-                          ? `All (${incidents.length})`
-                          : tab === 'OPEN'
-                          ? `Open (${unresolvedIncidents.length})`
-                          : `Resolved (${incidents.length - unresolvedIncidents.length})`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {filteredIncidents.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
-                    No incidents recorded in this filter view.
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {filteredIncidents.map((inc) => {
-                      const isClosed = ['RESOLVED', 'CLOSED'].includes(inc.status)
-                      return (
-                        <div
-                          key={inc.id}
-                          className="rounded-xl bg-[#0C0F1D] border border-[#22263C] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                        >
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  inc.severity === 'CRITICAL'
-                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                    : inc.severity === 'HIGH'
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                    : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
-                                }`}
-                              >
-                                {inc.severity} · {inc.category}
-                              </span>
-                              <span className="font-mono text-[11px] text-slate-400">
-                                {inc.incidentNumber}
-                              </span>
-                              <span className="text-slate-500">•</span>
-                              <span className="text-slate-400">
-                                {inc.reportedTimeFormatted}
-                              </span>
-                            </div>
-                            <div className="font-bold text-white text-sm">{inc.title}</div>
-                            <div className="text-slate-300">{inc.description}</div>
-                            <div className="text-[11px] text-slate-400">
-                              Center: <span className="text-slate-200">{inc.centerName}</span> ·
-                              Reported by:{' '}
-                              <span className="text-slate-200">{inc.reporterName}</span>
-                              {inc.resolutionNotes ? ` · Note: ${inc.resolutionNotes}` : ''}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                isClosed
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                              }`}
-                            >
-                              {inc.status}
-                            </span>
-
-                            {!isClosed && inc.status === 'REPORTED' && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateIncidentStatus(inc.id, 'INVESTIGATING')
-                                }
-                                className="px-2.5 py-1.5 rounded-lg bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-sky-300 font-semibold transition cursor-pointer"
-                              >
-                                Investigate
-                              </button>
-                            )}
-                            {!isClosed && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
-                                className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-semibold transition cursor-pointer"
-                              >
-                                Resolve
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+              {recordedIncidentsBlock}
 
               {/* Bento Row: Live Audit Trail + Security Readiness */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
@@ -2078,7 +2306,7 @@ export default function AdminPage() {
                       No operational audit events recorded yet.
                     </div>
                   ) : (
-                    <div className="space-y-2 text-xs max-h-[360px] overflow-y-auto pr-1">
+                    <div className="space-y-2 text-xs">
                       {filteredAuditLogs.map((log) => {
                         const isCrit = [
                           'SOS_TRIGGERED',
@@ -2181,6 +2409,7 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+            </>
           )}
 
           {/* ========================================================= */}

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
-import { Plus, Minus, Crosshair, Users } from 'lucide-react'
+import { Plus, Minus, Crosshair, Users, Layers, Map as MapIcon, Satellite, Check } from 'lucide-react'
 
 export interface OfficerCheckpoint {
   id: string
@@ -128,6 +128,8 @@ interface FleetMapProps {
   onNavigate: (lat: number, lng: number) => void
   focusTarget: { lat: number; lng: number; zoom?: number } | null
   activeSectorName?: string
+  statusFilter?: 'all' | 'onsite' | 'enroute' | 'sos'
+  onStatusFilterChange?: (filter: 'all' | 'onsite' | 'enroute' | 'sos') => void
 }
 
 export default function FleetMap({
@@ -137,6 +139,8 @@ export default function FleetMap({
   onSelectOfficer,
   focusTarget,
   activeSectorName = 'Ashanti Regional Zone',
+  statusFilter = 'all',
+  onStatusFilterChange,
 }: FleetMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -147,6 +151,16 @@ export default function FleetMap({
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapMode, setMapMode] = useState<'map' | 'satellite'>('map')
   const [legendOpen, setLegendOpen] = useState(false)
+  const [layersOpen, setLayersOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   // Default framing is intentionally tight: exam centres sit close together
   // across Kumasi, so a wider view just scatters the labels off-screen.
@@ -164,10 +178,11 @@ export default function FleetMap({
       )
     }
 
-    return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // CARTO dark matter tiles — matches the console's dark theme
+    return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      subdomains: ['a', 'b', 'c'],
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: ['a', 'b', 'c', 'd'],
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
     })
   }
 
@@ -269,6 +284,37 @@ export default function FleetMap({
 
       centers.forEach((center) => {
         if (Number.isNaN(center.lat) || Number.isNaN(center.lng)) return
+
+        if (!isDesktop) {
+          // Mobile: small yellow pin + dashed yellow geofence, no name pills
+          L.circle([center.lat, center.lng], {
+            radius: center.radius,
+            color: '#F6D300',
+            weight: 1.5,
+            opacity: 0.85,
+            fillColor: '#F6D300',
+            fillOpacity: 0.08,
+            dashArray: '6, 7',
+          }).addTo(group)
+
+          const pinIcon = L.divIcon({
+            className: 'custom-center-marker',
+            html: `<div style="
+              width: 14px; height: 14px; border-radius: 50%;
+              background: #F6D300; border: 2.5px solid #0C0F17;
+              box-shadow: 0 0 0 1px rgba(246,211,0,0.6), 0 2px 6px rgba(0,0,0,0.6);
+            "></div>`,
+            iconSize: [14, 14],
+            iconAnchor: [7, 7],
+          })
+          const pin = L.marker([center.lat, center.lng], { icon: pinIcon })
+          pin.on('click', () => {
+            mapInstanceRef.current?.flyTo([center.lat, center.lng], 16, { duration: 0.8 })
+          })
+          pin.addTo(group)
+          return
+        }
+
         const hasBreach = (center.openIncidentsCount || 0) > 0
         const color = hasBreach ? '#EF4444' : '#38bdf8'
 
@@ -341,7 +387,7 @@ export default function FleetMap({
         marker.addTo(group)
       })
     })
-  }, [centers, mapLoaded])
+  }, [centers, mapLoaded, isDesktop])
 
   // Frame the map sensibly on first load: fit the bounds of the dominant
   // region (the region most centers belong to — effectively the user's
@@ -436,8 +482,14 @@ export default function FleetMap({
       group.clearLayers()
 
       // 14px status dots with a white ring; grey hollow when telemetry is stale.
+      const visibleOfficers = officers.filter((officer) => {
+        if (statusFilter === 'onsite') return officer.status === 'ON_SITE'
+        if (statusFilter === 'enroute') return officer.status === 'PENDING'
+        if (statusFilter === 'sos') return officer.status === 'SOS'
+        return true
+      })
       const markers: any[] = []
-      officers.forEach((officer) => {
+      visibleOfficers.forEach((officer) => {
         const isSelected = selectedOfficer?.id === officer.id
         const isSos = officer.status === 'SOS'
         const isOnSite = officer.status === 'ON_SITE'
@@ -528,7 +580,7 @@ export default function FleetMap({
         }
       }
     })
-  }, [officers, selectedOfficer, centers, mapLoaded, onSelectOfficer])
+  }, [officers, selectedOfficer, centers, mapLoaded, onSelectOfficer, statusFilter])
 
   // Selecting an officer flies straight to them (zoom 15). Skip the very
   // first auto-selection on load so the region framing isn't yanked.
@@ -595,8 +647,36 @@ export default function FleetMap({
     <div className="relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans">
       <div ref={mapContainerRef} className="size-full z-0" />
 
-      {/* Top-Left Floating Zone Status Pill */}
-      <div className="absolute top-3.5 left-3.5 sm:top-4 sm:left-4 z-10 pointer-events-auto">
+      {/* Mobile status filter chips */}
+      <div className="lg:hidden absolute top-3 left-3 right-3 z-20 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {(
+          [
+            { id: 'all', label: `All ${officers.length}` },
+            { id: 'onsite', label: `On site ${officers.filter((o) => o.status === 'ON_SITE').length}` },
+            { id: 'enroute', label: `En route ${officers.filter((o) => o.status === 'PENDING').length}` },
+            { id: 'sos', label: `SOS ${officers.filter((o) => o.status === 'SOS').length}` },
+          ] as const
+        ).map((chip) => {
+          const isActive = statusFilter === chip.id
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => onStatusFilterChange?.(chip.id)}
+              className={`h-9 shrink-0 rounded-full border px-4 text-xs font-semibold transition cursor-pointer whitespace-nowrap backdrop-blur-md ${
+                isActive
+                  ? 'border-indigo-400/70 bg-indigo-500/25 text-indigo-200'
+                  : 'border-[#2A3048] bg-[#0C0F17]/85 text-slate-300'
+              }`}
+            >
+              {chip.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Top-Left Floating Zone Status Pill — desktop only */}
+      <div className="hidden lg:block absolute top-3.5 left-3.5 sm:top-4 sm:left-4 z-10 pointer-events-auto">
         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-xl text-xs font-sans">
           <span className="size-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_8px_#34d399] animate-pulse" />
           <span className="font-semibold text-white tracking-tight">
@@ -605,8 +685,8 @@ export default function FleetMap({
         </div>
       </div>
 
-      {/* Top-Right Map / Satellite Switcher */}
-      <div className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 pointer-events-auto">
+      {/* Top-Right Map / Satellite Switcher — desktop only (mobile uses Layers) */}
+      <div className="hidden lg:block absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 pointer-events-auto">
         <div className="flex items-center rounded-full bg-[#0C0F17]/90 border border-[#22263C] p-1 backdrop-blur-md shadow-xl text-xs font-sans">
           <button
             type="button"
@@ -680,7 +760,7 @@ export default function FleetMap({
       {/* Bottom-Center "centers outside view" chip — appears only when some
           centers are parked outside the tight default framing */}
       {viewStats.total > 0 && viewStats.visible < viewStats.total && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+        <div className="hidden md:block absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
           <button
             type="button"
             onClick={handleShowAllCenters}
@@ -697,7 +777,7 @@ export default function FleetMap({
 
       {/* Bottom-Right Vertical Floating Tool Cluster */}
       <div className="absolute bottom-6 right-3.5 sm:bottom-6 sm:right-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
-        <div className="flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-2xl overflow-hidden divide-y divide-[#22263C]">
+        <div className="hidden lg:flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-2xl overflow-hidden divide-y divide-[#22263C]">
           <button
             type="button"
             onClick={handleZoomIn}
@@ -718,24 +798,74 @@ export default function FleetMap({
           </button>
         </div>
 
+        {/* Layers — dark map / satellite */}
+        <div className="relative">
+          {layersOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="Close layers"
+                className="fixed inset-0 z-20 cursor-default"
+                onClick={() => setLayersOpen(false)}
+              />
+              <div className="absolute right-full bottom-0 mr-2 z-30 w-44 overflow-hidden rounded-2xl border border-[#22263C] bg-[#0F121E] shadow-2xl py-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMapMode('map')
+                    setLayersOpen(false)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
+                >
+                  <MapIcon className="size-4 shrink-0 text-slate-400" />
+                  <span className="flex-1 text-left">Dark map</span>
+                  {mapMode === 'map' && <Check className="size-4 text-indigo-300" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMapMode('satellite')
+                    setLayersOpen(false)
+                  }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
+                >
+                  <Satellite className="size-4 shrink-0 text-slate-400" />
+                  <span className="flex-1 text-left">Satellite</span>
+                  {mapMode === 'satellite' && <Check className="size-4 text-indigo-300" />}
+                </button>
+              </div>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setLayersOpen((v) => !v)}
+            aria-label="Map layers"
+            title="Map layers"
+            aria-expanded={layersOpen}
+            className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+          >
+            <Layers className="size-4.5" />
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={handleFitAllOfficers}
           aria-label="Fit all officers"
-          className="size-9 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+          className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
           title="Fit all officers"
         >
-          <Users className="size-4" />
+          <Users className="size-4.5" />
         </button>
 
         <button
           type="button"
           onClick={handleResetView}
           aria-label="Center view"
-          className="size-9 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+          className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
           title="Recenter Map"
         >
-          <Crosshair className="size-4" />
+          <Crosshair className="size-4.5" />
         </button>
       </div>
     </div>

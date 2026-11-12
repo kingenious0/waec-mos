@@ -16,7 +16,7 @@ interface OfficerTelematicsDrawerProps {
 }
 
 /** "just now" / "3m ago" / "2h ago" from an ISO timestamp. */
-function relativeTime(iso?: string | null): string {
+export function relativeTime(iso?: string | null): string {
   if (!iso) return 'Never'
   const ts = Date.parse(iso)
   if (Number.isNaN(ts)) return 'Never'
