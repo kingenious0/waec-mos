@@ -3,6 +3,7 @@ import { db, isLiveDatabase, store, UserAccount } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { hashPin } from '@/lib/auth/pin'
+import { splitName } from '@/lib/name-utils'
 import { desc, eq, or } from 'drizzle-orm'
 
 export async function GET() {
@@ -144,13 +145,18 @@ export async function POST(request: Request) {
         if (matchedReg) resolvedRegionId = matchedReg.id
       }
 
+      const split = splitName(name.trim())
       await db.insert(schema.user).values({
         id: newUserId,
         name: name.trim(),
+        title: split.title,
+        firstName: split.firstName,
+        lastName: split.lastName,
         email: effectiveEmail,
         staffId: effectiveStaffId,
         phone: phone.trim(),
         pin: hashPin(effectivePin),
+        pinChangedAt: new Date(),
         groupName: group || 'Group 1',
         isGroupLeader: Boolean(isGroupLeader),
         role: 'FIELD_OFFICER',
@@ -264,7 +270,10 @@ async function updateOfficerRecord(body: any) {
 
   const userUpdates: Record<string, any> = { updatedAt: new Date() }
   if (effectiveStatus !== undefined) userUpdates.status = effectiveStatus
-  if (effectivePin !== undefined) userUpdates.pin = hashPin(String(effectivePin).trim())
+  if (effectivePin !== undefined) {
+    userUpdates.pin = hashPin(String(effectivePin).trim())
+    userUpdates.pinChangedAt = new Date()
+  }
   if (name !== undefined && String(name).trim()) userUpdates.name = String(name).trim()
   if (email !== undefined && String(email).trim()) userUpdates.email = String(email).trim()
   if (phone !== undefined) userUpdates.phone = String(phone).trim()

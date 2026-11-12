@@ -5,11 +5,15 @@ import { pgTable, text, timestamp, boolean, uuid, integer, decimal, jsonb } from
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  title: text('title').default(''),
+  firstName: text('first_name').default(''),
+  lastName: text('last_name').default(''),
   email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false),
   image: text('image'),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
   updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  pinChangedAt: timestamp('pin_changed_at'),
   // Custom WAEC MOS fields
   staffId: text('staff_id').unique(),
   phone: text('phone'),

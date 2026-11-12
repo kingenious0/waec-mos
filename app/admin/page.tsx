@@ -165,7 +165,6 @@ export default function AdminPage() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showResetPinModal, setShowResetPinModal] = useState<UserAccount | null>(null)
-  const [showAdminProfile, setShowAdminProfile] = useState(false)
   const [inspectedOfficer, setInspectedOfficer] = useState<UserAccount | null>(null)
   const [centerModalState, setCenterModalState] = useState<{
     mode: 'create' | 'edit'
@@ -680,33 +679,6 @@ export default function AdminPage() {
     }
   }
 
-  const handleSaveAdminProfile = async (
-    updated: Partial<SessionData>
-  ): Promise<boolean> => {
-    if (!session?.userId) return false
-    const res = await fetch('/api/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: session.userId,
-        name: updated.name,
-        email: updated.email,
-        phone: updated.phone,
-        photo: updated.photo,
-        bio: updated.bio,
-      }),
-    })
-
-    const errData = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      throw new Error(errData.error || 'Failed to save profile')
-    }
-
-    setSession((prev) => (prev ? { ...prev, ...updated } : null))
-    setFeedback('Administrator profile saved to database')
-    return true
-  }
-
   // Center Create / Edit
   const handleSaveExamCenter = async (payload: ExamCenterFormPayload) => {
     const isEdit = Boolean(payload.id)
@@ -1111,7 +1083,7 @@ export default function AdminPage() {
         sosCount={totalCriticalSosCount}
         adminName={adminDisplayName}
         adminPhoto={session?.photo}
-        onOpenProfile={() => setShowAdminProfile(true)}
+        onOpenProfile={() => router.push('/profile')}
       />
 
       {/* Main Stage */}
@@ -1133,7 +1105,7 @@ export default function AdminPage() {
                 setRosterSearch(q)
               }
             }}
-            onOpenProfile={() => setShowAdminProfile(true)}
+            onOpenProfile={() => router.push('/profile')}
             session={session}
             notifications={notifications}
             notificationsLoading={isLoadingLive && notifications.length === 0}
@@ -1191,7 +1163,7 @@ export default function AdminPage() {
           }}
           onOpenIncidents={() => setActiveTab('incidents')}
           onOpenSettings={() => setActiveTab('settings')}
-          onOpenProfile={() => setShowAdminProfile(true)}
+          onOpenProfile={() => router.push('/profile')}
           onSignOut={handleSignOut}
         />
 
@@ -2501,16 +2473,6 @@ export default function AdminPage() {
           onSave={handleSaveOfficerProfile}
         />
       )}
-
-      {/* MODAL: ADMIN'S OWN PROFILE */}
-      <ProfileModal
-        isOpen={showAdminProfile}
-        onClose={() => setShowAdminProfile(false)}
-        session={session}
-        onDutyStatus="HQ ACTIVE"
-        onSave={handleSaveAdminProfile}
-        onLogout={handleSignOut}
-      />
 
       {/* MODAL: CONFIRM DELETE EXAMINATION CENTER */}
       {centerToDelete && (

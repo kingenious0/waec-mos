@@ -22,6 +22,9 @@ export async function GET(request: Request) {
       .select({
         id: schema.user.id,
         name: schema.user.name,
+        title: schema.user.title,
+        firstName: schema.user.firstName,
+        lastName: schema.user.lastName,
         email: schema.user.email,
         phone: schema.user.phone,
         photo: schema.user.image,
@@ -31,8 +34,11 @@ export async function GET(request: Request) {
         status: schema.user.status,
         group: schema.user.groupName,
         isGroupLeader: schema.user.isGroupLeader,
+        pinChangedAt: schema.user.pinChangedAt,
+        regionName: schema.regions.name,
       })
       .from(schema.user)
+      .leftJoin(schema.regions, eq(schema.user.regionId, schema.regions.id))
       .where(eq(schema.user.id, userId))
       .limit(1)
 
@@ -74,7 +80,10 @@ export async function PUT(request: Request) {
     if (name !== undefined && String(name).trim()) updates.name = String(name).trim()
     if (email !== undefined && String(email).trim()) updates.email = String(email).trim()
     if (phone !== undefined) updates.phone = String(phone).trim()
-    if (pin !== undefined && String(pin).trim()) updates.pin = hashPin(String(pin).trim())
+    if (pin !== undefined && String(pin).trim()) {
+      updates.pin = hashPin(String(pin).trim())
+      updates.pinChangedAt = new Date()
+    }
     if (photo !== undefined) updates.image = String(photo)
     if (bio !== undefined) updates.bio = String(bio)
 
