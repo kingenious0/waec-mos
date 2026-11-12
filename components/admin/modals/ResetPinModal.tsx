@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { validatePin } from '@/lib/auth/pin-policy'
 import {
   X,
   KeyRound,
@@ -31,25 +32,32 @@ export function ResetPinModal({
     setMounted(true)
   }, [])
 
+  const generateCompliantPin = () => {
+    for (let i = 0; i < 60; i += 1) {
+      const candidate = Math.floor(1000 + Math.random() * 9000).toString()
+      if (officer && validatePin(candidate, officer.phone).ok) return candidate
+    }
+    return '7319'
+  }
+
   useEffect(() => {
     if (officer) {
-      // Generate a clean random 4-digit PIN default
-      const randomPin = Math.floor(1000 + Math.random() * 9000).toString()
-      setPin(randomPin)
+      setPin(generateCompliantPin())
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officer])
 
   if (!officer || !mounted) return null
 
   const handleGenerateNew = () => {
-    const randomPin = Math.floor(1000 + Math.random() * 9000).toString()
-    setPin(randomPin)
+    setPin(generateCompliantPin())
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!pin || pin.length !== 4) {
-      alert('Please enter a valid 4-digit PIN.')
+    const check = validatePin(pin, officer.phone)
+    if (!check.ok) {
+      alert(check.reason || 'Please enter a valid 4-digit PIN.')
       return
     }
     onSave(officer.id, pin)

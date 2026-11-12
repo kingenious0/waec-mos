@@ -28,6 +28,9 @@ export const user = pgTable('user', {
   lastLoginAt: timestamp('last_login_at'),
   bio: text('bio'),
   passwordHash: text('password_hash'),
+  failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  lockoutCount: integer('lockout_count').notNull().default(0),
   lastLatitude: decimal('last_latitude', { precision: 10, scale: 8 }),
   lastLongitude: decimal('last_longitude', { precision: 11, scale: 8 }),
   lastBattery: integer('last_battery'),
@@ -47,6 +50,14 @@ export const session = pgTable('session', {
   ipAddress: text('ipAddress'),
   userAgent: text('userAgent'),
   userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+})
+
+// Sliding-window counters keyed by 'ip:<addr>' or 'phone:<digits>' — used by
+// the sign-in lockout policy. Rows expire with their window (reset_at).
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull().default(0),
+  resetAt: timestamp('reset_at', { withTimezone: true }).notNull(),
 })
 
 export const account = pgTable('account', {

@@ -134,25 +134,7 @@ export function ProfileModal({
         }
       }
 
-      // Save to local storage session if it's the current user
-      if (typeof window !== 'undefined') {
-        try {
-          const stored = localStorage.getItem('waec_mos_session')
-          if (stored) {
-            const parsed = JSON.parse(stored)
-            if (parsed.userId === session.userId) {
-              const updated = {
-                ...parsed,
-                ...payload,
-              }
-              localStorage.setItem('waec_mos_session', JSON.stringify(updated))
-            }
-          }
-        } catch {
-          // Fallback
-        }
-      }
-
+      // The session lives on the server now — nothing to persist client-side.
       setIsSaved(true)
       setIsSaving(false)
       setTimeout(() => {

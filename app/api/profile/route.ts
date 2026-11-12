@@ -3,16 +3,22 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { hashPin } from '@/lib/auth/pin'
+import { validatePin } from '@/lib/auth/pin-policy'
+import { getSessionFromCookie } from '@/lib/auth/server-session'
 import { eq } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    const session = await getSessionFromCookie(request as any)
+    if (!session) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const requested = searchParams.get('userId') || session.userId
+
+    // Self-service only — use the dossier API for officer records
+    const userId = requested === session.userId ? requested : session.userId
 
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ error: 'Database not connected' }, { status: 503 })
@@ -55,19 +61,21 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const body = await request.json()
-    const { userId, name, email, phone, pin, photo, bio } = body
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    const session = await getSessionFromCookie(request as any)
+    if (!session) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
     }
+
+    const body = await request.json()
+    const { name, email, phone, pin, photo, bio } = body
+    const userId = session.userId // self-service only
 
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ success: true })
     }
 
     const existing = await db
-      .select({ id: schema.user.id, name: schema.user.name, role: schema.user.role })
+      .select({ id: schema.user.id, name: schema.user.name, role: schema.user.role, phone: schema.user.phone })
       .from(schema.user)
       .where(eq(schema.user.id, userId))
       .limit(1)
@@ -81,6 +89,11 @@ export async function PUT(request: Request) {
     if (email !== undefined && String(email).trim()) updates.email = String(email).trim()
     if (phone !== undefined) updates.phone = String(phone).trim()
     if (pin !== undefined && String(pin).trim()) {
+      const effectivePhone = phone !== undefined ? String(phone).trim() : existing[0].phone || ''
+      const check = validatePin(String(pin).trim(), effectivePhone)
+      if (!check.ok) {
+        return NextResponse.json({ error: check.reason }, { status: 400 })
+      }
       updates.pin = hashPin(String(pin).trim())
       updates.pinChangedAt = new Date()
     }

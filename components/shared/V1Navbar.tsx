@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { clearClientSession, SessionData } from '@/lib/auth/session'
+import { signOutEverywhere, SessionData } from '@/lib/auth/session'
 import { LogOut, User, ChevronDown } from 'lucide-react'
 import { ProfileModal } from '@/components/profile/ProfileModal'
 
@@ -27,8 +27,9 @@ export function V1Navbar({
   const [showProfile, setShowProfile] = useState(false)
 
   const handleSignOut = () => {
-    clearClientSession()
-    router.push('/login')
+    signOutEverywhere().finally(() => {
+      router.push('/login')
+    })
   }
 
   return (

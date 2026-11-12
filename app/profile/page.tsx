@@ -14,7 +14,7 @@ import {
   AlertTriangle,
   RefreshCw,
 } from 'lucide-react'
-import { getCurrentClientSession, clearClientSession, type SessionData } from '@/lib/auth/session'
+import { getClientSession, signOutEverywhere, type SessionData } from '@/lib/auth/session'
 import { formatGhanaPhone } from '@/lib/phone'
 import { humanizeRole, relativeDays } from '@/lib/name-utils'
 
@@ -50,12 +50,13 @@ export default function ProfilePage() {
   const [editNoteVisible, setEditNoteVisible] = useState(false)
 
   useEffect(() => {
-    const s = getCurrentClientSession()
-    if (!s) {
-      router.replace('/login')
-      return
-    }
-    setSession(s)
+    getClientSession().then((s) => {
+      if (!s) {
+        router.replace('/login')
+        return
+      }
+      setSession(s)
+    })
   }, [router])
 
   const loadProfile = React.useCallback(async (userId: string) => {
@@ -78,8 +79,9 @@ export default function ProfilePage() {
   }, [session?.userId, loadProfile])
 
   const handleSignOut = () => {
-    clearClientSession()
-    router.push('/login')
+    signOutEverywhere().finally(() => {
+      router.push('/login')
+    })
   }
 
   const displayName = useMemo(() => {

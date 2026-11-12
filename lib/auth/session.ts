@@ -1,14 +1,16 @@
-import { store, UserAccount } from '@/lib/db'
-
-export const AUTH_STORAGE_KEY = 'waec_mos_session'
-
+/**
+ * Client-side view of the signed-in user. The browser never holds session
+ * state — it only holds the httpOnly `mos_session` cookie, which is set and
+ * cleared by the server. `getClientSession` fetches /api/auth/me and returns
+ * null when there is no valid server session.
+ */
 export interface SessionData {
   userId: string
   staffId: string
   email: string
   name: string
-  phone?: string
-  pin?: string
+  phone?: string                    // never populated server-side
+  pin?: string                      // write-path only (admin reset/pre-provision). Server never sends it.
   role: 'ADMIN' | 'FIELD_OFFICER'
   status: 'ACTIVE' | 'REVOKED'
   region?: string
@@ -24,49 +26,39 @@ export interface SessionData {
   endTime?: string
 }
 
-export function getCurrentClientSession(): SessionData | null {
-  if (typeof window === 'undefined') return null
+const LEGACY_KEY = 'waec_mos_session'
+const LEGACY_ROLE_COOKIE = 'waec_role'
+const LEGACY_USER_COOKIE = 'waec_user'
+
+export async function getClientSession(): Promise<SessionData | null> {
   try {
-    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as SessionData
+    const res = await fetch('/api/auth/me', { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = await res.json()
+    return (data.user as SessionData) || null
   } catch {
     return null
   }
 }
 
-export function setClientSession(user: UserAccount) {
+/** Wipe every trace of legacy client-auth state (used on sign-out paths). */
+export function clearLegacyClientState() {
   if (typeof window === 'undefined') return
-  const data: SessionData = {
-    userId: user.id,
-    staffId: user.staffId,
-    email: user.email,
-    name: user.name,
-    phone: user.phone,
-    pin: user.pin,
-    role: user.role,
-    status: user.status,
-    region: user.region || 'Ashanti Region',
-    group: user.group || 'Group 1',
-    isGroupLeader: user.isGroupLeader || false,
-    assignedCenter: user.assignedCenter,
-    assignedCenterCode: user.assignedCenterCode,
-    photo: user.photo || '',
-    bio: user.bio || '',
-    mustChangePassword: user.mustChangePassword,
-    paperName: user.paperName,
-    startTime: user.startTime,
-    endTime: user.endTime,
+  try {
+    localStorage.removeItem(LEGACY_KEY)
+  } catch {
+    // storage may be unavailable (private mode) — ignore
   }
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data))
-  // Also set cookie for middleware compatibility
-  document.cookie = `waec_role=${user.role}; path=/; max-age=86400; SameSite=Lax`
-  document.cookie = `waec_user=${user.id}; path=/; max-age=86400; SameSite=Lax`
+  document.cookie = `${LEGACY_ROLE_COOKIE}=; path=/; max-age=0`
+  document.cookie = `${LEGACY_USER_COOKIE}=; path=/; max-age=0`
 }
 
-export function clearClientSession() {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem(AUTH_STORAGE_KEY)
-  document.cookie = 'waec_role=; path=/; max-age=0'
-  document.cookie = 'waec_user=; path=/; max-age=0'
+/** Sign out everywhere client-side knows about. Server clears the cookie. */
+export async function signOutEverywhere(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' })
+  } catch {
+    // network failure is fine — cookie will also expire
+  }
+  clearLegacyClientState()
 }

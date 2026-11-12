@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { getCurrentClientSession, SessionData, clearClientSession } from '@/lib/auth/session'
+import { getClientSession, signOutEverywhere, SessionData } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
 import { PreProvisionOfficerModal, PreProvisionData } from '@/components/admin/modals/PreProvisionOfficerModal'
 import { ResetPinModal } from '@/components/admin/modals/ResetPinModal'
@@ -310,19 +310,20 @@ export default function AdminPage() {
     [playCommandSosTone]
   )
 
-  // Check auth session & perform initial DB fetch
+  // Check auth session & perform initial fetch
   useEffect(() => {
-    const s = getCurrentClientSession()
-    if (!s) {
-      router.push('/login')
-      return
-    }
-    if (s.role !== 'ADMIN') {
-      router.push('/field')
-      return
-    }
-    setSession(s)
-    loadDashboardData(false)
+    getClientSession().then((s) => {
+      if (!s) {
+        router.push('/login')
+        return
+      }
+      if (s.role !== 'ADMIN') {
+        router.push('/field')
+        return
+      }
+      setSession(s)
+      loadDashboardData(false)
+    })
   }, [router, loadDashboardData])
 
   // Background polling interval driven by DB locationRefreshInterval
@@ -347,8 +348,9 @@ export default function AdminPage() {
   }, [feedback])
 
   const handleSignOut = useCallback(() => {
-    clearClientSession()
-    router.push('/login')
+    signOutEverywhere().finally(() => {
+      router.push('/login')
+    })
   }, [router])
 
   // Inactivity timeout enforcement from DB sessionTimeout setting
@@ -361,8 +363,9 @@ export default function AdminPage() {
     const resetTimer = () => {
       clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
-        clearClientSession()
-        router.push('/login')
+        signOutEverywhere().finally(() => {
+          router.push('/login')
+        })
       }, timeoutMs)
     }
 
@@ -2454,7 +2457,6 @@ export default function AdminPage() {
             email: inspectedOfficer.email,
             name: inspectedOfficer.name,
             phone: inspectedOfficer.phone,
-            pin: inspectedOfficer.pin,
             role: inspectedOfficer.role,
             status: inspectedOfficer.status,
             region: inspectedOfficer.region,

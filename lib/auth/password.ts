@@ -1,25 +1,63 @@
 import crypto from 'crypto'
+import { hashSync, verifySync } from '@node-rs/argon2'
 
 /**
- * Generates a salted scrypt password hash formatted as "salt:hexKey".
+ * Password hashing — argon2id with a server-side pepper from env.
+ * Existing scrypt hashes ("salt:hex") still verify so nobody is locked out
+ * before their next change; new hashes are argon2id.
+ *
+ * AUTH_PEPPER must be set to a long random value in production. When it is
+ * missing we loudly warn and run pepperless so local dev keeps working.
  */
-export function hashPassword(password: string): string {
-  const salt = crypto.randomBytes(16).toString('hex')
-  const derivedKey = crypto.scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${derivedKey}`
+const PEPPER = (process.env.AUTH_PEPPER || '').trim()
+if (!PEPPER && process.env.NODE_ENV === 'production') {
+  console.warn(
+    '[security] AUTH_PEPPER is not set — passwords are being hashed WITHOUT the server pepper. Set AUTH_PEPPER in the environment.'
+  )
 }
 
-/**
- * Verifies a plaintext password against a stored "salt:hexKey" scrypt hash.
- * Supports both Node default scrypt parameters and Better Auth (N=16384, r=16, p=1) hashes.
- */
+const ARGON_OPTS = { memoryCost: 19456, timeCost: 2, parallelism: 1 }
+const DUMMY_INPUT = 'mos-timing-sentinel'
+
+const pepper = (input: string) => (PEPPER ? `${PEPPER}${input}` : input)
+
+export function hashPassword(password: string): string {
+  return hashSync(pepper(password), ARGON_OPTS)
+}
+
 export function verifyPassword(password: string, storedHash: string | null | undefined): boolean {
-  if (!storedHash || !password) return false
-  const parts = storedHash.split(':')
-  if (parts.length !== 2) {
-    return password === storedHash
+  if (!storedHash || !password) {
+    // Keep timing similar to a real verify so we don't leak user existence.
+    verifySync(hashSync(pepper(DUMMY_INPUT), ARGON_OPTS), pepper(password))
+    return false
   }
 
+  if (storedHash.startsWith('$argon2id')) {
+    try {
+      return verifySync(storedHash, pepper(password))
+    } catch {
+      return false
+    }
+  }
+
+  // Legacy scrypt hashes — still accepted so existing accounts keep working.
+  return scryptVerify(password, storedHash)
+}
+
+let cachedDummy: string | null = null
+/** Constant-ish timing for "user not found" — run the same argon2 verify. */
+export function dummyVerify(password: string): void {
+  try {
+    if (!cachedDummy) cachedDummy = hashSync(pepper(DUMMY_INPUT), ARGON_OPTS)
+    verifySync(cachedDummy, pepper(password))
+  } catch {
+    // intentionally ignored
+  }
+}
+
+function scryptVerify(password: string, storedHash: string): boolean {
+  const parts = storedHash.split(':')
+  if (parts.length !== 2) return false
   const [salt, keyHex] = parts
   const keyBuffer = Buffer.from(keyHex, 'hex')
 
@@ -29,11 +67,10 @@ export function verifyPassword(password: string, storedHash: string | null | und
       return true
     }
   } catch {
-    // Fall through to alternative cost parameters
+    // fall through to Better Auth params
   }
 
   try {
-    // Better Auth uses N=16384, r=16, p=1
     const derivedBa = crypto.scryptSync(password, salt, 64, {
       N: 16384,
       r: 16,
@@ -44,9 +81,7 @@ export function verifyPassword(password: string, storedHash: string | null | und
       return true
     }
   } catch {
-    return false
+    // not verifiable
   }
-
   return false
 }
-

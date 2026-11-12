@@ -4,7 +4,9 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 
 export const auth = betterAuth({
-  secret: process.env.BETTER_AUTH_SECRET || 'WKhx9kp89Qkhs8W+s03I4I9ZOjtVW+WLYiqlSDh3Hk0=',
+  // No fallback secret — BETTER_AUTH_SECRET must be set in the environment.
+  // (It is only used by Better Auth routes, which are not currently mounted.)
+  secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
   database: isLiveDatabase && db ? drizzleAdapter(db, {
     provider: 'pg',

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { CheckCircle2, AlertTriangle, Radio, Building2, X } from 'lucide-react'
-import { getCurrentClientSession, SessionData, clearClientSession } from '@/lib/auth/session'
+import { getClientSession, signOutEverywhere, SessionData } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
 import { EmergencySosModal } from '@/components/emergency/EmergencySosModal'
 import { FieldHeader } from '@/components/field/FieldHeader'
@@ -107,16 +107,17 @@ export default function FieldPage() {
 
   // Verify authentication on mount
   useEffect(() => {
-    const s = getCurrentClientSession()
-    if (!s) {
-      router.push('/login')
-      return
-    }
-    if (s.role === 'ADMIN') {
-      router.push('/admin')
-      return
-    }
-    setSession(s)
+    getClientSession().then((s) => {
+      if (!s) {
+        router.push('/login')
+        return
+      }
+      if (s.role === 'ADMIN') {
+        router.push('/admin')
+        return
+      }
+      setSession(s)
+    })
   }, [router])
 
   // Battery Status API (null if unsupported so we never fake 84%)
@@ -697,8 +698,9 @@ export default function FieldPage() {
   }
 
   const handleLogout = () => {
-    clearClientSession()
-    router.push('/login')
+    signOutEverywhere().finally(() => {
+      router.push('/login')
+    })
   }
 
   const paperAssignment: PaperAssignment | null = assignment.paper

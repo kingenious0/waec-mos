@@ -3,26 +3,30 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { getCurrentClientSession } from '@/lib/auth/session'
+import { getClientSession, clearLegacyClientState } from '@/lib/auth/session'
 
 export default function RootPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const session = getCurrentClientSession()
-    if (session) {
-      if (session.role === 'ADMIN') {
-        if (session.mustChangePassword) {
-          router.replace('/change-password')
+    // Wipe any pre-hardening localStorage session left in this browser
+    clearLegacyClientState()
+
+    getClientSession().then((session) => {
+      if (session) {
+        if (session.role === 'ADMIN') {
+          if (session.mustChangePassword) {
+            router.replace('/change-password')
+          } else {
+            router.replace('/admin')
+          }
         } else {
-          router.replace('/admin')
+          router.replace('/field')
         }
       } else {
-        router.replace('/field')
+        router.replace('/login')
       }
-    } else {
-      router.replace('/login')
-    }
+    })
   }, [router])
 
   return (

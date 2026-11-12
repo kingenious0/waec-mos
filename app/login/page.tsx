@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { setClientSession } from '@/lib/auth/session'
 import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
 import { NationalOperationsShowcase } from '@/components/auth/NationalOperationsShowcase'
 import { PinInput } from '@/components/auth/PinInput'
@@ -17,7 +16,6 @@ import {
   Mail,
   Lock,
   Check,
-  Sparkles,
 } from 'lucide-react'
 
 export default function LoginPage() {
@@ -84,8 +82,6 @@ export default function LoginPage() {
         return
       }
 
-      setClientSession(data.user)
-
       if (data.user.role === 'ADMIN') {
         if (data.user.mustChangePassword) {
           router.push('/change-password')
@@ -99,23 +95,6 @@ export default function LoginPage() {
       setErrorMsg('Unable to connect to the WAEC portal. Please check your connection.')
       setLoading(false)
     }
-  }
-
-  // Quick autofill demo accounts
-  const handleAutofillOfficer = (testPhone: string, testPin: string) => {
-    setRole('OFFICER')
-    // Strip leading country code if user wants standard display
-    const formatted = testPhone.replace('+233', '').replace(/\s+/g, '')
-    setPhone(formatted)
-    setPin(testPin)
-    setErrorMsg('')
-  }
-
-  const handleAutofillAdmin = () => {
-    setRole('ADMIN')
-    setIdentifier('admin@waec.org')
-    setPassword('Admin@123')
-    setErrorMsg('')
   }
 
   return (
@@ -392,65 +371,6 @@ export default function LoginPage() {
             </div>
 
             {/* Quick Demo Credentials Autofill Helper (Discreet & Useful) */}
-            <div className="pt-2">
-              <div className="p-3 rounded-xl bg-[#101426]/70 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                  <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
-                    <Sparkles className="size-3 text-[#F6C90E]" />
-                    <span>Quick Test Accounts</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500">Click to fill</span>
-                </div>
-
-                {role === 'OFFICER' ? (
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleAutofillOfficer('244101001', '')}
-                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
-                    >
-                      <div className="font-semibold text-white text-[11px] truncate">
-                        Kofi Mensah
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        024 410 1001 • Enter PIN
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleAutofillOfficer('244101002', '')}
-                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
-                    >
-                      <div className="font-semibold text-white text-[11px] truncate">
-                        Akua Owusu
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        024 410 1002 • Enter PIN
-                      </div>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleAutofillAdmin}
-                    className="w-full p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="font-semibold text-white text-[11px]">
-                        Dr. James Addo (HQ Command)
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        admin@waec.org • Admin@123
-                      </div>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#375DFB] text-white font-semibold">
-                      Autofill
-                    </span>
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
         </main>
 

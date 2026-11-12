@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { hashPin } from '@/lib/auth/pin'
 import { splitName } from '@/lib/name-utils'
+import { validatePin } from '@/lib/auth/pin-policy'
 import { desc, eq, or } from 'drizzle-orm'
 
 export async function GET() {
@@ -117,8 +118,24 @@ export async function POST(request: Request) {
     const effectiveStaffId = staffId || 'WAEC-GH-' + Math.floor(1000 + Math.random() * 9000)
     const effectiveEmail =
       email || `${name.toLowerCase().replace(/[^a-z0-9]+/g, '')}.${Date.now().toString().slice(-3)}@waec.org`
-    const effectivePin =
-      (pin && String(pin).padStart(4, '0')) || Math.floor(1000 + Math.random() * 9000).toString()
+    // Enforce the trivial-PIN policy on BOTH caller-supplied and generated PINs
+    const supplied = Boolean(pin)
+    let effectivePin = pin ? String(pin).padStart(4, '0') : ''
+    if (supplied) {
+      const check = validatePin(effectivePin, phone)
+      if (!check.ok) {
+        return NextResponse.json({ error: check.reason }, { status: 400 })
+      }
+    }
+
+    // No PIN supplied — generate one that passes the policy
+    if (!effectivePin) {
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        effectivePin = String(1000 + Math.floor(Math.random() * 9000))
+        if (validatePin(effectivePin, phone).ok) break
+      }
+    }
+
     const newUserId = `usr-off-${Date.now()}`
 
     if (isLiveDatabase && db) {
@@ -271,6 +288,19 @@ async function updateOfficerRecord(body: any) {
   const userUpdates: Record<string, any> = { updatedAt: new Date() }
   if (effectiveStatus !== undefined) userUpdates.status = effectiveStatus
   if (effectivePin !== undefined) {
+    let targetPhone = ''
+    if (isLiveDatabase && db) {
+      const targetRows = await db
+        .select({ phone: schema.user.phone })
+        .from(schema.user)
+        .where(eq(schema.user.id, id))
+        .limit(1)
+      targetPhone = targetRows[0]?.phone || ''
+    }
+    const check = validatePin(String(effectivePin).trim(), targetPhone)
+    if (!check.ok) {
+      return { error: check.reason, status: 400 }
+    }
     userUpdates.pin = hashPin(String(effectivePin).trim())
     userUpdates.pinChangedAt = new Date()
   }

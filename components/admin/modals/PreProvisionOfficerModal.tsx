@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { validatePin } from '@/lib/auth/pin-policy'
 import {
   X,
   UserPlus,
@@ -59,13 +60,21 @@ export function PreProvisionOfficerModal({
   }, [])
 
   // Auto-generate fresh Staff ID and 4-digit PIN only when the modal opens
+  const generateCompliantPin = () => {
+    for (let i = 0; i < 60; i += 1) {
+      const candidate = String(1000 + Math.floor(Math.random() * 9000))
+      if (validatePin(candidate, phone).ok) return candidate
+    }
+    return '7319'
+  }
+
   useEffect(() => {
     if (isOpen) {
-      const randNum = Math.floor(1000 + Math.random() * 9000)
       const randId = `WAEC-ASH-${Math.floor(100 + Math.random() * 900)}`
-      setPin(randNum.toString())
+      setPin(generateCompliantPin())
       setStaffId(randId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   // Sync default exam center from live DB centers without touching PIN/Staff ID
@@ -93,6 +102,11 @@ export function PreProvisionOfficerModal({
     e.preventDefault()
     if (!name.trim() || !phone.trim() || !pin.trim()) {
       alert('Please fill in Officer Name, Phone Number, and 4-Digit PIN.')
+      return
+    }
+    const check = validatePin(pin, phone)
+    if (!check.ok) {
+      alert(check.reason || 'That PIN is too easy to guess.')
       return
     }
 

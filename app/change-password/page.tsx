@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { getCurrentClientSession, setClientSession } from '@/lib/auth/session'
+import { getClientSession } from '@/lib/auth/session'
 import { KeyRound, Lock, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
 
 export default function ChangePasswordPage() {
@@ -15,14 +15,15 @@ export default function ChangePasswordPage() {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    const s = getCurrentClientSession()
-    if (!s) {
-      router.push('/login')
-    } else if (s.role !== 'ADMIN') {
-      router.replace('/field')
-    } else {
-      setSession(s)
-    }
+    getClientSession().then((s) => {
+      if (!s) {
+        router.push('/login')
+      } else if (s.role !== 'ADMIN') {
+        router.replace('/field')
+      } else {
+        setSession(s)
+      }
+    })
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,12 +56,6 @@ export default function ChangePasswordPage() {
         setErrorMsg(data.error || 'Failed to update password')
         setLoading(false)
         return
-      }
-
-      // Update session locally to mark mustChangePassword = false
-      if (session) {
-        const updated = { ...session, mustChangePassword: false }
-        localStorage.setItem('waec_mos_session', JSON.stringify(updated))
       }
 
       // Redirect based on role
