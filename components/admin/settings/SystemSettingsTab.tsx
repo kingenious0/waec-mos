@@ -120,7 +120,7 @@ export function SystemSettingsTab({
       setSettings(saved)
       setIsSaved(true)
       onSave?.(saved)
-      onFeedback?.('System settings saved to Neon database and synchronized across regional hub')
+      onFeedback?.('Settings saved and synchronized across the regional hub')
       setTimeout(() => setIsSaved(false), 3000)
     } catch {
       onFeedback?.('Failed to connect to database while saving settings.')
@@ -401,30 +401,6 @@ export function SystemSettingsTab({
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
-            <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
-              <div className="space-y-0.5">
-                <div className="text-sm font-semibold text-white">Hide officer PINs</div>
-                <div className="text-xs text-zinc-400">
-                  Mask PINs in the directory until a controller chooses to reveal one.
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={settings.hideOfficerPins}
-                onClick={() => handleToggle('hideOfficerPins')}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                  settings.hideOfficerPins ? 'bg-[#3B82F6]' : 'bg-zinc-700'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                    settings.hideOfficerPins ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Session timeout</div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase, store, UserAccount } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
+import { hashPin } from '@/lib/auth/pin'
 import { desc, eq, or } from 'drizzle-orm'
 
 export async function GET() {
@@ -13,7 +14,6 @@ export async function GET() {
           name: schema.user.name,
           email: schema.user.email,
           phone: schema.user.phone,
-          pin: schema.user.pin,
           groupName: schema.user.groupName,
           isGroupLeader: schema.user.isGroupLeader,
           staffId: schema.user.staffId,
@@ -54,7 +54,7 @@ export async function GET() {
           email: u.email,
           name: u.name,
           phone: u.phone || '',
-          pin: u.pin || '',
+          pin: '', // never returned to clients — reset flow issues a fresh PIN instead
           role: 'FIELD_OFFICER',
           status: (u.status as any) || 'ACTIVE',
           region: u.regionName || 'Ashanti Region',
@@ -80,11 +80,11 @@ export async function GET() {
       return NextResponse.json({ officers })
     }
 
-    const officers = store.getFieldOfficers()
+    const officers = store.getFieldOfficers().map((o) => ({ ...o, pin: '' }))
     return NextResponse.json({ officers })
   } catch (error) {
-    console.error('Failed to fetch field officers from Neon:', error)
-    return NextResponse.json({ officers: store.getFieldOfficers() })
+    console.error('Failed to fetch field officers:', error)
+    return NextResponse.json({ officers: store.getFieldOfficers().map((o) => ({ ...o, pin: '' })) })
   }
 }
 
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
         email: effectiveEmail,
         staffId: effectiveStaffId,
         phone: phone.trim(),
-        pin: effectivePin,
+        pin: hashPin(effectivePin),
         groupName: group || 'Group 1',
         isGroupLeader: Boolean(isGroupLeader),
         role: 'FIELD_OFFICER',
@@ -216,7 +216,10 @@ export async function POST(request: Request) {
       photo: '',
     })
 
-    return NextResponse.json({ success: true, officer: { ...created, id: newUserId } }, { status: 201 })
+    return NextResponse.json(
+      { success: true, officer: { ...created, id: newUserId, pin: '' } },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Failed to provision field officer:', error)
     return NextResponse.json({ error: 'Failed to provision field officer' }, { status: 500 })
@@ -261,7 +264,7 @@ async function updateOfficerRecord(body: any) {
 
   const userUpdates: Record<string, any> = { updatedAt: new Date() }
   if (effectiveStatus !== undefined) userUpdates.status = effectiveStatus
-  if (effectivePin !== undefined) userUpdates.pin = String(effectivePin).trim()
+  if (effectivePin !== undefined) userUpdates.pin = hashPin(String(effectivePin).trim())
   if (name !== undefined && String(name).trim()) userUpdates.name = String(name).trim()
   if (email !== undefined && String(email).trim()) userUpdates.email = String(email).trim()
   if (phone !== undefined) userUpdates.phone = String(phone).trim()
@@ -369,7 +372,7 @@ async function updateOfficerRecord(body: any) {
 
   const storeUpdates: Partial<UserAccount> = {}
   if (effectiveStatus !== undefined) storeUpdates.status = effectiveStatus as any
-  if (effectivePin !== undefined) storeUpdates.pin = String(effectivePin).trim()
+  if (effectivePin !== undefined) storeUpdates.pin = hashPin(String(effectivePin).trim())
   if (name !== undefined) storeUpdates.name = name.trim()
   if (email !== undefined) storeUpdates.email = email.trim()
   if (phone !== undefined) storeUpdates.phone = phone.trim()

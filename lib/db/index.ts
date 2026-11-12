@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/neon-http'
 import { neon } from '@neondatabase/serverless'
 import * as schema from './schema'
+import { hashPin, verifyPin } from '@/lib/auth/pin'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -152,13 +153,14 @@ class MosV1Store {
     const cleanPin = pin.trim()
     const user = this.findOfficerByPhone(phone)
     if (!user) return undefined
-    if (user.pin === cleanPin) return user
+    if (verifyPin(cleanPin, user.pin)) return user
     return undefined
   }
 
   createUser(officer: Omit<UserAccount, 'id' | 'dutyStatus' | 'mustChangePassword'>): UserAccount {
     const newUser: UserAccount = {
       ...officer,
+      pin: hashPin(officer.pin),
       id: `usr-${Date.now()}`,
       dutyStatus: 'OFF_DUTY',
       mustChangePassword: officer.role === 'ADMIN',

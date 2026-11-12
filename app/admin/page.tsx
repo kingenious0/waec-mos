@@ -19,7 +19,6 @@ import {
   UserPlus,
   Search,
   CheckCircle2,
-  Lock,
   X,
   Building2,
   ShieldAlert,
@@ -35,8 +34,6 @@ import {
   KeyRound,
   User,
   Settings,
-  Eye,
-  EyeOff,
   Plus,
   Pencil,
   Trash2,
@@ -49,6 +46,9 @@ import { AdminSidebar } from '@/components/admin/sidebar/AdminSidebar'
 import { AdminTopNav } from '@/components/admin/header/AdminTopNav'
 import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTelematicsDrawer'
 import { MobileBottomNav } from '@/components/admin/mobile/MobileBottomNav'
+import { MobileTopBar } from '@/components/admin/mobile/MobileTopBar'
+import { MobileOfficerCard } from '@/components/admin/directory/MobileOfficerCard'
+import { formatGhanaPhone } from '@/lib/phone'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 import type { NotificationItem } from '@/components/admin/notifications/NotificationsPopover'
 import {
@@ -117,7 +117,7 @@ export default function AdminPage() {
     'map' | 'directory' | 'centers' | 'incidents' | 'settings'
   >('map')
 
-  // Live Neon DB States
+  // Live dashboard state
   const [examCenters, setExamCenters] = useState<ExamCenter[]>([])
   const [districts, setDistricts] = useState<DistrictOption[]>([])
   const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>([])
@@ -147,14 +147,15 @@ export default function AdminPage() {
   const [patrolDispatchedIds, setPatrolDispatchedIds] = useState<Record<string, boolean>>({})
   const [rosterSearch, setRosterSearch] = useState('')
   const [directorySearch, setDirectorySearch] = useState('')
-  const [revealedPins, setRevealedPins] = useState<Record<string, boolean>>({})
+  const [directoryFilter, setDirectoryFilter] = useState<
+    'all' | 'active' | 'revoked' | 'nocentre'
+  >('all')
   const [incidentFilter, setIncidentFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL')
   const [auditOfficerFilterId, setAuditOfficerFilterId] = useState<string | null>(null)
 
   // Responsive Layout & Feedback
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isMobileDrawerExpanded, setIsMobileDrawerExpanded] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [feedback, setFeedback] = useState('')
 
   // Modals
@@ -169,6 +170,7 @@ export default function AdminPage() {
   const [showLogIncidentModal, setShowLogIncidentModal] = useState(false)
   const [centerToDelete, setCenterToDelete] = useState<ExamCenter | null>(null)
   const [officerToDelete, setOfficerToDelete] = useState<UserAccount | null>(null)
+  const [revokingOfficer, setRevokingOfficer] = useState<UserAccount | null>(null)
   const [isDeletingRecord, setIsDeletingRecord] = useState(false)
   const [centerSearchQuery, setCenterSearchQuery] = useState('')
   const [centerDistrictFilter, setCenterDistrictFilter] = useState('ALL')
@@ -371,13 +373,6 @@ export default function AdminPage() {
     }
   }, [session, systemSettings.sessionTimeout, router])
 
-  // Clear PIN reveal overrides if hideOfficerPins toggled back ON
-  useEffect(() => {
-    if (systemSettings.hideOfficerPins) {
-      setRevealedPins({})
-    }
-  }, [systemSettings.hideOfficerPins])
-
   // Computed live metrics
   const deployedMonitorsCount = fleetOfficers.length
   const activeSosCount = fleetOfficers.filter((o) => o.status === 'SOS').length
@@ -554,6 +549,16 @@ export default function AdminPage() {
       }
     } catch {
       setFeedback('Failed to update officer status.')
+    }
+  }
+
+  // Revoke is destructive (it locks the officer out) → requires a confirm.
+  // Restoring access is not destructive, so it happens immediately.
+  const handleToggleStatusGuarded = (officer: UserAccount) => {
+    if (officer.status === 'ACTIVE') {
+      setRevokingOfficer(officer)
+    } else {
+      handleToggleStatus(officer)
     }
   }
 
@@ -799,6 +804,27 @@ export default function AdminPage() {
     )
   }, [officers, directorySearch])
 
+  const isOfficerUnassigned = (off: UserAccount) =>
+    !off.assignedCenter || off.assignedCenter === 'Unassigned'
+
+  const directoryCounts = useMemo(
+    () => ({
+      all: officers.length,
+      active: officers.filter((o) => o.status === 'ACTIVE').length,
+      revoked: officers.filter((o) => o.status !== 'ACTIVE').length,
+      nocentre: officers.filter(isOfficerUnassigned).length,
+    }),
+    [officers]
+  )
+
+  const mobileDirectoryList = useMemo(() => {
+    let list = filteredDirectoryOfficers
+    if (directoryFilter === 'active') list = list.filter((o) => o.status === 'ACTIVE')
+    else if (directoryFilter === 'revoked') list = list.filter((o) => o.status !== 'ACTIVE')
+    else if (directoryFilter === 'nocentre') list = list.filter(isOfficerUnassigned)
+    return list
+  }, [filteredDirectoryOfficers, directoryFilter])
+
   const filteredIncidents = useMemo(() => {
     return incidents.filter((inc) => {
       if (incidentFilter === 'OPEN') {
@@ -819,15 +845,6 @@ export default function AdminPage() {
   }, [auditLogs, auditOfficerFilterId])
 
   const adminDisplayName = session?.name || 'Regional Command'
-  const adminInitials =
-    adminDisplayName
-      .replace(/^(Dr\.|Mr\.|Mrs\.|Ms\.)\s+/i, '')
-      .split(' ')
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'HQ'
 
   const filteredAuditOfficerName = useMemo(() => {
     if (!auditOfficerFilterId) return ''
@@ -854,30 +871,71 @@ export default function AdminPage() {
 
       {/* Main Stage */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0">
-        <AdminTopNav
-          activeCount={
-            activeTab === 'directory'
-              ? officers.filter((o) => o.status === 'ACTIVE').length
-              : deployedMonitorsCount
-          }
-          activeTabTitle={activeTabTitle}
-          searchQuery={activeTab === 'directory' ? directorySearch : rosterSearch}
-          onSearchChange={(q) => {
-            if (activeTab === 'directory') {
-              setDirectorySearch(q)
-            } else {
-              setRosterSearch(q)
+        {/* Desktop top bar (mobile gets the shared MobileTopBar below) */}
+        <div className="hidden lg:block">
+          <AdminTopNav
+            activeCount={
+              activeTab === 'directory'
+                ? officers.filter((o) => o.status === 'ACTIVE').length
+                : deployedMonitorsCount
             }
-          }}
-          onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
-          onOpenProfile={() => setShowAdminProfile(true)}
+            activeTabTitle={activeTabTitle}
+            searchQuery={activeTab === 'directory' ? directorySearch : rosterSearch}
+            onSearchChange={(q) => {
+              if (activeTab === 'directory') {
+                setDirectorySearch(q)
+              } else {
+                setRosterSearch(q)
+              }
+            }}
+            onOpenProfile={() => setShowAdminProfile(true)}
+            session={session}
+            notifications={notifications}
+            notificationsLoading={isLoadingLive && notifications.length === 0}
+            onMarkAllRead={handleMarkAllNotificationsRead}
+            unreadAlertsCount={
+              systemSettings.inAppNotifications ? notificationsUnreadCount : 0
+            }
+            onFocusOfficer={(officerId) => handleFocusOfficer(officerId)}
+            onFocusSos={() => handleFocusOfficer()}
+            onCallEmergency={() => {
+              setFeedback('Emergency Call: Dialing Police Command 191...')
+              if (typeof window !== 'undefined') {
+                window.open('tel:191')
+              }
+            }}
+            onOpenIncidents={() => setActiveTab('incidents')}
+            onOpenSettings={() => setActiveTab('settings')}
+          />
+        </div>
+
+        {/* Shared mobile chrome — same top bar on every tab */}
+        <MobileTopBar
+          title={
+            activeTab === 'map'
+              ? 'Live map'
+              : activeTab === 'directory'
+              ? 'Directory'
+              : activeTab === 'centers'
+              ? 'Centres'
+              : activeTab === 'incidents'
+              ? 'Incidents'
+              : 'Settings'
+          }
+          badge={
+            activeTab === 'map'
+              ? { label: `${deployedMonitorsCount} active`, tone: 'ok' as const }
+              : activeTab === 'directory'
+              ? { label: `${officers.length} officers` }
+              : activeTab === 'centers'
+              ? { label: `${examCenters.length} centres` }
+              : undefined
+          }
           session={session}
           notifications={notifications}
           notificationsLoading={isLoadingLive && notifications.length === 0}
           onMarkAllRead={handleMarkAllNotificationsRead}
-          unreadAlertsCount={
-            systemSettings.inAppNotifications ? notificationsUnreadCount : 0
-          }
+          unreadAlertsCount={systemSettings.inAppNotifications ? notificationsUnreadCount : 0}
           onFocusOfficer={(officerId) => handleFocusOfficer(officerId)}
           onFocusSos={() => handleFocusOfficer()}
           onCallEmergency={() => {
@@ -888,6 +946,8 @@ export default function AdminPage() {
           }}
           onOpenIncidents={() => setActiveTab('incidents')}
           onOpenSettings={() => setActiveTab('settings')}
+          onOpenProfile={() => setShowAdminProfile(true)}
+          onSignOut={handleSignOut}
         />
 
         {/* Floating Feedback Toast */}
@@ -994,7 +1054,98 @@ export default function AdminPage() {
           {/* TAB 2: MONITOR DIRECTORY & CREDENTIALS */}
           {/* ========================================================= */}
           {activeTab === 'directory' && (
-            <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 pb-28 lg:pb-6 space-y-4 bg-[#090A0F] font-sans">
+            <>
+            {/* ===== MOBILE (< lg) — compact cards, chip filters, FAB ===== */}
+            <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
+              <div className="p-4 space-y-3 pb-32">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="size-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={directorySearch}
+                    onChange={(e) => setDirectorySearch(e.target.value)}
+                    placeholder="Search name, phone or staff ID"
+                    aria-label="Search officers"
+                    className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
+                  />
+                </div>
+
+                {/* Filter chips */}
+                <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {(
+                    [
+                      { id: 'all', label: `All ${directoryCounts.all}` },
+                      { id: 'active', label: `Active ${directoryCounts.active}` },
+                      { id: 'revoked', label: `Revoked ${directoryCounts.revoked}` },
+                      { id: 'nocentre', label: `No centre ${directoryCounts.nocentre}` },
+                    ] as const
+                  ).map((chip) => {
+                    const isActive = directoryFilter === chip.id
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={() => setDirectoryFilter(chip.id)}
+                        className={`h-9 shrink-0 rounded-full border px-3.5 text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                          isActive
+                            ? 'border-indigo-400/70 bg-indigo-500/15 text-indigo-300'
+                            : 'border-[#22263C] bg-[#11131F] text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Officer list */}
+                {mobileDirectoryList.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-8 text-center space-y-2">
+                    <Users className="size-7 text-slate-500 mx-auto" />
+                    <p className="text-sm font-semibold text-slate-300">
+                      {directorySearch
+                        ? 'No officers matched your search'
+                        : directoryFilter === 'revoked'
+                        ? 'No revoked officers'
+                        : directoryFilter === 'nocentre'
+                        ? 'Every officer has a centre'
+                        : 'No field officers registered yet'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {mobileDirectoryList.map((officer) => (
+                      <MobileOfficerCard
+                        key={officer.id}
+                        officer={officer}
+                        onViewProfile={(o) => setInspectedOfficer(o as unknown as UserAccount)}
+                        onResetPin={(o) =>
+                          setShowResetPinModal(o as unknown as UserAccount)
+                        }
+                        onToggleStatus={(o) =>
+                          handleToggleStatusGuarded(o as unknown as UserAccount)
+                        }
+                        onDelete={(o) => setOfficerToDelete(o as unknown as UserAccount)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Floating Register button — above the tab bar */}
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+              >
+                <UserPlus className="size-5" />
+                Register officer
+              </button>
+            </div>
+
+            {/* ===== DESKTOP (lg+) — existing console layout ===== */}
+            <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 bg-[#090A0F] font-sans">
               <div className="flex flex-col gap-3 pb-3 border-b border-[#22263C]">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5">
@@ -1069,9 +1220,6 @@ export default function AdminPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
                   {filteredDirectoryOfficers.map((officer) => {
-                    const isPinMasked =
-                      systemSettings.hideOfficerPins && !revealedPins[officer.id]
-
                     return (
                       <div
                         key={officer.id}
@@ -1158,7 +1306,7 @@ export default function AdminPage() {
                                 )}
                                 <span className="flex items-center gap-1 text-xs text-slate-400 tabular-nums">
                                   <Phone className="size-3 shrink-0 text-slate-500" />
-                                  <span>{officer.phone}</span>
+                                  <span>{formatGhanaPhone(officer.phone)}</span>
                                 </span>
                                 {officer.staffId && (
                                   <span className="rounded-md border border-[#22263C] bg-[#121626] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
@@ -1177,7 +1325,11 @@ export default function AdminPage() {
                             </span>
                             <span className="shrink-0 font-semibold text-slate-500">Center</span>
                             <span
-                              className="ml-auto truncate text-right font-medium text-slate-200"
+                              className={`ml-auto truncate text-right font-medium ${
+                                officer.assignedCenter && officer.assignedCenter !== 'Unassigned'
+                                  ? 'text-slate-200'
+                                  : 'text-amber-400'
+                              }`}
                               title={officer.assignedCenter || 'Unassigned'}
                             >
                               {officer.assignedCenter || 'Unassigned'}
@@ -1191,37 +1343,6 @@ export default function AdminPage() {
                             <span className="shrink-0 font-semibold text-slate-500">Group</span>
                             <span className="ml-auto font-bold text-sky-400">
                               {officer.group || 'Group 1'}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2.5 px-3 py-2.5">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
-                              <Lock className="size-3.5 text-[#F6D300]" />
-                            </span>
-                            <span className="shrink-0 font-semibold text-slate-500">PIN</span>
-                            <span className="ml-auto flex items-center gap-1.5">
-                              <span className="rounded-md border border-[#22263C] bg-[#121626] px-2 py-0.5 font-bold tracking-[0.18em] text-[#F6D300] tabular-nums">
-                                {isPinMasked ? '••••' : officer.pin || '••••'}
-                              </span>
-                              {systemSettings.hideOfficerPins && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setRevealedPins((prev) => ({
-                                      ...prev,
-                                      [officer.id]: !prev[officer.id],
-                                    }))
-                                  }
-                                  aria-label={isPinMasked ? 'Reveal PIN' : 'Hide PIN'}
-                                  className="flex size-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-[#181D2E] hover:text-white cursor-pointer"
-                                >
-                                  {isPinMasked ? (
-                                    <Eye className="size-3.5" />
-                                  ) : (
-                                    <EyeOff className="size-3.5 text-sky-400" />
-                                  )}
-                                </button>
-                              )}
                             </span>
                           </div>
                         </div>
@@ -1250,7 +1371,7 @@ export default function AdminPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleToggleStatus(officer)}
+                            onClick={() => handleToggleStatusGuarded(officer)}
                             className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-1 text-[11px] font-bold transition cursor-pointer border ${
                               officer.status === 'ACTIVE'
                                 ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300'
@@ -1286,6 +1407,7 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+            </>
           )}
 
           {/* ========================================================= */}
@@ -1300,7 +1422,7 @@ export default function AdminPage() {
                     <span>Examination Centers & Geofences</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Default {defaultRadiusMeters}m perimeter boundaries with live telematics sync from Neon database
+                    Default {defaultRadiusMeters}m perimeter per centre with live telematics sync
                   </p>
                 </div>
 
@@ -1699,7 +1821,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setShowLogIncidentModal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 text-xs font-bold shadow-md transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-3.5 py-2 text-xs font-bold shadow-md border border-white/10 transition cursor-pointer"
                   >
                     <Plus className="size-3.5" />
                     <span>Log Incident</span>
@@ -1946,7 +2068,7 @@ export default function AdminPage() {
                         </button>
                       )}
                       <span className="text-[11px] text-slate-400 font-sans">
-                        Live Neon DB Log ({filteredAuditLogs.length})
+                        Recent Activity ({filteredAuditLogs.length})
                       </span>
                     </div>
                   </div>
@@ -2052,8 +2174,8 @@ export default function AdminPage() {
                       WAEC Incident Protocol:
                     </span>
                     <span>
-                      Emergency SOS dispatches and status transitions are persisted immediately to
-                      Neon PostgreSQL with full operator audit history.
+                      Emergency SOS dispatches and status transitions are recorded
+                      immediately and kept in the full operator audit history.
                     </span>
                   </div>
                 </div>
@@ -2083,110 +2205,6 @@ export default function AdminPage() {
           sosCount={totalCriticalSosCount}
         />
       </div>
-
-      {/* Mobile Slide-Over Navigation Drawer */}
-      {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-          <div className="relative w-72 max-w-[80vw] h-full bg-[#0C0F1D] border-r border-[#22263C] p-4 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#22263C]">
-                <div className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-[#1E2B7B]/60 border border-white/10 flex items-center justify-center text-[#F6D300]">
-                    <Shield className="size-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-xs font-sans font-bold text-white tracking-wider">
-                      M.O.S ADMIN
-                    </h2>
-                    <p className="text-[10px] font-sans text-slate-400">EXAM MONITORING</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-1 rounded-md text-slate-400 hover:text-white cursor-pointer"
-                  aria-label="Close navigation"
-                >
-                  <X className="size-5" />
-                </button>
-              </div>
-
-              <div className="space-y-1">
-                {[
-                  { id: 'map' as const, label: 'Live Fleet Map', icon: Compass },
-                  { id: 'directory' as const, label: 'Monitor Directory', icon: Users },
-                  { id: 'centers' as const, label: 'Exam Centers', icon: Building2 },
-                  {
-                    id: 'incidents' as const,
-                    label: 'Incident Logs',
-                    icon: Siren,
-                    badge: totalCriticalSosCount,
-                  },
-                  { id: 'settings' as const, label: 'Settings', icon: Settings },
-                ].map((item) => {
-                  const Icon = item.icon
-                  const isActive = activeTab === item.id
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveTab(item.id)
-                        setIsMobileMenuOpen(false)
-                      }}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-sans font-medium transition cursor-pointer ${
-                        isActive
-                          ? 'bg-[#1E2B7B] text-white font-bold border border-white/10'
-                          : 'text-slate-400 hover:text-white hover:bg-[#11131F]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          className={`size-4 ${isActive ? 'text-white' : 'text-slate-500'}`}
-                        />
-                        <span>{item.label}</span>
-                      </div>
-                      {Boolean(item.badge && item.badge > 0) && (
-                        <span className="size-2 rounded-full bg-[#EF4444] animate-ping" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-[#22263C] space-y-2">
-              <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false)
-                  setShowAdminProfile(true)
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-sans text-slate-300 hover:text-white hover:bg-[#11131F] cursor-pointer"
-              >
-                <div className="size-7 rounded-full bg-[#1E2B7B] text-white flex items-center justify-center font-bold text-[10px] overflow-hidden">
-                  {session?.photo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={session.photo}
-                      alt={adminDisplayName}
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    adminInitials
-                  )}
-                </div>
-                <div className="text-left">
-                  <div className="font-bold">{adminDisplayName}</div>
-                  <div className="text-[10px] text-[#10B981]">● System Admin</div>
-                </div>
-              </button>
-
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL: REGISTER / PRE-PROVISION FIELD OFFICER */}
       <PreProvisionOfficerModal
@@ -2354,7 +2372,7 @@ export default function AdminPage() {
 
             <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 text-xs text-rose-300 space-y-1">
               <p className="font-semibold text-white">
-                {officerToDelete.name} ({officerToDelete.phone})
+                {officerToDelete.name} ({formatGhanaPhone(officerToDelete.phone)})
               </p>
               <p className="text-[11px] text-slate-300">
                 Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned: {officerToDelete.assignedCenter || 'Unassigned'}
@@ -2390,6 +2408,63 @@ export default function AdminPage() {
                     <span>Confirm Decommission</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL: CONFIRM REVOKE ACCESS — destructive, locks the officer out */}
+      {revokingOfficer && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="revoke-officer-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="size-11 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                <ShieldAlert className="size-5.5" />
+              </div>
+              <div>
+                <h3 id="revoke-officer-title" className="text-base font-bold text-white">
+                  Revoke officer access
+                </h3>
+                <p className="text-xs text-slate-400">
+                  They will be unable to log in until access is restored
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/30 text-xs text-rose-300 space-y-1">
+              <p className="font-semibold text-white">
+                {revokingOfficer.name} ({formatGhanaPhone(revokingOfficer.phone)})
+              </p>
+              <p className="text-[11px] text-slate-300">
+                Staff ID: {revokingOfficer.staffId || 'N/A'} • Assigned:{' '}
+                {revokingOfficer.assignedCenter || 'Unassigned'}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setRevokingOfficer(null)}
+                className="px-4 py-2.5 rounded-xl border border-[#22263C] bg-[#161B2E] text-xs font-semibold text-slate-300 hover:bg-[#202742] hover:text-white transition cursor-pointer min-h-[44px]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const officer = revokingOfficer
+                  setRevokingOfficer(null)
+                  handleToggleStatus(officer)
+                }}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
+              >
+                <ShieldAlert className="size-3.5" />
+                <span>Revoke Access</span>
               </button>
             </div>
           </div>

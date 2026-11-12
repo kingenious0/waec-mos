@@ -2,8 +2,8 @@
 
 import React from 'react'
 import {
-  Compass,
-  Contact,
+  Map,
+  Users,
   Building2,
   AlertTriangle,
 } from 'lucide-react'
@@ -14,6 +14,11 @@ interface MobileBottomNavProps {
   sosCount: number
 }
 
+/**
+ * Shared 76px bottom tab bar — same on every admin screen (< lg).
+ * Four tabs; active tab gets a soft primary pill behind the icon.
+ * Includes the iOS safe-area inset.
+ */
 export function MobileBottomNav({
   activeTab,
   onSelectTab,
@@ -22,17 +27,17 @@ export function MobileBottomNav({
   const tabs = [
     {
       id: 'map' as const,
-      label: 'Live Map',
-      icon: Compass,
+      label: 'Live map',
+      icon: Map,
     },
     {
       id: 'directory' as const,
       label: 'Directory',
-      icon: Contact,
+      icon: Users,
     },
     {
       id: 'centers' as const,
-      label: 'Centers',
+      label: 'Centres',
       icon: Building2,
     },
     {
@@ -44,7 +49,10 @@ export function MobileBottomNav({
   ]
 
   return (
-    <nav className="lg:hidden h-14 border-t border-border bg-[#0B0D14] flex items-center justify-around px-2 z-30 shrink-0 select-none">
+    <nav
+      aria-label="Admin sections"
+      className="lg:hidden shrink-0 z-30 border-t border-[#22263C] bg-[#0B0D14] grid grid-cols-4 select-none"
+    >
       {tabs.map((tab) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id
@@ -54,19 +62,29 @@ export function MobileBottomNav({
             key={tab.id}
             type="button"
             onClick={() => onSelectTab(tab.id)}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors relative cursor-pointer ${
-              isActive
-                ? 'text-sky-400 font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            aria-current={isActive ? 'page' : undefined}
+            className="flex flex-col items-center justify-center gap-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] min-h-[76px] transition-colors cursor-pointer"
           >
-            <div className="relative">
-              <Icon className="size-5" />
+            <span
+              className={`relative flex items-center justify-center rounded-full px-5 py-1 transition-colors ${
+                isActive ? 'bg-indigo-500/15' : ''
+              }`}
+            >
+              <Icon
+                className={`size-5.5 ${isActive ? 'text-indigo-300' : 'text-slate-500'}`}
+                strokeWidth={isActive ? 2.4 : 2}
+              />
               {tab.badge !== undefined && (
-                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-status-sos ring-2 ring-[#0B0D14]" />
+                <span className="absolute top-0 right-1 size-2.5 rounded-full bg-status-sos ring-2 ring-[#0B0D14]" />
               )}
-            </div>
-            <span className="text-[10px] tracking-tight">{tab.label}</span>
+            </span>
+            <span
+              className={`text-[11px] tracking-tight ${
+                isActive ? 'text-indigo-300 font-semibold' : 'text-slate-500'
+              }`}
+            >
+              {tab.label}
+            </span>
           </button>
         )
       })}

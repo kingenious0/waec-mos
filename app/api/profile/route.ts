@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
+import { hashPin } from '@/lib/auth/pin'
 import { eq } from 'drizzle-orm'
 
 export async function GET(request: Request) {
@@ -23,7 +24,6 @@ export async function GET(request: Request) {
         name: schema.user.name,
         email: schema.user.email,
         phone: schema.user.phone,
-        pin: schema.user.pin,
         photo: schema.user.image,
         bio: schema.user.bio,
         staffId: schema.user.staffId,
@@ -74,7 +74,7 @@ export async function PUT(request: Request) {
     if (name !== undefined && String(name).trim()) updates.name = String(name).trim()
     if (email !== undefined && String(email).trim()) updates.email = String(email).trim()
     if (phone !== undefined) updates.phone = String(phone).trim()
-    if (pin !== undefined && String(pin).trim()) updates.pin = String(pin).trim()
+    if (pin !== undefined && String(pin).trim()) updates.pin = hashPin(String(pin).trim())
     if (photo !== undefined) updates.image = String(photo)
     if (bio !== undefined) updates.bio = String(bio)
 

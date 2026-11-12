@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
+import { verifyPin } from '@/lib/auth/pin'
 import { and, desc, eq, ne, or } from 'drizzle-orm'
 
 export async function GET() {
@@ -340,7 +341,7 @@ async function handleUpdateIncident(request: Request) {
 
     const officer = officers[0]
     const cleanPin = String(pin).trim()
-    if (!officer.pin || cleanPin !== officer.pin.trim()) {
+    if (!officer.pin || !verifyPin(cleanPin, officer.pin)) {
       return NextResponse.json(
         { error: 'Invalid 4-digit security PIN. Emergency alert remains active.' },
         { status: 401 }

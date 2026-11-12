@@ -333,7 +333,7 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* Live Duty Checkpoints from Neon audit_logs */}
+        {/* Live duty checkpoints (audit log) */}
         <div className="space-y-2 pt-1 flex-1">
           <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground block">
             Recent Activity

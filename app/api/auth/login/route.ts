@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { verifyPassword } from '@/lib/auth/password'
+import { verifyPin } from '@/lib/auth/pin'
 import { recordAuditLog } from '@/lib/db/audit'
 import { desc, eq, ilike, or } from 'drizzle-orm'
 
@@ -74,8 +75,7 @@ export async function POST(request: Request) {
           )
         }
 
-        const expectedPin = matched.pin ? matched.pin.trim() : null
-        if (!expectedPin || cleanPin !== expectedPin) {
+        if (!matched.pin || !verifyPin(cleanPin, matched.pin)) {
           return NextResponse.json(
             { error: 'Incorrect 4-digit PIN. Please verify your confidential passkey.' },
             { status: 401 }
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
           email: matched.email,
           name: matched.name,
           phone: matched.phone,
-          pin: expectedPin,
+          pin: '',
           role: 'FIELD_OFFICER',
           status: matched.status || 'ACTIVE',
           region: matched.regionName || 'Ashanti Region',
@@ -210,7 +210,7 @@ export async function POST(request: Request) {
           email: dbUser.email,
           name: dbUser.name,
           phone: dbUser.phone || '',
-          pin: dbUser.pin || '',
+          pin: '',
           role: normalizedRole,
           status: dbUser.status || 'ACTIVE',
           region: dbUser.regionName || 'Ashanti Region',
@@ -286,7 +286,7 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         phone: user.phone,
-        pin: user.pin,
+        pin: '',
         role: user.role,
         status: user.status,
         region: user.region || 'Ashanti Region',

@@ -111,7 +111,7 @@ export function LogIncidentModal({
                 Log Operations Incident
               </h2>
               <p className="text-xs text-slate-400">
-                Record incident directly to Neon database and notify command
+                Record incident and notify command
               </p>
             </div>
           </div>
