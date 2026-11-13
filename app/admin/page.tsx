@@ -2155,7 +2155,7 @@ export default function AdminPage() {
                     >
                       {showAllActivity
                         ? 'Show less'
-                        : `View full audit log (${filteredAuditLogs.length})`}
+                        : `Show full history (${filteredAuditLogs.length})`}
                     </button>
                   </div>
                   {filteredAuditLogs.length === 0 ? (
@@ -2275,8 +2275,8 @@ export default function AdminPage() {
                           <X className="size-3" />
                         </button>
                       )}
-                      <span className="text-[11px] text-slate-400 font-sans">
-                        Recent Activity ({filteredAuditLogs.length})
+                      <span className="text-[11px] text-slate-400 font-sans tabular-nums">
+                        {filteredAuditLogs.length} events
                       </span>
                     </div>
                   </div>
@@ -2286,8 +2286,9 @@ export default function AdminPage() {
                       No operational audit events recorded yet.
                     </div>
                   ) : (
-                    <div className="space-y-2 text-xs">
-                      {filteredAuditLogs.map((log) => {
+                    <>
+                      <div className="space-y-2 text-xs">
+                        {(showAllActivity ? filteredAuditLogs : filteredAuditLogs.slice(0, 8)).map((log) => {
                         const isCrit = [
                           'SOS_TRIGGERED',
                           'GEOFENCE_BREACH',
@@ -2338,7 +2339,20 @@ export default function AdminPage() {
                           </div>
                         )
                       })}
-                    </div>
+                      </div>
+
+                      {filteredAuditLogs.length > 8 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAllActivity((v) => !v)}
+                          className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-[#22263C] bg-[#0C0F17] hover:bg-[#151A28] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+                        >
+                          {showAllActivity
+                            ? 'Show less'
+                            : `Show full history (${filteredAuditLogs.length})`}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
 
