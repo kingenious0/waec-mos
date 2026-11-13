@@ -317,7 +317,7 @@ export default function AdminPage() {
         router.push('/login')
         return
       }
-      if (s.role !== 'ADMIN') {
+      if (!['ADMIN', 'SUPER_ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(String(s.role || '').toUpperCase())) {
         router.push('/field')
         return
       }

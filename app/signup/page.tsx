@@ -170,20 +170,6 @@ export default function SignupPage() {
 
                 <div className="rounded-xl bg-[#141A2E]/70 border border-white/5 p-3.5 space-y-2.5 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Staff ID</span>
-                    <span className="font-mono font-bold text-white">{result.staffId}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Assigned Centre</span>
-                    <span className="font-medium text-white text-right truncate max-w-[200px]">
-                      {result.assignedCenter}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Duty Group</span>
-                    <span className="font-medium text-zinc-200">{result.group}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
                     <span className="text-zinc-400">Status</span>
                     {result.status === 'REVOKED' ? (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold text-[11px]">

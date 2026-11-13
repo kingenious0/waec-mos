@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
+import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { desc, eq, or } from 'drizzle-orm'
 
 // Helper to calculate times before start time
@@ -57,9 +58,22 @@ function calculateTimeline(paperName: string, startTimeRaw: string, endTimeRaw: 
 
 export async function GET(request: Request) {
   try {
+    const caller = await getServerUser(request as any)
+    if (!caller) {
+      return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
-    const officerId = searchParams.get('officerId') || searchParams.get('userId')
+    let officerId = searchParams.get('officerId') || searchParams.get('userId')
     const staffId = searchParams.get('staffId')
+
+    // Officers may only view their own assignment; command may view anyone's
+    if (roleKind(caller.role) === 'officer') {
+      // Never trust a supplied identifier — use the caller's own ID
+      officerId = caller.id
+    }
+    if (roleKind(caller.role) === 'officer' && officerId !== caller.id) {
+      return NextResponse.json({ error: 'This is your assignment only.' }, { status: 403 })
+    }
 
     let assignmentRow: any = null
     let defaultRadius = 150

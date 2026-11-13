@@ -3,10 +3,13 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { verifyPin } from '@/lib/auth/pin'
+import { requireCommand, requireUser, getServerUser, roleKind } from '@/lib/auth/guard'
 import { and, desc, eq, ne, or } from 'drizzle-orm'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({
         incidents: [],
@@ -150,9 +153,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const gate = await requireUser(request as any)
+    if (gate.error) return gate.error
     const body = await request.json()
     const {
-      reportedBy,
       title,
       category,
       severity,
@@ -166,10 +170,12 @@ export async function POST(request: Request) {
       distanceMeters,
       isSos,
     } = body
+    // Never trust a client-supplied reporter — use the caller
+    const reportedBy = gate.user.id
 
-    if (!reportedBy || !description) {
+    if (!description) {
       return NextResponse.json(
-        { error: 'reportedBy and description are required' },
+        { error: 'description is required' },
         { status: 400 }
       )
     }
@@ -310,7 +316,7 @@ export async function POST(request: Request) {
 
 async function handleUpdateIncident(request: Request) {
   const body = await request.json()
-  const { action, officerId, pin, id, status, resolutionNotes, actorId, actorName } = body
+  const { action, officerId, pin, id, status, resolutionNotes } = body
 
   if (!isLiveDatabase || !db) {
     return NextResponse.json({ success: true })
@@ -318,10 +324,14 @@ async function handleUpdateIncident(request: Request) {
 
   const now = new Date()
 
-  // 1. Field Officer PIN-verified SOS Stand Down
+  // 1. Field Officer PIN-verified SOS Stand Down — requires signed-in officer
   if (action === 'STAND_DOWN') {
-    if (!officerId || !pin) {
-      return NextResponse.json({ error: 'Officer ID and 4-digit PIN are required' }, { status: 400 })
+    const caller = await getServerUser(request as any)
+    if (!caller) {
+      return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+    }
+    if (roleKind(caller.role) === 'officer' && officerId !== caller.id) {
+      return NextResponse.json({ error: 'You can only stand down your own SOS.' }, { status: 403 })
     }
 
     const officers = await db
@@ -406,7 +416,12 @@ async function handleUpdateIncident(request: Request) {
     return NextResponse.json({ success: true })
   }
 
-  // 2. Admin status / resolution workflow update
+  // 2. Admin status / resolution workflow update — command staff only
+  const command = await requireCommand(request as any)
+  if (command.error) return command.error
+  const actorId = command.user.id
+  const actorName = command.user.name
+
   if (!id || !status) {
     return NextResponse.json({ error: 'Incident id and status are required' }, { status: 400 })
   }
@@ -438,7 +453,7 @@ async function handleUpdateIncident(request: Request) {
   await db.insert(schema.incidentUpdates).values({
     id: `incupd-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
     incidentId: id,
-    actorId: actorId || 'usr-admin-hq',
+    actorId,
     comment: resolutionNotes || `Status updated to ${status}`,
     previousStatus: inc.status,
     newStatus: status,
@@ -473,14 +488,14 @@ async function handleUpdateIncident(request: Request) {
   }
 
   await recordAuditLog({
-    actorId: actorId || 'usr-admin-hq',
-    actorName: actorName || 'HQ Command',
+    actorId,
+    actorName,
     actorRole: 'ADMIN',
     action: isClosing ? 'INCIDENT_RESOLVED' : 'INCIDENT_UPDATED',
     entityType: 'incidents',
     entityId: id,
     details: {
-      message: `${actorName || 'Command'} marked ${inc.incidentNumber} as ${status}`,
+      message: `${actorName} marked ${inc.incidentNumber} as ${status}`,
       incidentNumber: inc.incidentNumber,
       status,
     },

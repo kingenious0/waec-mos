@@ -3,6 +3,7 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
+import { requireUser, requireAdmin } from '@/lib/auth/guard'
 import { desc, eq } from 'drizzle-orm'
 
 function slugify(value: string): string {
@@ -106,8 +107,10 @@ async function resolveDistrictId(opts: {
   return newDistrictId
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const gate = await requireUser(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ centers: [], districts: [] })
     }
@@ -206,12 +209,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ error: 'Database not connected' }, { status: 500 })
     }
 
     const body = await request.json()
-    const { name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact, actorId, actorName } = body
+    const { name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact } = body
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     if (!name || !code || lat === undefined || lng === undefined) {
       return NextResponse.json({ error: 'Name, code, latitude, and longitude are required' }, { status: 400 })
@@ -246,8 +253,8 @@ export async function POST(request: Request) {
       .returning()
 
     await recordAuditLog({
-      actorId: actorId || 'usr-admin-hq',
-      actorName: actorName || 'HQ Command',
+      actorId,
+      actorName,
       actorRole: 'ADMIN',
       action: 'CENTER_CREATED',
       entityType: 'examination_centers',
@@ -267,12 +274,16 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ error: 'Database not connected' }, { status: 500 })
     }
 
     const body = await request.json()
-    const { id, name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact, actorId, actorName } = body
+    const { id, name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact } = body
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     if (!id) {
       return NextResponse.json({ error: 'Center ID is required' }, { status: 400 })
@@ -304,8 +315,8 @@ export async function PUT(request: Request) {
     }
 
     await recordAuditLog({
-      actorId: actorId || 'usr-admin-hq',
-      actorName: actorName || 'HQ Command',
+      actorId,
+      actorName,
       actorRole: 'ADMIN',
       action: 'CENTER_UPDATED',
       entityType: 'examination_centers',
@@ -325,14 +336,16 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ error: 'Database not connected' }, { status: 500 })
     }
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    const actorId = searchParams.get('actorId') || 'usr-admin-hq'
-    const actorName = searchParams.get('actorName') || 'HQ Command'
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     if (!id) {
       return NextResponse.json({ error: 'Center ID is required' }, { status: 400 })

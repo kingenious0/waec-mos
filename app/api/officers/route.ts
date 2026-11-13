@@ -5,10 +5,13 @@ import { recordAuditLog } from '@/lib/db/audit'
 import { hashPin } from '@/lib/auth/pin'
 import { splitName } from '@/lib/name-utils'
 import { validatePin } from '@/lib/auth/pin-policy'
+import { requireCommand, requireAdmin } from '@/lib/auth/guard'
 import { desc, eq, or } from 'drizzle-orm'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
     if (isLiveDatabase && db) {
       const rows = await db
         .select({
@@ -92,6 +95,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     const data = await request.json()
     const {
       name,
@@ -104,9 +109,9 @@ export async function POST(request: Request) {
       region,
       assignedCenter,
       assignedCenterCode,
-      actorId,
-      actorName,
     } = data
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     if (!name || !phone || !assignedCenter) {
       return NextResponse.json(
@@ -208,8 +213,8 @@ export async function POST(request: Request) {
       }
 
       await recordAuditLog({
-        actorId: actorId || 'usr-admin-hq',
-        actorName: actorName || 'HQ Command',
+        actorId,
+        actorName,
         actorRole: 'ADMIN',
         action: 'USER_CREATED',
         entityType: 'users',
@@ -249,7 +254,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function updateOfficerRecord(body: any) {
+async function updateOfficerRecord(body: any, actorId: string, actorName: string) {
   const {
     id,
     action,
@@ -269,8 +274,6 @@ async function updateOfficerRecord(body: any) {
     image,
     bio,
     dutyStatus,
-    actorId,
-    actorName,
     paperName,
     startTime,
     endTime,
@@ -432,8 +435,10 @@ async function updateOfficerRecord(body: any) {
 
 export async function PUT(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     const body = await request.json()
-    const result = await updateOfficerRecord(body)
+    const result = await updateOfficerRecord(body, gate.user.id, gate.user.name)
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
@@ -446,8 +451,10 @@ export async function PUT(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     const body = await request.json()
-    const result = await updateOfficerRecord(body)
+    const result = await updateOfficerRecord(body, gate.user.id, gate.user.name)
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: result.status })
     }
@@ -460,10 +467,12 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    const actorId = searchParams.get('actorId') || 'usr-admin-hq'
-    const actorName = searchParams.get('actorName') || 'HQ Command'
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     if (!id) {
       return NextResponse.json({ error: 'Officer ID is required' }, { status: 400 })

@@ -3,6 +3,7 @@ import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
+import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { desc, eq } from 'drizzle-orm'
 
 export async function POST(request: Request) {
@@ -18,6 +19,14 @@ export async function POST(request: Request) {
       accuracyMeters,
       isTestMode,
     } = body
+
+    const caller = await getServerUser(request as any)
+    if (!caller) {
+      return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+    }
+    if (roleKind(caller.role) === 'officer' && officerId !== caller.id) {
+      return NextResponse.json({ error: 'You can only check in for yourself.' }, { status: 403 })
+    }
 
     if (!officerId || !['CHECK_IN', 'CHECK_OUT'].includes(action)) {
       return NextResponse.json({ error: 'officerId and valid action (CHECK_IN | CHECK_OUT) required' }, { status: 400 })

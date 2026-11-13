@@ -3,12 +3,22 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseBatteryThresholdPct, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
+import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { and, desc, eq, gte } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { officerId, lat, lng, battery, speedKmh, accuracyMeters, distanceMeters, isSimulated } = body
+
+    const caller = await getServerUser(request as any)
+    if (!caller) {
+      return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+    }
+    // Officers can only report for themselves; command may act for anyone
+    if (roleKind(caller.role) === 'officer' && officerId !== caller.id) {
+      return NextResponse.json({ error: 'You can only report your own location.' }, { status: 403 })
+    }
 
     if (!officerId) {
       return NextResponse.json({ error: 'officerId is required' }, { status: 400 })

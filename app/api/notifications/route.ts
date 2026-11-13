@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-utils'
+import { requireCommand } from '@/lib/auth/guard'
 import { desc, eq, ne, and } from 'drizzle-orm'
 
 export interface LiveNotificationItem {
@@ -20,8 +21,10 @@ export interface LiveNotificationItem {
   battery?: string
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({
         notifications: [],
@@ -204,6 +207,8 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
     const body = await request.json().catch(() => ({}))
     const { action, sourceType, sourceId } = body
 

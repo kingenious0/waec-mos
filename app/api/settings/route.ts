@@ -3,6 +3,7 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { DEFAULT_SYSTEM_SETTINGS, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
+import { requireCommand, requireAdmin } from '@/lib/auth/guard'
 import { eq } from 'drizzle-orm'
 
 const SETTINGS_ID = 'default-ashanti'
@@ -41,8 +42,10 @@ async function getOrCreateSettings() {
   return DEFAULT_SYSTEM_SETTINGS
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
     const settings = await getOrCreateSettings()
     return NextResponse.json({ success: true, settings })
   } catch (error) {
@@ -53,8 +56,12 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
     const body = await request.json()
-    const { settings, actorId, actorName } = body
+    const { settings } = body
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     const nextSettings = {
       lowBatteryThreshold: settings?.lowBatteryThreshold ?? DEFAULT_SYSTEM_SETTINGS.lowBatteryThreshold,
@@ -79,14 +86,14 @@ export async function PUT(request: Request) {
           id: SETTINGS_ID,
           ...nextSettings,
           updatedAt: new Date(),
-          updatedBy: actorId || 'usr-admin-hq',
+          updatedBy: actorId,
         })
         .onConflictDoUpdate({
           target: schema.systemSettings.id,
           set: {
             ...nextSettings,
             updatedAt: new Date(),
-            updatedBy: actorId || 'usr-admin-hq',
+            updatedBy: actorId,
           },
         })
 
@@ -101,8 +108,8 @@ export async function PUT(request: Request) {
       }
 
       await recordAuditLog({
-        actorId: actorId || 'usr-admin-hq',
-        actorName: actorName || 'HQ Administrator',
+        actorId,
+        actorName,
         actorRole: 'ADMIN',
         action: 'SETTINGS_UPDATED',
         entityType: 'system_settings',
@@ -122,8 +129,10 @@ export async function PUT(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}))
-    const { actorId, actorName } = body
+    const gate = await requireAdmin(request as any)
+    if (gate.error) return gate.error
+    const actorId = gate.user.id
+    const actorName = gate.user.name
 
     if (isLiveDatabase && db) {
       await db
@@ -132,20 +141,20 @@ export async function POST(request: Request) {
           id: SETTINGS_ID,
           ...DEFAULT_SYSTEM_SETTINGS,
           updatedAt: new Date(),
-          updatedBy: actorId || 'usr-admin-hq',
+          updatedBy: actorId,
         })
         .onConflictDoUpdate({
           target: schema.systemSettings.id,
           set: {
             ...DEFAULT_SYSTEM_SETTINGS,
             updatedAt: new Date(),
-            updatedBy: actorId || 'usr-admin-hq',
+            updatedBy: actorId,
           },
         })
 
       await recordAuditLog({
-        actorId: actorId || 'usr-admin-hq',
-        actorName: actorName || 'HQ Administrator',
+        actorId,
+        actorName,
         actorRole: 'ADMIN',
         action: 'SETTINGS_RESET',
         entityType: 'system_settings',

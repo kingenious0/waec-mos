@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
+import { hitRateLimit, requestIp } from '@/lib/auth/rate-limit'
 import { desc, eq } from 'drizzle-orm'
 
 async function verifyOfficerByPhone(phone: string) {
@@ -45,17 +46,11 @@ async function verifyOfficerByPhone(phone: string) {
       }
     }
 
+    // Minimal payload — never leak staff IDs or centre assignments to callers
     return {
       officer: {
-        id: found.id,
         name: found.name,
-        staffId: found.staffId || 'WAEC-GH-0000',
-        assignedCenter: found.centerName || 'Unassigned',
-        assignedCenterCode: found.centerCode || '',
-        group: found.groupName || 'Group 1',
-        isGroupLeader: Boolean(found.isGroupLeader),
         status: found.status || 'ACTIVE',
-        region: found.regionName || 'Ashanti Region',
       },
     }
   }
@@ -70,21 +65,23 @@ async function verifyOfficerByPhone(phone: string) {
 
   return {
     officer: {
-      id: foundStore.id,
       name: foundStore.name,
-      staffId: foundStore.staffId,
-      assignedCenter: foundStore.assignedCenter,
-      assignedCenterCode: foundStore.assignedCenterCode,
-      group: foundStore.group,
-      isGroupLeader: foundStore.isGroupLeader,
       status: foundStore.status,
-      region: foundStore.region,
     },
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const ip = requestIp(request)
+    const limit = await hitRateLimit(`verify:${ip}`, 10)
+    if (limit.limited) {
+      return NextResponse.json(
+        { error: 'Too many requests. Try again in a few minutes.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const result = await verifyOfficerByPhone(String(body.phone || ''))
     if (result.error) {
@@ -102,6 +99,15 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const ip = requestIp(request)
+    const limit = await hitRateLimit(`verify:${ip}`, 10)
+    if (limit.limited) {
+      return NextResponse.json(
+        { error: 'Too many requests. Try again in a few minutes.' },
+        { status: 429 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const phone = searchParams.get('phone') || ''
     const result = await verifyOfficerByPhone(phone)

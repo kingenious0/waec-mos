@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseOfflineTimeoutMs, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
+import { requireCommand } from '@/lib/auth/guard'
 import { and, desc, eq, ne } from 'drizzle-orm'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ officers: [] })
     }
