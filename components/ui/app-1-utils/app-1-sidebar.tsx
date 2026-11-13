@@ -51,7 +51,7 @@ export function App1Sidebar({ activeTab = 'console', onSelectTab, ...props }: Ap
     },
     {
       id: "telematics",
-      title: "Active Telematics",
+      title: "Live map",
       url: "/field",
       icon: Radio,
     },

@@ -6,6 +6,7 @@ import { hashPin } from '@/lib/auth/pin'
 import { splitName } from '@/lib/name-utils'
 import { validatePin } from '@/lib/auth/pin-policy'
 import { requireCommand, requireAdmin } from '@/lib/auth/guard'
+import { officerCreateSchema } from '@/lib/validation-schemas'
 import { desc, eq, or } from 'drizzle-orm'
 
 export async function GET(request: Request) {
@@ -97,7 +98,14 @@ export async function POST(request: Request) {
   try {
     const gate = await requireAdmin(request as any)
     if (gate.error) return gate.error
-    const data = await request.json()
+    const raw = await request.json()
+    const parsed = officerCreateSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      )
+    }
     const {
       name,
       staffId,
@@ -109,7 +117,7 @@ export async function POST(request: Request) {
       region,
       assignedCenter,
       assignedCenterCode,
-    } = data
+    } = parsed.data
     const actorId = gate.user.id
     const actorName = gate.user.name
 

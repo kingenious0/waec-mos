@@ -97,7 +97,7 @@ export function MobileOfficerCard({
                   isActive ? 'bg-emerald-400' : 'bg-rose-400'
                 }`}
               />
-              {isActive ? 'Active' : 'Revoked'}
+              {isActive ? 'Active' : 'Blocked'}
             </span>
             {isLeader && (
               <span className="inline-flex items-center gap-1 rounded-full border border-[#22263C] bg-[#121629] px-2 py-0.5 text-[11px] font-semibold text-slate-300 whitespace-nowrap">
@@ -161,7 +161,7 @@ export function MobileOfficerCard({
               {isActive ? (
                 <>
                   <ShieldAlert className="size-4 shrink-0" />
-                  Revoke access
+                  Block access
                 </>
               ) : (
                 <>

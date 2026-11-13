@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { getLockdownState } from '@/lib/auth/lockdown'
 import { getSessionFromCookie } from '@/lib/auth/server-session'
 
 export type GuardRole = 'officer' | 'controller' | 'admin'
@@ -61,6 +62,11 @@ export async function getServerUser(request: NextRequest | Request): Promise<Gua
   const user = await loadUser(session.userId)
   if (!user) return null
   if (user.status !== 'ACTIVE') return null
+
+  // Lockdown: non-admins have no access while the switch is on
+  const lockdown = await getLockdownState()
+  if (lockdown.active && classify(user.role) !== 'admin') return null
+
   return user
 }
 

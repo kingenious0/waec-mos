@@ -90,7 +90,7 @@ export function ProfileModal({
     (session.status === 'ACTIVE'
       ? 'Active'
       : session.status === 'REVOKED'
-      ? 'Revoked'
+      ? 'Blocked'
       : 'Offline')
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,12 +387,12 @@ export function ProfileModal({
                 {session.status === 'REVOKED' ? (
                   <div className="flex items-center h-10 px-3.5 rounded-xl border border-rose-500/30 bg-rose-950/30 text-xs font-medium text-rose-400 gap-2">
                     <span className="size-2 rounded-full bg-rose-400" />
-                    <span>Access Revoked</span>
+                    <span>Access blocked</span>
                   </div>
                 ) : (
                   <div className="flex items-center h-10 px-3.5 rounded-xl border border-[#22263C] bg-[#0A0D17]/60 text-xs font-medium text-emerald-400 gap-2">
                     <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>Verified Active</span>
+                    <span>Active</span>
                   </div>
                 )}
               </div>

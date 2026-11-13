@@ -5,11 +5,19 @@ import { parseBatteryThresholdPct, parseGeofenceRadiusMeters } from '@/lib/setti
 import { recordAuditLog } from '@/lib/db/audit'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { and, desc, eq, gte } from 'drizzle-orm'
+import { telemetrySchema } from '@/lib/validation-schemas'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { officerId, lat, lng, battery, speedKmh, accuracyMeters, distanceMeters, isSimulated } = body
+    const raw = await request.json()
+    const parsed = telemetrySchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      )
+    }
+    const { officerId, lat, lng, battery, speedKmh, accuracyMeters, distanceMeters, isSimulated } = parsed.data
 
     const caller = await getServerUser(request as any)
     if (!caller) {

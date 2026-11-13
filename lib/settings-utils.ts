@@ -11,6 +11,7 @@ export interface SystemSettingsConfig {
   hideOfficerPins: boolean
   sessionTimeout: string
   adminSmsCheck: boolean
+  locationOnlyOnDuty: boolean
 }
 
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsConfig = {
@@ -26,6 +27,7 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsConfig = {
   hideOfficerPins: true,
   sessionTimeout: '30 minutes',
   adminSmsCheck: true,
+  locationOnlyOnDuty: true,
 }
 
 export function parseBatteryThresholdPct(val: string | undefined): number {

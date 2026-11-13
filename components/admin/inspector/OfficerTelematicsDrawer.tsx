@@ -67,7 +67,7 @@ export function OfficerTelematicsDrawer({
       ? 'Low'
       : 'Good'
 
-  // Telemetry tile: Online/Offline + an explicit STALE tag when the last
+  // Telemetry tile: Online/Offline + an explicit NO UPDATE tag when the last
   // ping is older than 5 minutes.
   const isTelemetryStale = (() => {
     if (!officer.lastPingAt) return false
@@ -207,7 +207,7 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* 4-Stat Live Telematics Grid */}
+        {/* Live stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
           <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
             <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
@@ -236,7 +236,7 @@ export function OfficerTelematicsDrawer({
               </span>
               {isTelemetryStale && (
                 <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/15 px-1 py-px text-[8px] font-extrabold tracking-wider text-amber-400">
-                  STALE
+                  NO UPDATE
                 </span>
               )}
             </div>
@@ -312,7 +312,7 @@ export function OfficerTelematicsDrawer({
               }`}
             >
               {typeof dist !== 'number'
-                ? 'NO TELEMETRY'
+                ? 'NO LOCATION'
                 : withinPerimeter
                 ? `WITHIN ${radiusMeters}M`
                 : 'OUTSIDE PERIMETER'}

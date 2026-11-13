@@ -3,7 +3,9 @@ import { neon } from '@neondatabase/serverless'
 import * as schema from './schema'
 import { hashPin, verifyPin } from '@/lib/auth/pin'
 
-const databaseUrl = process.env.DATABASE_URL
+import { env } from '@/lib/env'
+
+const databaseUrl = env.DATABASE_URL
 
 // Check if a real Neon database URL is configured
 export const isLiveDatabase = Boolean(

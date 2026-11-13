@@ -3,7 +3,7 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { dummyVerify } from '@/lib/auth/password'
 import { verifyPin } from '@/lib/auth/pin'
-import { recordAuditLog } from '@/lib/db/audit'
+import { recordAuditLog, recordSecurityEvent } from '@/lib/db/audit'
 import {
   checkLockout,
   recordLoginFailure,
@@ -15,6 +15,7 @@ import {
   issueSmsChallenge,
   completeAdminLogin,
 } from '@/lib/auth/admin-2fa'
+import { getLockdownState } from '@/lib/auth/lockdown'
 import { createSession, setSessionCookie } from '@/lib/auth/server-session'
 import { desc, eq } from 'drizzle-orm'
 
@@ -40,8 +41,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Lockdown blocks non-admin sign-ins; admins may still enter to turn it off
+    const lockdown = await getLockdownState()
+
     // ---------- FIELD OFFICER: phone + PIN ----------
     if (phone && pin) {
+      if (lockdown.active) {
+        return NextResponse.json(
+          { error: 'The system is locked right now. Only administrators can sign in.' },
+          { status: 403 }
+        )
+      }
       const cleanPhone = String(phone).trim()
       const cleanPin = String(pin).trim()
       const digits = cleanPhone.replace(/\D/g, '')
@@ -141,6 +151,15 @@ export async function POST(request: NextRequest) {
             userAgent,
             ip,
           },
+        })
+        await recordSecurityEvent({
+          action: 'NEW_DEVICE_SIGNIN',
+          actorId: matched.id,
+          actorName: matched.name,
+          actorRole: 'FIELD_OFFICER',
+          details: { userAgent, ip },
+          ipAddress: ip,
+          userAgent,
         })
       }
 

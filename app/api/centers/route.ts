@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { requireUser, requireAdmin } from '@/lib/auth/guard'
+import { centerCreateSchema, centerUpdateSchema } from '@/lib/validation-schemas'
 import { desc, eq } from 'drizzle-orm'
 
 function slugify(value: string): string {
@@ -215,8 +216,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database not connected' }, { status: 500 })
     }
 
-    const body = await request.json()
-    const { name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact } = body
+    const raw = await request.json()
+    const parsed = centerCreateSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      )
+    }
+    const { name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact } = parsed.data
     const actorId = gate.user.id
     const actorName = gate.user.name
 
@@ -280,8 +288,15 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Database not connected' }, { status: 500 })
     }
 
-    const body = await request.json()
-    const { id, name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact } = body
+    const raw = await request.json()
+    const parsed = centerUpdateSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      )
+    }
+    const { id, name, code, lat, lng, radius, districtId, districtName, regionName, supervisorContact } = parsed.data
     const actorId = gate.user.id
     const actorName = gate.user.name
 

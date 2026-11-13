@@ -189,7 +189,7 @@ export function SystemSettingsTab({
 
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
-                <div className="text-sm font-semibold text-white">Outside geofence</div>
+                <div className="text-sm font-semibold text-white">Outside check-in area</div>
                 <div className="text-xs text-zinc-400">
                   Warn when an officer is beyond the centre perimeter during their shift.
                 </div>
@@ -349,7 +349,7 @@ export function SystemSettingsTab({
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
-                <div className="text-sm font-semibold text-white">Geofence radius</div>
+                <div className="text-sm font-semibold text-white">Check-in radius</div>
                 <div className="text-xs text-zinc-400">
                   Default perimeter around each exam centre.
                 </div>

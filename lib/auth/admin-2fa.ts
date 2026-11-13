@@ -4,7 +4,7 @@
  * allow 3 tries, and work once. Provider is swappable via SMS_PROVIDER.
  */
 import { verifyPassword } from '@/lib/auth/password'
-import { recordAuditLog } from '@/lib/db/audit'
+import { recordAuditLog, recordSecurityEvent } from '@/lib/db/audit'
 import { checkLockout, recordLoginFailure, recordLoginSuccess } from '@/lib/auth/lockout'
 import { createSession, setSessionCookie } from '@/lib/auth/server-session'
 import { getServerUser } from '@/lib/auth/guard'
@@ -123,11 +123,24 @@ export async function completeAdminLogin(
 ): Promise<NextResponse> {
   // recordLoginSuccess already done by caller
   const rawToken = await createSession(user.id, request as any)
+  const userAgent = request.headers.get('user-agent') || ''
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+
   const normalizedRole = ['SUPER_ADMIN', 'ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(
     (user.role || '').toUpperCase()
   )
     ? 'ADMIN'
     : 'FIELD_OFFICER'
+
+  // Detect new device
+  const lastLogin = await db!
+    .select({ createdAt: schema.auditLogs.createdAt, details: schema.auditLogs.details })
+    .from(schema.auditLogs)
+    .where(eq(schema.auditLogs.actorId, user.id))
+    .orderBy(desc(schema.auditLogs.createdAt))
+    .limit(1)
+  const lastUa = (lastLogin[0]?.details as any)?.userAgent
+  const isNewDevice = !lastUa || lastUa !== userAgent
 
   await recordAuditLog({
     actorId: user.id,
@@ -139,8 +152,23 @@ export async function completeAdminLogin(
     details: {
       message: `${user.name} signed in to Command Console`,
       method,
+      userAgent,
+      ip,
+      newDevice: isNewDevice,
     },
   })
+
+  if (isNewDevice) {
+    await recordSecurityEvent({
+      action: 'NEW_DEVICE_SIGNIN',
+      actorId: user.id,
+      actorName: user.name,
+      actorRole: normalizedRole,
+      details: { userAgent, ip },
+      ipAddress: ip,
+      userAgent,
+    })
+  }
 
   const res = NextResponse.json({
     success: true,

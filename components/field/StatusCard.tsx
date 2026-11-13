@@ -46,7 +46,7 @@ export function StatusCard({
               Checked in at {checkInTime}
             </div>
             <div className="text-xs text-slate-400 mt-0.5">
-              Verified on duty · Inside {geofenceRadius} m perimeter
+              Verified on duty · Inside {geofenceRadius} m check-in area
             </div>
           </div>
         </div>
@@ -139,7 +139,7 @@ export function StatusCard({
     )
   }
 
-  // 4. Inside vs Outside Perimeter (Primary Operational States)
+  // 4. Inside vs Outside Check-in area (Primary Operational States)
   const isInside = state === 'inside'
 
   return (
@@ -178,7 +178,7 @@ export function StatusCard({
           </h2>
           <p className="text-xs text-slate-400 mt-0.5 truncate">
             {isInside
-              ? `Inside the ${geofenceRadius} m perimeter`
+              ? `Inside the ${geofenceRadius} m check-in area`
               : `Move within ${geofenceRadius} m to check in`}
           </p>
         </div>

@@ -653,7 +653,7 @@ export default function FleetMap({
           [
             { id: 'all', label: `All ${officers.length}` },
             { id: 'onsite', label: `On site ${officers.filter((o) => o.status === 'ON_SITE').length}` },
-            { id: 'enroute', label: `En route ${officers.filter((o) => o.status === 'PENDING').length}` },
+            { id: 'enroute', label: `On the way ${officers.filter((o) => o.status === 'PENDING').length}` },
             { id: 'sos', label: `SOS ${officers.filter((o) => o.status === 'SOS').length}` },
           ] as const
         ).map((chip) => {
@@ -733,7 +733,7 @@ export default function FleetMap({
             <LegendSosItem />
             <LegendStaleItem />
             <LegendItem color="#F6D300" label="Selected officer" />
-            <LegendItem color="#38bdf8" label="Center geofence (radius)" dashed />
+            <LegendItem color="#38bdf8" label="Check-in area (radius)" dashed />
             <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300 whitespace-nowrap">
               <span className="size-4 shrink-0 rounded-full border border-sky-400/50 bg-[#0C0F17] flex items-center justify-center text-[8px] font-extrabold text-sky-300">
                 5

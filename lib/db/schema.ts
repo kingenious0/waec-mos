@@ -212,8 +212,28 @@ export const systemSettings = pgTable('system_settings', {
   hideOfficerPins: boolean('hide_officer_pins').notNull().default(true),
   sessionTimeout: text('session_timeout').notNull().default('30 minutes'),
   adminSmsCheck: boolean('admin_sms_check').notNull().default(true),
+  locationOnlyOnDuty: boolean('location_only_on_duty').notNull().default(true),
+  lockdownActive: boolean('lockdown_active').notNull().default(false),
+  lockdownEnabledBy: text('lockdown_enabled_by'),
+  lockdownEnabledAt: timestamp('lockdown_enabled_at', { withTimezone: true }),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   updatedBy: text('updated_by'),
+})
+
+// --- Append-only security event ledger (never updated or deleted from app) ---
+
+export const securityEvents = pgTable('security_events', {
+  id: text('id').primaryKey(),
+  action: text('action').notNull(), // LOGIN, NEW_DEVICE_SIGNIN, PIN_CHANGED, LOCKOUT, LOCKDOWN_ON, LOCKDOWN_OFF, REVIEW_BLOCK, REVIEW_OK
+  actorId: text('actorId'),
+  actorName: text('actorName'),
+  actorRole: text('actorRole'),
+  targetUserId: text('targetUserId'),
+  targetUserName: text('targetUserName'),
+  details: jsonb('details'),
+  ipAddress: text('ipAddress'),
+  userAgent: text('userAgent'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 // --- One-time SMS login codes ---

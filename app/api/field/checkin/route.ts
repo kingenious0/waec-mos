@@ -3,12 +3,20 @@ import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
+import { checkinSchema } from '@/lib/validation-schemas'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { desc, eq } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const raw = await request.json()
+    const parsed = checkinSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      )
+    }
     const {
       officerId,
       action,
@@ -18,7 +26,7 @@ export async function POST(request: Request) {
       battery,
       accuracyMeters,
       isTestMode,
-    } = body
+    } = parsed.data
 
     const caller = await getServerUser(request as any)
     if (!caller) {

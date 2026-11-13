@@ -2,9 +2,19 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
+import { hitRateLimit, requestIp } from '@/lib/auth/rate-limit'
 
 export async function POST(request: Request) {
   try {
+    const ip = requestIp(request)
+    const limit = await hitRateLimit(`forgot:${ip}`, 5)
+    if (limit.limited) {
+      return NextResponse.json(
+        { error: 'Too many requests. Try again in a few minutes.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const cleanIdentifier = String(body.identifier || '').trim()
 

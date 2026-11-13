@@ -111,7 +111,7 @@ export function NationalOperationsShowcase() {
             Live
           </div>
           <div className="text-xs text-zinc-400 mt-1 font-medium">
-            Gateway online
+            System connected
           </div>
         </div>
       </div>

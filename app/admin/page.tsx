@@ -52,6 +52,7 @@ import { MobileOfficerSheet } from '@/components/admin/inspector/MobileOfficerSh
 import { MobileCenterCard } from '@/components/admin/centers/MobileCenterCard'
 import { formatGhanaPhone } from '@/lib/phone'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
+import { SafetyCenter } from '@/components/admin/safety/SafetyCenter'
 import type { NotificationItem } from '@/components/admin/notifications/NotificationsPopover'
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -116,7 +117,7 @@ export default function AdminPage() {
   const [session, setSession] = useState<SessionData | null>(null)
 
   const [activeTab, setActiveTab] = useState<
-    'map' | 'directory' | 'centers' | 'incidents' | 'settings'
+    'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety'
   >('map')
 
   // Live dashboard state
@@ -184,17 +185,19 @@ export default function AdminPage() {
   const activeTabTitle = useMemo(() => {
     switch (activeTab) {
       case 'map':
-        return 'Live Fleet Map'
+        return 'Live map'
       case 'directory':
         return 'Monitor Directory'
       case 'centers':
-        return 'Exam Centers'
+        return 'Exam Centres'
       case 'incidents':
-        return 'Incident Logs'
+        return 'Incidents'
       case 'settings':
         return 'Settings'
+      case 'safety':
+        return 'Safety Center'
       default:
-        return 'Live Fleet Map'
+        return 'Live map'
     }
   }, [activeTab])
 
@@ -558,7 +561,7 @@ export default function AdminPage() {
     }
   }
 
-  // Revoke is destructive (it locks the officer out) → requires a confirm.
+  // Block is destructive (it locks the officer out) → requires a confirm.
   // Restoring access is not destructive, so it happens immediately.
   const handleToggleStatusGuarded = (officer: UserAccount) => {
     if (officer.status === 'ACTIVE') {
@@ -702,7 +705,7 @@ export default function AdminPage() {
 
     setFeedback(
       isEdit
-        ? `Updated geofence & center configuration for ${payload.name}`
+        ? `Updated check-in area and centre configuration for ${payload.name}`
         : `Registered new examination center ${payload.name} (${payload.code})`
     )
     loadDashboardData(true)
@@ -947,7 +950,7 @@ export default function AdminPage() {
                               ? inc.reporterDistance >= 1000
                                 ? `${(inc.reporterDistance / 1000).toFixed(1)} km`
                                 : `${inc.reporterDistance} m`
-                              : 'No telemetry'}
+                              : 'No location yet'}
                           </div>
                         </div>
                       </div>
@@ -1140,6 +1143,8 @@ export default function AdminPage() {
               ? 'Centres'
               : activeTab === 'incidents'
               ? 'Incidents'
+              : activeTab === 'safety'
+              ? 'Safety Center'
               : 'Settings'
           }
           badge={
@@ -1214,7 +1219,7 @@ export default function AdminPage() {
                   onCallOfficer={handleCallOfficer}
                   onNavigate={handleNavigate}
                   focusTarget={focusTarget}
-                  activeSectorName={`${session?.region || 'Ashanti'} Telematics Grid`}
+                  activeSectorName={`${session?.region || 'Ashanti'} Regional Hub`}
                   statusFilter={mapStatusFilter}
                   onStatusFilterChange={setMapStatusFilter}
                 />
@@ -1318,7 +1323,7 @@ export default function AdminPage() {
                     [
                       { id: 'all', label: `All ${directoryCounts.all}` },
                       { id: 'active', label: `Active ${directoryCounts.active}` },
-                      { id: 'revoked', label: `Revoked ${directoryCounts.revoked}` },
+                      { id: 'revoked', label: `Blockd ${directoryCounts.revoked}` },
                       { id: 'nocentre', label: `No centre ${directoryCounts.nocentre}` },
                     ] as const
                   ).map((chip) => {
@@ -1533,7 +1538,7 @@ export default function AdminPage() {
                                     }`}
                                   />
                                   <span>
-                                    {officer.status === 'ACTIVE' ? 'Active' : 'Revoked'}
+                                    {officer.status === 'ACTIVE' ? 'Active' : 'Blockd'}
                                   </span>
                                 </span>
                               </div>
@@ -1571,9 +1576,9 @@ export default function AdminPage() {
                                   ? 'text-slate-200'
                                   : 'text-amber-400'
                               }`}
-                              title={officer.assignedCenter || 'Unassigned'}
+                              title={officer.assignedCenter || 'No centre yet'}
                             >
-                              {officer.assignedCenter || 'Unassigned'}
+                              {officer.assignedCenter || 'No centre yet'}
                             </span>
                           </div>
 
@@ -1618,12 +1623,12 @@ export default function AdminPage() {
                                 ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300'
                                 : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300'
                             }`}
-                            title={officer.status === 'ACTIVE' ? 'Revoke Security Access' : 'Activate Security Access'}
+                            title={officer.status === 'ACTIVE' ? 'Block access' : 'Unblock access'}
                           >
                             {officer.status === 'ACTIVE' ? (
                               <>
                                 <ShieldAlert className="size-3.5 shrink-0" />
-                                <span>Revoke</span>
+                                <span>Block</span>
                               </>
                             ) : (
                               <>
@@ -1636,7 +1641,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setOfficerToDelete(officer)}
                             className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 py-2 px-1 text-[11px] font-semibold text-rose-400 transition cursor-pointer hover:bg-rose-900/40 hover:text-rose-300"
-                            title="Decommission Field Officer"
+                            title="Remove field officer"
                           >
                             <Trash2 className="size-3.5 shrink-0" />
                             <span>Delete</span>
@@ -1677,7 +1682,7 @@ export default function AdminPage() {
                   {unresolvedIncidents.length === 0 ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
                       <span className="size-2 rounded-full bg-emerald-400" />
-                      {examCenters.length} of {examCenters.length} geofences clear
+                      {examCenters.length} of {examCenters.length} check-in areas clear
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-2 rounded-full border border-status-sos/30 bg-status-sos/10 px-3.5 py-2 text-xs font-semibold text-status-sos">
@@ -1700,7 +1705,7 @@ export default function AdminPage() {
                         : 'No examination centres registered yet'}
                     </p>
                     <p className="text-xs text-slate-500">
-                      Register a WAEC examination centre to monitor its geofence.
+                      Register a WAEC examination centre to monitor its check-in area.
                     </p>
                   </div>
                 ) : (
@@ -1736,7 +1741,7 @@ export default function AdminPage() {
                 <div>
                   <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
                     <Building2 className="size-4.5 text-[#F6D300]" />
-                    <span>Examination Centers & Geofences</span>
+                    <span>Exam centres</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Default {defaultRadiusMeters}m perimeter per centre with live telematics sync
@@ -1759,7 +1764,7 @@ export default function AdminPage() {
                     <span>
                       {unresolvedIncidents.length > 0
                         ? `${unresolvedIncidents.length} Open Incident${unresolvedIncidents.length > 1 ? 's' : ''}`
-                        : `All ${examCenters.length} Geofences Operational`}
+                        : `All ${examCenters.length} check-in areas clear`}
                     </span>
                   </div>
 
@@ -1769,7 +1774,7 @@ export default function AdminPage() {
                     className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
                   >
                     <Plus className="size-3.5 text-white" />
-                    <span>Register Center</span>
+                    <span>Register centre</span>
                   </button>
                 </div>
               </div>
@@ -1786,8 +1791,8 @@ export default function AdminPage() {
                         Regional Operations Coverage
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 max-w-md">
-                        Live GPS telemetry monitoring {examCenters.length} registered examination center
-                        {examCenters.length === 1 ? '' : 's'} with geofenced check-in verification.
+                        Live GPS monitoring {examCenters.length} registered examination center
+                        {examCenters.length === 1 ? '' : 's'} with check-in area verification.
                       </p>
                     </div>
                     <div className="flex items-center gap-2 bg-[#0C0F17]/80 border border-[#22263C] px-3.5 py-2 rounded-xl text-xs shrink-0">
@@ -1809,7 +1814,7 @@ export default function AdminPage() {
                           {safeCentersCount} / {examCenters.length} Clear
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {incidentSummary.breachCount} Geofence Breaches Logged
+                          {incidentSummary.breachCount} Check-in breaches logged
                         </div>
                       </div>
                     </div>
@@ -1939,7 +1944,7 @@ export default function AdminPage() {
                     No examination centers found in database
                   </p>
                   <p className="text-xs text-slate-500">
-                    Click &ldquo;Register Center&rdquo; to add an examination venue and geofence.
+                    Click &ldquo;Register centre&rdquo; to add an a WAEC-approved spot and check-in area.
                   </p>
                 </div>
               ) : filteredCenters.length === 0 ? (
@@ -2089,7 +2094,7 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => setCenterToDelete(center)}
                             className="py-2.5 px-3 rounded-xl bg-rose-950/20 hover:bg-rose-900/40 border border-rose-500/30 text-xs font-semibold text-rose-400 hover:text-rose-300 transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
-                            title="Decommission Examination Center"
+                            title="Remove exam centre"
                           >
                             <Trash2 className="size-3.5 shrink-0" />
                             <span>Delete</span>
@@ -2217,7 +2222,7 @@ export default function AdminPage() {
                     <span>Security & Incident Logs</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Real-time emergency SOS alerts, incident workflows, and operational audit trail
+                    Real-time emergency SOS alerts, incident workflows, and operational activity history
                   </p>
                 </div>
 
@@ -2257,7 +2262,7 @@ export default function AdminPage() {
                 <div className="lg:col-span-2 rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
-                      Audit Trail & Telematics Timeline
+                      Activity history
                     </h3>
                     <div className="flex items-center gap-2">
                       {auditOfficerFilterId && (
@@ -2388,7 +2393,18 @@ export default function AdminPage() {
           )}
 
           {/* ========================================================= */}
-          {/* TAB 5: SYSTEM SETTINGS VIEW */}
+          {/* TAB 5: SAFETY CENTER */}
+          {/* ========================================================= */}
+          {activeTab === 'safety' && (
+            <SafetyCenter
+              session={session}
+              onOpenHistory={() => setActiveTab('incidents')}
+              onFeedback={setFeedback}
+            />
+          )}
+
+          {/* ========================================================= */}
+          {/* TAB 6: SYSTEM SETTINGS VIEW */}
           {/* ========================================================= */}
           {activeTab === 'settings' && (
             <SystemSettingsTab
@@ -2491,7 +2507,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <h3 id="delete-center-title" className="text-base font-bold text-white">
-                  Decommission Center
+                  Remove center
                 </h3>
                 <p className="text-xs text-slate-400">
                   Permanent removal from central examination registry
@@ -2504,7 +2520,7 @@ export default function AdminPage() {
                 {centerToDelete.name} ({centerToDelete.code})
               </p>
               <p className="text-[11px] text-rose-300/90 leading-relaxed">
-                Decommissioning will dissolve this geofence ({centerToDelete.radius}m perimeter) and unlink all active officer deployments and incidents from this venue. This action is permanently audited.
+                Removing will delete this check-in area ({centerToDelete.radius}m perimeter) and unlink all active officer deployments and incidents from this venue. This action is permanently audited.
               </p>
             </div>
 
@@ -2526,12 +2542,12 @@ export default function AdminPage() {
                 {isDeletingRecord ? (
                   <>
                     <RefreshCw className="size-3.5 animate-spin" />
-                    <span>Decommissioning...</span>
+                    <span>Removing...</span>
                   </>
                 ) : (
                   <>
                     <Trash2 className="size-3.5" />
-                    <span>Confirm Decommission</span>
+                    <span>Confirm Remove</span>
                   </>
                 )}
               </button>
@@ -2555,7 +2571,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <h3 id="delete-officer-title" className="text-base font-bold text-white">
-                  Decommission Field Officer
+                  Remove field officer
                 </h3>
                 <p className="text-xs text-slate-400">
                   Permanently purge credentials and officer record
@@ -2568,7 +2584,7 @@ export default function AdminPage() {
                 {officerToDelete.name} ({formatGhanaPhone(officerToDelete.phone)})
               </p>
               <p className="text-[11px] text-slate-300">
-                Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned: {officerToDelete.assignedCenter || 'Unassigned'}
+                Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned: {officerToDelete.assignedCenter || 'No centre yet'}
               </p>
               <p className="text-[11px] text-rose-300/90 leading-relaxed pt-1">
                 This will delete the officer account, revoke active login sessions, remove exam center shift assignments, and archive incident audit references. This action is irreversible.
@@ -2593,12 +2609,12 @@ export default function AdminPage() {
                 {isDeletingRecord ? (
                   <>
                     <RefreshCw className="size-3.5 animate-spin" />
-                    <span>Decommissioning...</span>
+                    <span>Removing...</span>
                   </>
                 ) : (
                   <>
                     <Trash2 className="size-3.5" />
-                    <span>Confirm Decommission</span>
+                    <span>Confirm Remove</span>
                   </>
                 )}
               </button>
@@ -2621,7 +2637,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <h3 id="revoke-officer-title" className="text-base font-bold text-white">
-                  Revoke officer access
+                  Block officer access
                 </h3>
                 <p className="text-xs text-slate-400">
                   They will be unable to log in until access is restored
@@ -2635,7 +2651,7 @@ export default function AdminPage() {
               </p>
               <p className="text-[11px] text-slate-300">
                 Staff ID: {revokingOfficer.staffId || 'N/A'} • Assigned:{' '}
-                {revokingOfficer.assignedCenter || 'Unassigned'}
+                {revokingOfficer.assignedCenter || 'No centre yet'}
               </p>
             </div>
 
@@ -2657,7 +2673,7 @@ export default function AdminPage() {
                 className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
               >
                 <ShieldAlert className="size-3.5" />
-                <span>Revoke Access</span>
+                <span>Block Access</span>
               </button>
             </div>
           </div>

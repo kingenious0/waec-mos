@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
 import { verifyPin } from '@/lib/auth/pin'
 import { requireCommand, requireUser, getServerUser, roleKind } from '@/lib/auth/guard'
+import { incidentCreateSchema } from '@/lib/validation-schemas'
 import { and, desc, eq, ne, or } from 'drizzle-orm'
 
 export async function GET(request: Request) {
@@ -155,7 +156,14 @@ export async function POST(request: Request) {
   try {
     const gate = await requireUser(request as any)
     if (gate.error) return gate.error
-    const body = await request.json()
+    const raw = await request.json()
+    const parsed = incidentCreateSchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input' },
+        { status: 400 }
+      )
+    }
     const {
       title,
       category,
@@ -169,16 +177,9 @@ export async function POST(request: Request) {
       battery,
       distanceMeters,
       isSos,
-    } = body
+    } = parsed.data
     // Never trust a client-supplied reporter — use the caller
     const reportedBy = gate.user.id
-
-    if (!description) {
-      return NextResponse.json(
-        { error: 'description is required' },
-        { status: 400 }
-      )
-    }
 
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ success: true })
@@ -206,7 +207,7 @@ export async function POST(request: Request) {
         .where(
           centerCode
             ? eq(schema.examinationCenters.centerCode, centerCode)
-            : eq(schema.examinationCenters.centerName, centerName)
+            : eq(schema.examinationCenters.centerName, centerName as string)
         )
         .limit(1)
       if (matchedCenters.length > 0) {

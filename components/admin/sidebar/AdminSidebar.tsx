@@ -9,11 +9,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
+  ShieldCheck,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings') => void
+  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety'
+  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety') => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   sosCount: number
@@ -45,7 +46,7 @@ export function AdminSidebar({
   const navItems = [
     {
       id: 'map' as const,
-      label: 'Live Fleet Map',
+      label: 'Live map',
       icon: Compass,
     },
     {
@@ -60,9 +61,14 @@ export function AdminSidebar({
     },
     {
       id: 'incidents' as const,
-      label: 'Incident Logs',
+      label: 'Incidents',
       icon: AlertTriangle,
       badge: sosCount > 0 ? sosCount : undefined,
+    },
+    {
+      id: 'safety' as const,
+      label: 'Safety Center',
+      icon: ShieldCheck,
     },
   ]
 

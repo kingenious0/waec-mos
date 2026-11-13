@@ -32,6 +32,7 @@ async function getOrCreateSettings() {
       hideOfficerPins: r.hideOfficerPins,
       sessionTimeout: r.sessionTimeout,
       adminSmsCheck: r.adminSmsCheck ?? true,
+      locationOnlyOnDuty: r.locationOnlyOnDuty ?? true,
     }
   }
 
@@ -84,6 +85,9 @@ export async function PUT(request: Request) {
       hideOfficerPins: Boolean(settings?.hideOfficerPins ?? DEFAULT_SYSTEM_SETTINGS.hideOfficerPins),
       sessionTimeout: settings?.sessionTimeout ?? DEFAULT_SYSTEM_SETTINGS.sessionTimeout,
       adminSmsCheck,
+      locationOnlyOnDuty: Boolean(
+        settings?.locationOnlyOnDuty ?? DEFAULT_SYSTEM_SETTINGS.locationOnlyOnDuty
+      ),
     }
 
     if (isLiveDatabase && db) {

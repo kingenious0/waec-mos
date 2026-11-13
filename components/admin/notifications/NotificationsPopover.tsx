@@ -150,7 +150,7 @@ export function NotificationsPopover({
               : 'text-slate-400 hover:text-slate-200 hover:bg-[#151928]'
           }`}
         >
-          Geofence {geofenceCount}
+          Check-in area {geofenceCount}
         </button>
         <button
           type="button"

@@ -6,11 +6,12 @@ import {
   Users,
   Building2,
   AlertTriangle,
+  ShieldCheck,
 } from 'lucide-react'
 
 interface MobileBottomNavProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings') => void
+  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety'
+  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety') => void
   sosCount: number
 }
 
@@ -46,12 +47,17 @@ export function MobileBottomNav({
       icon: AlertTriangle,
       badge: sosCount > 0 ? sosCount : undefined,
     },
+    {
+      id: 'safety' as const,
+      label: 'Safety',
+      icon: ShieldCheck,
+    },
   ]
 
   return (
     <nav
       aria-label="Admin sections"
-      className="lg:hidden shrink-0 z-30 border-t border-[#22263C] bg-[#0B0D14] grid grid-cols-4 select-none"
+      className="lg:hidden shrink-0 z-30 border-t border-[#22263C] bg-[#0B0D14] grid grid-cols-5 select-none"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon

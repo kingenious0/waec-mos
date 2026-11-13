@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { recordAuditLog } from '@/lib/db/audit'
 import { getSessionFromCookie } from '@/lib/auth/server-session'
+import { hitRateLimit, requestIp } from '@/lib/auth/rate-limit'
 import { eq } from 'drizzle-orm'
 
 export async function POST(request: NextRequest) {
@@ -11,6 +12,15 @@ export async function POST(request: NextRequest) {
     const session = await getSessionFromCookie(request)
     if (!session) {
       return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+    }
+
+    const ip = requestIp(request)
+    const limit = await hitRateLimit(`change-password:${ip}:${session.userId}`, 5)
+    if (limit.limited) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Try again in a few minutes.' },
+        { status: 429 }
+      )
     }
 
     const { newPassword, currentPassword } = await request.json()

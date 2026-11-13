@@ -84,7 +84,7 @@ export function MobileOfficerSheet({
     ? { label: 'CRITICAL', cls: 'border-status-sos/40 bg-status-sos/10 text-status-sos', dot: 'bg-status-sos' }
     : isOnSite
     ? { label: 'On site', cls: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400', dot: 'bg-emerald-400' }
-    : { label: 'Standby', cls: 'border-slate-600/50 bg-slate-500/10 text-slate-300', dot: 'bg-slate-400' }
+    : { label: 'Waiting', cls: 'border-slate-600/50 bg-slate-500/10 text-slate-300', dot: 'bg-slate-400' }
 
   const identityHeader = (
     <div className="flex items-center gap-3 min-w-0">
