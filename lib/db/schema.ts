@@ -246,6 +246,6 @@ export const smsCodes = pgTable('sms_codes', {
   phone: text('phone').notNull(),
   attempts: integer('attempts').notNull().default(0),
   expiresAt: timestamp('expiresAt').notNull(),
-  usedAt: timestamp('used_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  usedAt: timestamp('usedAt'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
 })
