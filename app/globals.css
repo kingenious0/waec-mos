@@ -117,6 +117,10 @@
 .custom-center-marker {
   cursor: pointer;
 }
+/* Darken the OSM tile layer to match the dark console theme */
+.leaflet-tile-pane {
+  filter: grayscale(1) invert(0.92) hue-rotate(180deg) brightness(0.88) contrast(0.92);
+}
 .leaflet-marker-icon.waec-officer-marker {
   cursor: pointer;
 }
