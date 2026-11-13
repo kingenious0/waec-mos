@@ -31,6 +31,7 @@ async function getOrCreateSettings() {
       locationRefreshInterval: r.locationRefreshInterval,
       hideOfficerPins: r.hideOfficerPins,
       sessionTimeout: r.sessionTimeout,
+      adminSmsCheck: r.adminSmsCheck ?? true,
     }
   }
 
@@ -63,6 +64,13 @@ export async function PUT(request: Request) {
     const actorId = gate.user.id
     const actorName = gate.user.name
 
+    // Super-admins can never disable the admin SMS check — enforce server-side
+    const canSuperAdminRelaxSecurity = gate.user.role === 'SUPER_ADMIN'
+    const requestedSms = Boolean(
+      settings?.adminSmsCheck ?? DEFAULT_SYSTEM_SETTINGS.adminSmsCheck
+    )
+    const adminSmsCheck = canSuperAdminRelaxSecurity ? true : requestedSms
+
     const nextSettings = {
       lowBatteryThreshold: settings?.lowBatteryThreshold ?? DEFAULT_SYSTEM_SETTINGS.lowBatteryThreshold,
       outsideGeofenceAlert: Boolean(settings?.outsideGeofenceAlert ?? DEFAULT_SYSTEM_SETTINGS.outsideGeofenceAlert),
@@ -75,6 +83,7 @@ export async function PUT(request: Request) {
       locationRefreshInterval: settings?.locationRefreshInterval ?? DEFAULT_SYSTEM_SETTINGS.locationRefreshInterval,
       hideOfficerPins: Boolean(settings?.hideOfficerPins ?? DEFAULT_SYSTEM_SETTINGS.hideOfficerPins),
       sessionTimeout: settings?.sessionTimeout ?? DEFAULT_SYSTEM_SETTINGS.sessionTimeout,
+      adminSmsCheck,
     }
 
     if (isLiveDatabase && db) {

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       email: u.email,
       name: u.name,
       phone: u.phone || '',
-      role: u.role as 'ADMIN' | 'FIELD_OFFICER',
+      role: u.role as 'ADMIN' | 'FIELD_OFFICER' | 'SUPER_ADMIN' | 'REGIONAL_COORD' | 'SUPERVISOR',
       status: u.status as 'ACTIVE' | 'REVOKED',
       region: u.regionName || 'Ashanti Region',
       group: u.groupName || 'Group 1',

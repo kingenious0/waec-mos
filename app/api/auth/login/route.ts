@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db, isLiveDatabase, store } from '@/lib/db'
+import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
-import { verifyPassword, dummyVerify } from '@/lib/auth/password'
+import { dummyVerify } from '@/lib/auth/password'
 import { verifyPin } from '@/lib/auth/pin'
 import { recordAuditLog } from '@/lib/db/audit'
 import {
@@ -9,8 +9,14 @@ import {
   recordLoginFailure,
   recordLoginSuccess,
 } from '@/lib/auth/lockout'
+import {
+  verifyAdminCredentials,
+  isAdminSmsCheckEnabled,
+  issueSmsChallenge,
+  completeAdminLogin,
+} from '@/lib/auth/admin-2fa'
 import { createSession, setSessionCookie } from '@/lib/auth/server-session'
-import { desc, eq, ilike, or } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 
 const GENERIC_ERROR = 'Phone number or PIN is not right.'
 const TOO_MANY = 'Too many tries. Take a short break and try again.'
@@ -163,72 +169,22 @@ export async function POST(request: NextRequest) {
       return res
     }
 
-    // ---------- HQ ADMIN: identifier + password ----------
+    // ---------- HQ ADMIN: identifier + password, then SMS code ----------
     if (identifier && password) {
-      const cleanIdentifier = String(identifier).trim()
-
-      const users = await db
-        .select({
-          id: schema.user.id,
-          name: schema.user.name,
-          email: schema.user.email,
-          phone: schema.user.phone,
-          staffId: schema.user.staffId,
-          role: schema.user.role,
-          status: schema.user.status,
-          image: schema.user.image,
-          bio: schema.user.bio,
-          passwordHash: schema.user.passwordHash,
-          mustChangePassword: schema.user.mustChangePassword,
-          regionName: schema.regions.name,
-        })
-        .from(schema.user)
-        .leftJoin(schema.regions, eq(schema.user.regionId, schema.regions.id))
-        .where(
-          or(
-            ilike(schema.user.email, cleanIdentifier),
-            ilike(schema.user.staffId, cleanIdentifier)
-          )
-        )
-        .limit(1)
-
-      if (users.length === 0) {
-        dummyVerify(password)
-        await recordLoginFailure(undefined, ip)
-        return NextResponse.json({ error: GENERIC_ERROR }, { status: 401 })
+      const result = await verifyAdminCredentials(identifier, password)
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.status })
       }
+      const dbUser = result.user
 
-      const dbUser = users[0]
-
-      if (await checkLockout(dbUser.id, ip)) {
-        return NextResponse.json({ error: TOO_MANY }, { status: 429 })
+      // If the extra check is on, text a 6-digit code and stop there
+      if (await isAdminSmsCheckEnabled()) {
+        const challenge = await issueSmsChallenge(dbUser)
+        if (!challenge.ok) {
+          return NextResponse.json({ error: challenge.error }, { status: 503 })
+        }
+        return NextResponse.json({ requiresSms: true, expiresIn: 300 })
       }
-
-      if (dbUser.status !== 'ACTIVE') {
-        await recordLoginFailure(dbUser.id, ip)
-        return NextResponse.json({ error: GENERIC_ERROR }, { status: 401 })
-      }
-
-      let passwordValid = verifyPassword(password, dbUser.passwordHash)
-
-      if (!passwordValid) {
-        const accounts = await db
-          .select({ password: schema.account.password })
-          .from(schema.account)
-          .where(eq(schema.account.userId, dbUser.id))
-        passwordValid = accounts.some((acc) => verifyPassword(password, acc.password))
-      }
-
-      if (!passwordValid) {
-        await recordLoginFailure(dbUser.id, ip)
-        return NextResponse.json({ error: GENERIC_ERROR }, { status: 401 })
-      }
-
-      const normalizedRole = ['SUPER_ADMIN', 'ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(
-        (dbUser.role || '').toUpperCase()
-      )
-        ? 'ADMIN'
-        : 'FIELD_OFFICER'
 
       await recordLoginSuccess(dbUser.id, ip)
       await db
@@ -236,67 +192,7 @@ export async function POST(request: NextRequest) {
         .set({ lastLoginAt: new Date(), updatedAt: new Date() })
         .where(eq(schema.user.id, dbUser.id))
 
-      const lastLogin = await db
-        .select({ createdAt: schema.auditLogs.createdAt, details: schema.auditLogs.details })
-        .from(schema.auditLogs)
-        .where(eq(schema.auditLogs.actorId, dbUser.id))
-        .orderBy(desc(schema.auditLogs.createdAt))
-        .limit(1)
-      const lastUa = (lastLogin[0]?.details as any)?.userAgent
-
-      await recordAuditLog({
-        actorId: dbUser.id,
-        actorName: dbUser.name,
-        actorRole: normalizedRole,
-        action: 'ADMIN_LOGIN',
-        entityType: 'users',
-        entityId: dbUser.id,
-        details: {
-          message: `${dbUser.name} signed in to Command Console`,
-          userAgent,
-          ip,
-        },
-      })
-
-      if (!lastUa || lastUa !== userAgent) {
-        await recordAuditLog({
-          actorId: dbUser.id,
-          actorName: dbUser.name,
-          actorRole: normalizedRole,
-          action: 'NEW_DEVICE_SIGNIN',
-          entityType: 'users',
-          entityId: dbUser.id,
-          details: {
-            message: `${dbUser.name} signed in on a new device`,
-            userAgent,
-            ip,
-          },
-        })
-      }
-
-      const rawToken = await createSession(dbUser.id, request)
-      const res = NextResponse.json({
-        success: true,
-        user: {
-          id: dbUser.id,
-          staffId: dbUser.staffId || 'WAEC-HQ-001',
-          email: dbUser.email,
-          name: dbUser.name,
-          phone: dbUser.phone || '',
-          role: normalizedRole,
-          status: dbUser.status,
-          region: dbUser.regionName || 'Ashanti Region',
-          group: 'HQ Command',
-          isGroupLeader: true,
-          assignedCenter: 'National Headquarters Command',
-          assignedCenterCode: 'HQ-ACC-01',
-          photo: dbUser.image || '/images/waec-logo.jpg',
-          bio: dbUser.bio || '',
-          mustChangePassword: Boolean(dbUser.mustChangePassword),
-        },
-      })
-      if (rawToken) setSessionCookie(res, rawToken)
-      return res
+      return completeAdminLogin(request, dbUser, 'password')
     }
 
     return NextResponse.json(

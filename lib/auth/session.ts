@@ -11,7 +11,7 @@ export interface SessionData {
   name: string
   phone?: string                    // never populated server-side
   pin?: string                      // write-path only (admin reset/pre-provision). Server never sends it.
-  role: 'ADMIN' | 'FIELD_OFFICER'
+  role: 'ADMIN' | 'FIELD_OFFICER' | 'SUPER_ADMIN' | 'REGIONAL_COORD' | 'SUPERVISOR'
   status: 'ACTIVE' | 'REVOKED'
   region?: string
   group?: string

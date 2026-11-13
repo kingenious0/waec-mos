@@ -423,6 +423,45 @@ export function SystemSettingsTab({
                 <ChevronDown className="size-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
+
+            {/* Extra check for admins — locked ON for super-admins */}
+            <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
+              <div className="space-y-0.5 min-w-0">
+                <div className="text-sm font-semibold text-white flex items-center gap-2">
+                  Extra check for admins
+                  {session?.role === 'SUPER_ADMIN' && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                      Locked
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-zinc-400">
+                  Admins also type a code we text to their phone after the PIN.
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={session?.role === 'SUPER_ADMIN' ? true : settings.adminSmsCheck}
+                disabled={session?.role === 'SUPER_ADMIN'}
+                onClick={() => handleToggle('adminSmsCheck')}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  session?.role === 'SUPER_ADMIN'
+                    ? 'bg-zinc-700 cursor-not-allowed opacity-70'
+                    : settings.adminSmsCheck
+                    ? 'bg-[#3B82F6] cursor-pointer'
+                    : 'bg-zinc-700 cursor-pointer'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    (session?.role === 'SUPER_ADMIN' ? true : settings.adminSmsCheck)
+                      ? 'translate-x-5'
+                      : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ export interface SystemSettingsConfig {
   locationRefreshInterval: string
   hideOfficerPins: boolean
   sessionTimeout: string
+  adminSmsCheck: boolean
 }
 
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsConfig = {
@@ -24,6 +25,7 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsConfig = {
   locationRefreshInterval: 'Every 10 s',
   hideOfficerPins: true,
   sessionTimeout: '30 minutes',
+  adminSmsCheck: true,
 }
 
 export function parseBatteryThresholdPct(val: string | undefined): number {

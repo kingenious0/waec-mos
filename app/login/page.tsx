@@ -33,6 +33,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
+  // Extra check for admins (SMS)
+  const [smsStep, setSmsStep] = useState(false)
+  const [smsCode, setSmsCode] = useState('')
+  const [smsHint, setSmsHint] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -82,6 +87,15 @@ export default function LoginPage() {
         return
       }
 
+      // Admin sign-in requires an SMS code first
+      if (data.requiresSms) {
+        setSmsHint('We sent a 6-digit code to your registered phone.')
+        setSmsCode('')
+        setSmsStep(true)
+        setLoading(false)
+        return
+      }
+
       if (data.user.role === 'ADMIN') {
         if (data.user.mustChangePassword) {
           router.push('/change-password')
@@ -90,6 +104,42 @@ export default function LoginPage() {
         }
       } else {
         router.push('/field')
+      }
+    } catch {
+      setErrorMsg('Unable to connect to the WAEC portal. Please check your connection.')
+      setLoading(false)
+    }
+  }
+
+  const handleVerifySms = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setErrorMsg('')
+
+    const code = smsCode.trim()
+    if (code.length !== 6) {
+      setErrorMsg('Enter the 6-digit code we sent.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/verify-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier.trim(), code }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setErrorMsg(data.error || 'The code we sent is not right.')
+        setLoading(false)
+        return
+      }
+
+      if (data.user.mustChangePassword) {
+        router.push('/change-password')
+      } else {
+        router.push('/admin')
       }
     } catch {
       setErrorMsg('Unable to connect to the WAEC portal. Please check your connection.')
@@ -109,7 +159,96 @@ export default function LoginPage() {
         {/* Main Content Area */}
         <main className="py-8 sm:py-10">
           <div className="space-y-6">
-            {/* Title & Description */}
+            {smsStep ? (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                    One more step
+                  </h1>
+                  <p className="text-sm text-zinc-400 leading-relaxed">
+                    {smsHint || 'We sent a 6-digit code to your registered phone.'}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#101426] border border-white/5 text-[11px] text-zinc-400 leading-relaxed">
+                  The code expires in 5 minutes and works once. Never share it with anyone — HQ will never ask for it.
+                </div>
+
+                {errorMsg && (
+                  <div
+                    role="alert"
+                    className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5"
+                  >
+                    <AlertCircle className="size-4 shrink-0 text-red-400 mt-0.5" />
+                    <span className="leading-relaxed">{errorMsg}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleVerifySms} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="sms-code" className="text-xs font-medium text-zinc-300">
+                      6-digit code
+                    </label>
+                    <input
+                      id="sms-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      maxLength={6}
+                      value={smsCode}
+                      onChange={(e) => {
+                        setSmsCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        setErrorMsg('')
+                      }}
+                      placeholder="••••••"
+                      className="w-full h-14 rounded-xl bg-[#0D1224] border border-white/10 focus-within:border-[#375DFB] focus:outline-hidden px-4 text-center text-2xl font-bold tracking-[0.5em] text-white placeholder:text-zinc-600"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={loading || smsCode.length !== 6}
+                    className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#4A70FF] active:bg-[#2C4DE0] text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? 'Checking…' : (
+                      <>
+                        Sign in
+                        <ArrowRight className="size-4" />
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSmsStep(false)
+                        setSmsCode('')
+                        setErrorMsg('')
+                      }}
+                      className="text-xs font-semibold text-zinc-400 hover:text-white transition cursor-pointer"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSmsCode('')
+                        setErrorMsg('')
+                        setSmsHint('A new code is on its way — check your phone.')
+                        ;(document.getElementById('sms-code') as HTMLInputElement | null)?.focus()
+                      }}
+                      className="text-xs font-semibold text-[#375DFB] hover:text-[#5B82FF] transition cursor-pointer"
+                    >
+                      Didn’t get it? Resend
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <>
+                {/* Title & Description */}
             <div className="space-y-2">
               <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
                 Welcome back
@@ -348,6 +487,8 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+              </>
+            )}
 
             {/* Official WAEC Security Notice Box */}
             <div className="p-3.5 sm:p-4 rounded-xl bg-[#141824] border border-amber-500/20 text-xs text-zinc-300 flex items-start gap-3">

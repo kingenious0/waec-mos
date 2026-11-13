@@ -211,6 +211,21 @@ export const systemSettings = pgTable('system_settings', {
   locationRefreshInterval: text('location_refresh_interval').notNull().default('Every 10 s'),
   hideOfficerPins: boolean('hide_officer_pins').notNull().default(true),
   sessionTimeout: text('session_timeout').notNull().default('30 minutes'),
+  adminSmsCheck: boolean('admin_sms_check').notNull().default(true),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   updatedBy: text('updated_by'),
+})
+
+// --- One-time SMS login codes ---
+
+export const smsCodes = pgTable('sms_codes', {
+  id: text('id').primaryKey(),
+  userId: text('userId').notNull(),
+  purpose: text('purpose').notNull().default('admin_login'),
+  codeHash: text('code_hash').notNull(),
+  phone: text('phone').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: timestamp('expiresAt').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 })
