@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
-import { requireCommand } from '@/lib/auth/guard'
+import { requireCommand, requireAdmin } from '@/lib/auth/guard'
+import { recordSecurityEvent } from '@/lib/db/audit'
 import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -138,16 +139,53 @@ export async function POST(request: Request) {
   }
 }
 
-/** DELETE /api/timetable?id=<rowId> — remove one paper (Command staff). */
+/**
+ * DELETE /api/timetable?id=<rowId> — remove one paper (Command staff).
+ * DELETE /api/timetable?operationId=<id>&scope=papers — wipe a series' timetable (Admins only).
+ *   The series shell, officer deployments and check-in history are kept.
+ */
 export async function DELETE(request: Request) {
   try {
-    const gate = await requireCommand(request as any)
-    if (gate.error) return gate.error
     if (!isLiveDatabase || !db) return NextResponse.json({ error: 'Database not connected', status: 503 }, { status: 503 })
 
     const { searchParams } = new URL(request.url)
+    const operationId = searchParams.get('operationId')
+    const scope = searchParams.get('scope')
+
+    if (operationId && scope === 'papers') {
+      // Admin-only, destructive: remove every paper in the series
+      const adminGate = await requireAdmin(request as any)
+      if (adminGate.error) return adminGate.error
+
+      const removed = await db
+        .delete(schema.examTimetable)
+        .where(eq(schema.examTimetable.operationId, operationId))
+        .returning({ id: schema.examTimetable.id })
+
+      await recordAuditLog({
+        actorId: adminGate.user.id,
+        actorName: adminGate.user.name || 'Unknown',
+        actorRole: adminGate.user.role,
+        action: 'TIMETABLE_CLEARED',
+        entityType: 'exam_timetable',
+        entityId: operationId,
+        details: { removedCount: removed.length },
+      })
+      await recordSecurityEvent({
+        action: 'TIMETABLE_CLEARED',
+        actorId: adminGate.user.id,
+        actorName: adminGate.user.name || 'Unknown',
+        actorRole: adminGate.user.role,
+        details: { operationId, removedCount: removed.length },
+      })
+      return NextResponse.json({ ok: true, removed: removed.length })
+    }
+
+    const gate = await requireCommand(request as any)
+    if (gate.error) return gate.error
+
     const id = searchParams.get('id')
-    if (!id) return NextResponse.json({ error: 'id is required', status: 400 }, { status: 400 })
+    if (!id) return NextResponse.json({ error: 'id or operationId+scope=papers is required', status: 400 }, { status: 400 })
 
     const removed = await db.delete(schema.examTimetable).where(eq(schema.examTimetable.id, id)).returning()
     if (removed.length === 0) return NextResponse.json({ error: 'Paper not found', status: 404 }, { status: 404 })
@@ -164,6 +202,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('timetable delete failed:', err)
-    return NextResponse.json({ error: 'Could not delete the paper.', status: 500 }, { status: 500 })
+    return NextResponse.json({ error: 'Could not delete the timetable.', status: 500 }, { status: 500 })
   }
 }

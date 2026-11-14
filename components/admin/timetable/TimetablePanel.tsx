@@ -135,6 +135,11 @@ export function TimetablePanel() {
   const [centers, setCenters] = useState<Array<{ id: string; name: string; code: string }>>([])
   const [deployBusy, setDeployBusy] = useState(false)
 
+  // Delete-timetable flow
+  const [clearOpen, setClearOpen] = useState(false)
+  const [clearConfirmName, setClearConfirmName] = useState('')
+  const [clearBusy, setClearBusy] = useState(false)
+
   const activeSeries = series.find((s) => s.id === activeSeriesId) || null
 
   const feedbackTimer = useRef<number | null>(null)
@@ -343,6 +348,28 @@ export function TimetablePanel() {
   }
 
   /* ---------------- Deployments ---------------- */
+
+  const clearTimetable = async () => {
+    if (!activeSeries) return
+    setClearBusy(true)
+    try {
+      const res = await fetch(`/api/timetable?operationId=${encodeURIComponent(activeSeries.id)}&scope=papers`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not delete the timetable.')
+      setPapers([])
+      setClearOpen(false)
+      setClearConfirmName('')
+      showFeedback('ok', `Deleted ${data.removed ?? 0} papers from ${activeSeries.name}. The series itself is unchanged.`)
+      await loadSeries()
+    } catch (err) {
+      showFeedback('err', err instanceof Error ? err.message : 'Could not delete the timetable.')
+    } finally {
+      setClearBusy(false)
+    }
+  }
 
   const deployOfficer = async () => {
     if (!activeSeriesId || !deployOfficerId || !deployCenterId) {
@@ -582,6 +609,15 @@ export function TimetablePanel() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => { setClearConfirmName(''); setClearOpen(true) }}
+                className="rounded-lg border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 text-[11px] font-semibold text-rose-300 transition cursor-pointer inline-flex items-center gap-1.5"
+                title="Delete every paper in this series — the series itself stays"
+              >
+                <Trash2 className="size-3.5" />
+                Delete timetable
+              </button>
+              <button
+                type="button"
                 onClick={() => openImport(activeSeries.id)}
                 className="rounded-lg bg-[#1E2B7B] hover:bg-[#273a9c] px-3 py-2 text-[11px] font-semibold text-white transition cursor-pointer inline-flex items-center gap-1.5"
               >
@@ -707,6 +743,48 @@ export function TimetablePanel() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Delete timetable confirmation ---------------- */}
+      {clearOpen && activeSeries && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" role="dialog" aria-modal="true" aria-labelledby="clear-timetable-title">
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-[#0E1220] p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="size-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="size-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 id="clear-timetable-title" className="text-base font-bold text-white">Delete the timetable for “{activeSeries.name}”?</h3>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  This permanently removes all <span className="text-white font-semibold">{papers.length} papers</span> in this
+                  series. The series itself, officer deployments and check-in history are kept. You can import a fresh file anytime.
+                </p>
+              </div>
+            </div>
+            <label className="block text-[11px] font-semibold text-slate-300">
+              Type <span className="text-rose-300">{activeSeries.name}</span> to confirm
+              <input
+                value={clearConfirmName}
+                onChange={(e) => setClearConfirmName(e.target.value)}
+                autoFocus
+                placeholder={activeSeries.name}
+                className="mt-1.5 w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white placeholder:text-slate-600"
+              />
+            </label>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setClearOpen(false)} className="rounded-lg border border-[#22263C] px-4 py-2 text-xs text-slate-300 hover:text-white cursor-pointer">Cancel</button>
+              <button
+                type="button"
+                onClick={clearTimetable}
+                disabled={clearBusy || clearConfirmName.trim() !== activeSeries.name}
+                className="rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 text-xs font-bold text-white transition cursor-pointer inline-flex items-center gap-1.5"
+              >
+                {clearBusy ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                {clearBusy ? 'Deleting…' : `Delete ${papers.length} papers`}
+              </button>
+            </div>
           </div>
         </div>
       )}
