@@ -340,7 +340,15 @@ async function updateOfficerRecord(body: any, actorId: string, actorName: string
       await db.update(schema.user).set(userUpdates).where(eq(schema.user.id, id))
     }
 
-    if (assignedCenter || assignedCenterCode || paperName || startTime || endTime) {
+    if (
+      assignedCenter !== undefined &&
+      assignedCenterCode !== undefined &&
+      assignedCenter === '' &&
+      assignedCenterCode === ''
+    ) {
+      // Explicit unassign — remove all centre assignments for this officer
+      await db.delete(schema.assignments).where(eq(schema.assignments.officerId, id))
+    } else if (assignedCenter || assignedCenterCode || paperName || startTime || endTime) {
       let centerId: string | undefined = undefined
       if (assignedCenter || assignedCenterCode) {
         const center = await db
