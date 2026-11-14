@@ -53,6 +53,7 @@ import { MobileCenterCard } from '@/components/admin/centers/MobileCenterCard'
 import { formatGhanaPhone } from '@/lib/phone'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 import { SafetyCenter } from '@/components/admin/safety/SafetyCenter'
+import { TimetablePanel } from '@/components/admin/timetable/TimetablePanel'
 import type { NotificationItem } from '@/components/admin/notifications/NotificationsPopover'
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -117,7 +118,7 @@ export default function AdminPage() {
   const [session, setSession] = useState<SessionData | null>(null)
 
   const [activeTab, setActiveTab] = useState<
-    'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety'
+    'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable'
   >('map')
 
   // Live dashboard state
@@ -196,6 +197,8 @@ export default function AdminPage() {
         return 'Settings'
       case 'safety':
         return 'Safety centre'
+      case 'timetable':
+        return 'Examination timetable'
       default:
         return 'Live map'
     }
@@ -1142,6 +1145,8 @@ export default function AdminPage() {
               ? 'Incidents'
               : activeTab === 'safety'
               ? 'Safety centre'
+              : activeTab === 'timetable'
+              ? 'Timetable'
               : 'Settings'
           }
           badge={
@@ -2435,7 +2440,12 @@ export default function AdminPage() {
           )}
 
           {/* ========================================================= */}
-          {/* TAB 6: SYSTEM SETTINGS VIEW */}
+          {/* TAB 6: EXAMINATION TIMETABLE */}
+          {/* ========================================================= */}
+          {activeTab === 'timetable' && <TimetablePanel />}
+
+          {/* ========================================================= */}
+          {/* TAB 7: SYSTEM SETTINGS VIEW */}
           {/* ========================================================= */}
           {activeTab === 'settings' && (
             <SystemSettingsTab

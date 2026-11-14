@@ -10,11 +10,12 @@ import {
   ChevronRight,
   Settings,
   ShieldCheck,
+  CalendarDays,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety') => void
+  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable'
+  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable') => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   sosCount: number
@@ -64,6 +65,11 @@ export function AdminSidebar({
       label: 'Incidents',
       icon: AlertTriangle,
       badge: sosCount > 0 ? sosCount : undefined,
+    },
+    {
+      id: 'timetable' as const,
+      label: 'Timetable',
+      icon: CalendarDays,
     },
     {
       id: 'safety' as const,
