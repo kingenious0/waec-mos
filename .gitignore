@@ -17,3 +17,5 @@ node_modules
 .next/
 .DS_Store
 *.tsbuildinfo
+# WAEC official timetable source files (kept local, never commit)
+timetable-sources/

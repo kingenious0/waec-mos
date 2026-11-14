@@ -127,6 +127,56 @@ export const operations = pgTable('operations', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// The official paper-by-paper timetable for one examination series/operation.
+// Times are GMT, kept as text exactly as published (e.g. '08:30' or '9.00 a.m.').
+// Rows with no fixed time yet ('arranged by the Council') keep startTime/endTime NULL
+// and are flagged needsCouncilTime. Replacing a series' timetable is done atomically
+// (delete all rows for the operation, insert the new set) inside one transaction.
+export const examTimetable = pgTable('exam_timetable', {
+  id: text('id').primaryKey(),
+  operationId: text('operation_id').notNull().references(() => operations.id, { onDelete: 'cascade' }),
+  examDate: text('exam_date').notNull(), // YYYY-MM-DD
+  sessionSlot: text('session_slot').notNull().default('MORNING'), // MORNING | AFTERNOON | FULL_DAY
+  paperCode: text('paper_code'), // e.g. SC4022 — some orals share one 'arranged' row, code kept as printed
+  paperName: text('paper_name').notNull(), // e.g. General Mathematics/Mathematics (Core) 2 (Essay)
+  durationText: text('duration_text'), // as published, e.g. '2 hours 30 minutes'
+  startTime: text('start_time'), // 24h HH:MM (GMT). NULL until the Council arranges the time.
+  endTime: text('end_time'), // 24h HH:MM (GMT). NULL until the Council arranges the time.
+  needsCouncilTime: boolean('needs_council_time').notNull().default(false),
+  isNewCurriculum: boolean('is_new_curriculum').notNull().default(false), // the '*' marker in the official PDFs
+  sortOrder: integer('sort_order').notNull().default(0), // preserves published row order within a day
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// Where each officer is deployed for a series.
+// deploymentDate = ''        → series default anchor (covers every day of the series)
+// deploymentDate = YYYY-MM-DD → single-day override (relief / reassignment)
+export const officerDeployments = pgTable('officer_deployments', {
+  id: text('id').primaryKey(),
+  operationId: text('operation_id').notNull().references(() => operations.id, { onDelete: 'cascade' }),
+  officerId: text('officer_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  centerId: text('center_id').notNull().references(() => examinationCenters.id),
+  deploymentDate: text('deployment_date').notNull().default(''), // '' = series anchor, YYYY-MM-DD = override
+  shiftRole: text('shift_role').notNull().default('MONITOR'), // MONITOR | GROUP_LEADER | RELIEF
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// Audit trail of every timetable import/replace — who loaded which file, and what it did.
+export const timetableImports = pgTable('timetable_imports', {
+  id: text('id').primaryKey(),
+  operationId: text('operation_id').notNull().references(() => operations.id, { onDelete: 'cascade' }),
+  fileName: text('file_name').notNull(),
+  sourceFormat: text('source_format').notNull(), // PDF | DOCX | CSV | XLSX
+  removedCount: integer('removed_count').notNull().default(0),
+  importedCount: integer('imported_count').notNull().default(0),
+  importedBy: text('imported_by').notNull(),
+  importedByName: text('imported_by_name'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 export const assignments = pgTable('assignments', {
   id: text('id').primaryKey(),
   operationId: text('operation_id').notNull().references(() => operations.id),
