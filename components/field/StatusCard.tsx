@@ -129,7 +129,7 @@ export function StatusCard({
         </div>
         <div>
           <div className="text-sm font-bold text-slate-200">
-            No Examination Center Assigned
+            No Examination Centre Assigned
           </div>
           <div className="text-xs text-slate-400 mt-0.5">
             Contact Regional Command to assign a center before check-in

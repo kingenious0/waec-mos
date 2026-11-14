@@ -56,7 +56,7 @@ export function AdminSidebar({
     },
     {
       id: 'centers' as const,
-      label: 'Exam Centers',
+      label: 'Exam Centres',
       icon: Building2,
     },
     {
@@ -67,7 +67,7 @@ export function AdminSidebar({
     },
     {
       id: 'safety' as const,
-      label: 'Safety Center',
+      label: 'Safety Centre',
       icon: ShieldCheck,
     },
   ]

@@ -9,7 +9,6 @@ import {
 } from '@/components/admin/notifications/NotificationsPopover'
 
 interface AdminTopNavProps {
-  activeCount: number
   activeTabTitle: string
   searchQuery: string
   onSearchChange: (query: string) => void
@@ -28,7 +27,6 @@ interface AdminTopNavProps {
 }
 
 export function AdminTopNav({
-  activeCount,
   activeTabTitle,
   searchQuery,
   onSearchChange,
@@ -80,11 +78,6 @@ export function AdminTopNav({
               {activeTabTitle.toUpperCase()}
             </span>
           </div>
-
-          <div className="ml-1 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-ok/10 border border-status-ok/25 text-[11px] font-medium text-status-ok">
-            <span className="size-1.5 rounded-full bg-status-ok animate-pulse" />
-            <span>{activeCount} Active</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -127,10 +120,6 @@ export function AdminTopNav({
           <h1 className="text-sm font-semibold text-foreground tracking-tight">
             {activeTabTitle}
           </h1>
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-status-ok/10 border border-status-ok/25 text-xs font-medium text-status-ok">
-            <span className="size-1.5 rounded-full bg-status-ok" />
-            <span>{activeCount} active officers</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-3">

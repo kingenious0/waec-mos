@@ -29,7 +29,7 @@ export function EmergencySosModal({
   onClose,
   initialTriggered = false,
   officerName = 'Field Officer',
-  venueName = 'Assigned Center',
+  venueName = 'Assigned centre',
   centerCode = '',
   coords = { lat: '--', lng: '--', acc: '--' },
   batteryLevel = '--%',

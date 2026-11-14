@@ -195,7 +195,7 @@ export default function AdminPage() {
       case 'settings':
         return 'Settings'
       case 'safety':
-        return 'Safety Center'
+        return 'Safety centre'
       default:
         return 'Live map'
     }
@@ -700,13 +700,13 @@ export default function AdminPage() {
 
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
-      throw new Error(data.error || 'Failed to save examination center')
+      throw new Error(data.error || 'Failed to save examination centre')
     }
 
     setFeedback(
       isEdit
         ? `Updated check-in area and centre configuration for ${payload.name}`
-        : `Registered new examination center ${payload.name} (${payload.code})`
+        : `Registered new examination centre ${payload.name} (${payload.code})`
     )
     loadDashboardData(true)
   }
@@ -797,7 +797,7 @@ export default function AdminPage() {
   }, [officers, directorySearch])
 
   const isOfficerUnassigned = (off: UserAccount) =>
-    !off.assignedCenter || off.assignedCenter === 'Unassigned'
+    !off.assignedCenter || off.assignedCenter === 'Unassigned' || !off.assignedCenter.trim()
 
   const directoryCounts = useMemo(
     () => ({
@@ -1097,11 +1097,6 @@ export default function AdminPage() {
         {/* Desktop top bar (mobile gets the shared MobileTopBar below) */}
         <div className="hidden lg:block">
           <AdminTopNav
-            activeCount={
-              activeTab === 'directory'
-                ? officers.filter((o) => o.status === 'ACTIVE').length
-                : deployedMonitorsCount
-            }
             activeTabTitle={activeTabTitle}
             searchQuery={activeTab === 'directory' ? directorySearch : rosterSearch}
             onSearchChange={(q) => {
@@ -1144,16 +1139,37 @@ export default function AdminPage() {
               : activeTab === 'incidents'
               ? 'Incidents'
               : activeTab === 'safety'
-              ? 'Safety Center'
+              ? 'Safety centre'
               : 'Settings'
           }
           badge={
             activeTab === 'map'
-              ? { label: `${deployedMonitorsCount} active`, tone: 'ok' as const }
+              ? { label: `${verifiedOnSiteCount} on duty`, tone: verifiedOnSiteCount > 0 ? ('ok' as const) : undefined }
               : activeTab === 'directory'
-              ? { label: `${officers.length} officers` }
+              ? {
+                  label:
+                    officers.length === 0
+                      ? 'No officers yet'
+                      : `${officers.length} registered · ${verifiedOnSiteCount} on duty`,
+                }
               : activeTab === 'centers'
-              ? { label: `${examCenters.length} centres` }
+              ? {
+                  label:
+                    examCenters.length === 0
+                      ? 'No centres'
+                      : examCenters.length === 1
+                      ? '1 centre'
+                      : `${examCenters.length} centres`,
+                }
+              : activeTab === 'incidents'
+              ? {
+                  label:
+                    unresolvedIncidents.length === 0
+                      ? 'No open incidents'
+                      : unresolvedIncidents.length === 1
+                      ? '1 open'
+                      : `${unresolvedIncidents.length} open`,
+                }
               : undefined
           }
           session={session}
@@ -1402,7 +1418,8 @@ export default function AdminPage() {
                       <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                         <span>Field Officers Directory</span>
                         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                          {filteredDirectoryOfficers.length} Officers
+                          {filteredDirectoryOfficers.length}{' '}
+                          {filteredDirectoryOfficers.length === 1 ? 'officer' : 'officers'}
                         </span>
                       </h2>
                       <p className="text-xs text-slate-400 hidden sm:block">
@@ -1460,7 +1477,7 @@ export default function AdminPage() {
                       : 'No field officers registered yet'}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Register a new field officer to assign an examination center and PIN.
+                    Register a new field officer to assign an examination centre and PIN.
                   </p>
                 </div>
               ) : (
@@ -1572,13 +1589,11 @@ export default function AdminPage() {
                             <span className="shrink-0 font-semibold text-slate-500">Center</span>
                             <span
                               className={`ml-auto truncate text-right font-medium ${
-                                officer.assignedCenter && officer.assignedCenter !== 'Unassigned'
-                                  ? 'text-slate-200'
-                                  : 'text-amber-400'
+                                isOfficerUnassigned(officer) ? 'text-amber-400' : 'text-slate-200'
                               }`}
-                              title={officer.assignedCenter || 'No centre yet'}
+                              title={isOfficerUnassigned(officer) ? 'No centre yet' : officer.assignedCenter}
                             >
-                              {officer.assignedCenter || 'No centre yet'}
+                              {isOfficerUnassigned(officer) ? 'No centre yet' : officer.assignedCenter}
                             </span>
                           </div>
 
@@ -1682,7 +1697,7 @@ export default function AdminPage() {
                   {unresolvedIncidents.length === 0 ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
                       <span className="size-2 rounded-full bg-emerald-400" />
-                      {examCenters.length} of {examCenters.length} check-in areas clear
+                      {examCenters.length} of {examCenters.length} {examCenters.length === 1 ? 'check-in area' : 'check-in areas'} clear
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-2 rounded-full border border-status-sos/30 bg-status-sos/10 px-3.5 py-2 text-xs font-semibold text-status-sos">
@@ -1744,7 +1759,7 @@ export default function AdminPage() {
                     <span>Exam centres</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Default {defaultRadiusMeters}m perimeter per centre with live telematics sync
+                    Default {defaultRadiusMeters} m check-in area around each centre
                   </p>
                 </div>
 
@@ -1791,8 +1806,7 @@ export default function AdminPage() {
                         Regional Operations Coverage
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 max-w-md">
-                        Live GPS monitoring {examCenters.length} registered examination center
-                        {examCenters.length === 1 ? '' : 's'} with check-in area verification.
+                        Live GPS monitoring {examCenters.length} registered {examCenters.length === 1 ? 'centre' : 'centres'} with check-in area verification.
                       </p>
                     </div>
                     <div className="flex items-center gap-2 bg-[#0C0F17]/80 border border-[#22263C] px-3.5 py-2 rounded-xl text-xs shrink-0">
@@ -1823,10 +1837,10 @@ export default function AdminPage() {
                   <div className="grid grid-cols-3 gap-3 pt-4 mt-4 border-t border-[#22263C]/80 relative z-10">
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
                       <span className="text-[10px] text-slate-400 block font-medium">
-                        Monitored Centers
+                        Monitored centres
                       </span>
                       <span className="text-base sm:text-lg font-bold text-white mt-0.5 block">
-                        {examCenters.length} Centers
+                        {examCenters.length} {examCenters.length === 1 ? 'centre' : 'centres'}
                       </span>
                     </div>
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
@@ -1834,15 +1848,16 @@ export default function AdminPage() {
                         Deployed Personnel
                       </span>
                       <span className="text-base sm:text-lg font-bold text-[#F6D300] mt-0.5 block">
-                        {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0)} Officers
+                        {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0)}{' '}
+                        {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0) === 1 ? 'officer' : 'officers'}
                       </span>
                     </div>
                     <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
                       <span className="text-[10px] text-slate-400 block font-medium">
-                        Default Perimeter
+                        Default check-in area
                       </span>
                       <span className="text-base sm:text-lg font-bold text-sky-400 mt-0.5 block">
-                        {systemSettings.geofenceRadius} Radius
+                        {systemSettings.geofenceRadius}
                       </span>
                     </div>
                   </div>
@@ -1852,24 +1867,24 @@ export default function AdminPage() {
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Telemetry Sync
+                        Location updates
                       </span>
                       <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
                     </div>
-                    <h4 className="text-sm font-bold text-white mt-1">Live Sensor Network</h4>
+                    <h4 className="text-sm font-bold text-white mt-1">Live location feed</h4>
                   </div>
 
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
-                      <span className="text-slate-400">Active GPS Feeds:</span>
+                      <span className="text-slate-400">On duty now:</span>
                       <span className="font-semibold text-emerald-400">
-                        {onlineUnitsCount} / {deployedMonitorsCount} Online
+                        {onlineUnitsCount} of {deployedMonitorsCount} online
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
-                      <span className="text-slate-400">Verified On-Site:</span>
+                      <span className="text-slate-400">Officers at centre:</span>
                       <span className="font-semibold text-white">
-                        {verifiedOnSiteCount} Officers
+                        {verifiedOnSiteCount} {verifiedOnSiteCount === 1 ? 'officer' : 'officers'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-slate-300 py-1.5">
@@ -1941,17 +1956,17 @@ export default function AdminPage() {
                 <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
                   <Building2 className="size-7 text-slate-500 mx-auto" />
                   <p className="text-sm font-semibold text-slate-300">
-                    No examination centers found in database
+                    No examination centres found in database
                   </p>
                   <p className="text-xs text-slate-500">
-                    Click &ldquo;Register centre&rdquo; to add an a WAEC-approved spot and check-in area.
+                    Click &ldquo;Register centre&rdquo; to add a WAEC-approved spot and its check-in area.
                   </p>
                 </div>
               ) : filteredCenters.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-3">
                   <Building2 className="size-7 text-slate-500 mx-auto" />
                   <p className="text-sm font-semibold text-slate-300">
-                    No examination centers match your filters
+                    No examination centres match your filters
                   </p>
                   <p className="text-xs text-slate-500">
                     Try adjusting your search query or reset the district filter.
@@ -2006,7 +2021,7 @@ export default function AdminPage() {
                                 hasOpenInc ? 'bg-rose-400' : 'bg-emerald-400'
                               }`}
                             />
-                            <span>{hasOpenInc ? 'ALERT ACTIVE' : 'ACTIVE GEOFENCE'}</span>
+                            <span>{hasOpenInc ? 'Alert' : 'Active'}</span>
                           </span>
                         </div>
 
@@ -2017,7 +2032,7 @@ export default function AdminPage() {
                             </span>
                             <div className="text-white font-bold text-sm mt-0.5 flex items-center gap-1">
                               <Radio className="size-3 text-sky-400 shrink-0" />
-                              <span>{center.radius}m Radius</span>
+                              <span>{center.radius} m area</span>
                             </div>
                           </div>
 
@@ -2219,7 +2234,7 @@ export default function AdminPage() {
                 <div>
                   <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
                     <Siren className="size-4.5 text-[#EF4444]" />
-                    <span>Security & Incident Logs</span>
+                    <span>Incidents</span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Real-time emergency SOS alerts, incident workflows, and operational activity history

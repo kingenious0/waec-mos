@@ -275,7 +275,7 @@ export function PreProvisionOfficerModal({
               </div>
             </div>
 
-            {/* Row 4: Assigned Group & Center Code */}
+            {/* Row 4: Assigned Group & Centre code */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -296,7 +296,7 @@ export function PreProvisionOfficerModal({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Center Code
+                  Centre code
                 </label>
                 <input
                   type="text"
@@ -348,10 +348,10 @@ export function PreProvisionOfficerModal({
               </span>
             </div>
 
-            {/* Row 6: Assigned Examination Center Dropdown */}
+            {/* Row 6: Assigned Examination Centre Dropdown */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Assigned Examination Center
+                Assigned Examination Centre
               </label>
               <select
                 value={centerName}

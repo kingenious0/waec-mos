@@ -513,7 +513,7 @@ export function ExamCenterModal({
     const parsedRadius = Number(radius)
 
     if (!name.trim() || !code.trim()) {
-      setError('Center name and index code are required.')
+      setError('Centre name and index code are required.')
       return
     }
     if (!districtName.trim()) {
@@ -545,7 +545,7 @@ export function ExamCenterModal({
       })
       onClose()
     } catch (err: any) {
-      setError(err?.message || 'Failed to save examination center.')
+      setError(err?.message || 'Failed to save examination centre.')
     } finally {
       setIsSubmitting(false)
     }
@@ -576,7 +576,7 @@ export function ExamCenterModal({
             </div>
             <div>
               <h2 className="text-lg font-bold tracking-tight text-white">
-                {mode === 'edit' ? 'Edit Examination Center' : 'Register Examination Center'}
+                {mode === 'edit' ? 'Edit Examination Centre' : 'Register Examination Centre'}
               </h2>
               <p className="text-xs text-slate-400">
                 Search the school — location &amp; district fill in automatically
@@ -605,7 +605,7 @@ export function ExamCenterModal({
             {/* CENTER NAME + LIVE SCHOOL SEARCH */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Center Name <span className="text-red-400">*</span>
+                Centre name <span className="text-red-400">*</span>
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
@@ -621,7 +621,7 @@ export function ExamCenterModal({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={handleNameKeyDown}
-                  placeholder="e.g. Amaniampong SHS Center A"
+                  placeholder="e.g. Amaniampong SHS Centre A"
                   className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400"
                 />
 
@@ -813,7 +813,7 @@ export function ExamCenterModal({
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Center Supervisor Contact
+                  Centre Supervisor Contact
                 </label>
                 <input
                   type="tel"
@@ -848,7 +848,7 @@ export function ExamCenterModal({
               className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 disabled:opacity-60 text-xs font-bold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="size-3.5 text-white" />
-              <span>{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Save Center Changes' : 'Register Center'}</span>
+              <span>{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Save centre changes' : 'Register centre'}</span>
             </button>
           </div>
         </form>

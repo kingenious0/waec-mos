@@ -187,7 +187,7 @@ export function GhanaInstitutionalShowcase({
               <Building2 className="size-3.5 text-[#F6D300] shrink-0" />
               <div className="min-w-0">
                 <div className="text-xs font-bold font-mono text-white">775+</div>
-                <div className="text-[9px] text-zinc-400 font-mono truncate">Accredited Centers</div>
+                <div className="text-[9px] text-zinc-400 font-mono truncate">Accredited Centres</div>
               </div>
             </div>
 

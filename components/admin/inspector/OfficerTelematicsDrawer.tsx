@@ -324,7 +324,7 @@ export function OfficerTelematicsDrawer({
               {isOnSite
                 ? officer.verifiedTime
                   ? `Checked in at ${officer.verifiedTime}`
-                  : 'Stationed at Center'
+                  : 'At the centre'
                 : officer.hasLiveTelemetry
                 ? 'Live GPS Tracking'
                 : 'Awaiting GPS ping'}
