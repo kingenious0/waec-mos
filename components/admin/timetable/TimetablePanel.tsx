@@ -532,8 +532,8 @@ export function TimetablePanel() {
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
                     {s.papers} papers
                   </span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">
-                    {s.needsCouncilTime} awaiting Council
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300" title="WAEC hasn't published the date or time for these papers yet">
+                    {s.needsCouncilTime} time TBC
                   </span>
                   <span
                     className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
@@ -603,7 +603,7 @@ export function TimetablePanel() {
             <div>
               <h3 className="text-sm font-bold text-white">{activeSeries.name}</h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {papers.length} papers · {pendingCouncil} waiting on the Council to fix a time
+                {papers.length} papers · {pendingCouncil} awaiting times from WAEC
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -888,7 +888,7 @@ export function TimetablePanel() {
                   <span className="px-2 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">{importPreview.sourceFormat} · {importPreview.fileName.slice(0, 40)}</span>
                   <span className="px-2 py-1 rounded-full border border-slate-500/30 bg-slate-500/10 text-slate-300">{importPreview.stats.dated} dated</span>
                   <span className="px-2 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">{importRows.length - importPreview.stats.dated} undated</span>
-                  <span className="px-2 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">{importPreview.stats.needsTime} awaiting Council</span>
+                  <span className="px-2 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300">{importPreview.stats.needsTime} times TBC</span>
                   <span className="px-2 py-1 rounded-full border border-slate-500/30 bg-slate-500/10 text-slate-300">{importPreview.stats.withWarnings} flagged</span>
                 </div>
 
@@ -924,7 +924,7 @@ export function TimetablePanel() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <label className="flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer select-none">
                         <input type="checkbox" checked={dropUndated} onChange={(e) => setDropUndated(e.target.checked)} className="accent-indigo-500" />
-                        Drop {undatedCount} undated rows (the Council hasn't published them yet)
+                        Drop {undatedCount} undated rows (WAEC hasn't published them yet)
                       </label>
                       {!confirmReplace ? (
                         <button type="button" onClick={() => setConfirmReplace(true)} disabled={importableRows.length === 0} className="rounded-xl bg-amber-500/90 hover:bg-amber-400 disabled:opacity-50 px-4 py-2 text-xs font-bold text-black transition cursor-pointer">
