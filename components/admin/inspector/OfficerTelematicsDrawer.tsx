@@ -207,6 +207,19 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
+        {/* Identity line — Staff ID lives only in this details panel, never on the map */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 -mt-1">
+          <span>
+            Staff ID:{' '}
+            <span className="font-mono text-slate-300">{officer.staffId || 'Not on file'}</span>
+          </span>
+          {officer.group && (
+            <span>
+              Group: <span className="text-slate-300">{officer.group}</span>
+            </span>
+          )}
+        </div>
+
         {/* Live stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
           <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">

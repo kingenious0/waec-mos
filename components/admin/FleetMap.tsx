@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { Plus, Minus, Crosshair, Users, Layers, Map as MapIcon, Satellite, Check } from 'lucide-react'
+import { relativeTime } from '@/components/admin/inspector/OfficerTelematicsDrawer'
 
 export interface OfficerCheckpoint {
   id: string
@@ -119,6 +120,37 @@ export function getOfficerUnitCode(officer: Pick<FleetOfficer, 'staffId' | 'name
   return initials || officer.id.slice(-2).toUpperCase()
 }
 
+/** Strip a leading honorific so only the given + family name renders. */
+const HONORIFICS = /^(?:dr|mr|mrs|ms|eng|prof|rev|wnd|engr|alhaji|alhajiya)\.?(?:\s+)?/i
+function displayNameMinusTitle(name: string): string {
+  return String(name || '').replace(HONORIFICS, '').trim()
+}
+
+/** Line 1 of the marker label: full name when it fits, otherwise "First L." */
+function markerLineName(name: string): string {
+  const clean = displayNameMinusTitle(name)
+  if (!clean) return 'Officer'
+  if (clean.length <= 22) return clean
+  const parts = clean.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return parts[0]
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
+}
+
+/** Meta line under the name: "At the centre · 98% battery · Updated 2 min ago" */
+function markerMetaLine(o: FleetOfficer): string {
+  const statusWord = o.status === 'SOS' ? 'SOS — help needed' : o.status === 'ON_SITE' ? 'At the centre' : 'On the way'
+  const battery = typeof o.battery === 'number' ? `${o.battery}% battery` : 'no battery data'
+  let updated = 'Updated unknown'
+  if (o.lastPingAt) {
+    const ts = Date.parse(o.lastPingAt)
+    if (!Number.isNaN(ts)) {
+      const mins = Math.max(0, Math.round((Date.now() - ts) / 60000))
+      updated = mins < 1 ? 'Updated just now' : `Updated ${mins} min ago`
+    }
+  }
+  return `${statusWord} · ${battery} · ${updated}`
+}
+
 interface FleetMapProps {
   officers: FleetOfficer[]
   centers: ExamCenter[]
@@ -209,27 +241,41 @@ export default function FleetMap({
 
       // Officer markers cluster when they overlap; unclustered from zoom 15 up
       // so a selected officer's label is always visible after the fly-to.
+      // Bubble is red when the cluster contains an SOS marker, otherwise neutral.
       officersLayerRef.current = L.markerClusterGroup({
         showCoverageOnHover: false,
         spiderfyOnMaxZoom: true,
         maxClusterRadius: 45,
         disableClusteringAtZoom: 15,
-        iconCreateFunction: (cluster: any) =>
-          L.divIcon({
-            html: `<div style="
-              width: 40px; height: 40px; border-radius: 9999px;
-              background: rgba(10, 13, 23, 0.92);
-              border: 1.5px solid rgba(56, 189, 248, 0.5);
-              color: #E2E8F0;
-              display: flex; align-items: center; justify-content: center;
-              font-family: var(--font-sans), system-ui, sans-serif;
-              font-size: 12px; font-weight: 800;
-              box-shadow: 0 4px 14px rgba(0,0,0,0.6);
-            ">${cluster.getChildCount()}</div>`,
+        iconCreateFunction: (cluster: any) => {
+          const containsSos = cluster
+            .getAllChildMarkers()
+            .some((m: any) => Boolean(m.options && m.options.sos))
+          const count = cluster.getChildCount()
+          const html = containsSos
+            ? `<div style="
+                width:42px;height:42px;border-radius:9999px;
+                background:#B91C1C;border:2px solid #FCA5A5;
+                color:#FFF;display:flex;align-items:center;justify-content:center;
+                font:800 13px/1 var(--font-sans), system-ui, sans-serif;
+                box-shadow:0 4px 14px rgba(0,0,0,0.5), 0 0 0 3px rgba(239,68,68,0.35);
+                font-variant-numeric: tabular-nums;
+              ">${count}</div>`
+            : `<div style="
+                width:42px;height:42px;border-radius:9999px;
+                background:rgba(12,15,23,0.92);border:2px solid rgba(148,163,184,0.45);
+                color:#E2E8F0;display:flex;align-items:center;justify-content:center;
+                font:800 13px/1 var(--font-sans), system-ui, sans-serif;
+                box-shadow:0 4px 14px rgba(0,0,0,0.55), 0 0 0 2px rgba(0,0,0,0.35);
+                font-variant-numeric: tabular-nums;
+              ">${count}</div>`
+          return L.divIcon({
+            html,
             className: 'waec-cluster-icon',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-          }),
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
+          })
+        },
       })
       map.addLayer(officersLayerRef.current)
       trailLayerRef.current = L.layerGroup().addTo(map)
@@ -482,7 +528,11 @@ export default function FleetMap({
       const group = officersLayerRef.current
       group.clearLayers()
 
-      // 14px status dots with a white ring; grey hollow when telemetry is stale.
+      // 16px status dots (24px invisible hit area) with a 2px white ring and a
+      // soft shadow; selected officers grow to 22px with a blue outer ring.
+      // Labels show only on hover/focus/tap, for the selected officer, or for
+      // SOS officers — and never for anyone else while one officer is selected.
+      const mapCenterLng = mapInstanceRef.current?.getCenter()?.lng ?? Infinity
       const visibleOfficers = officers.filter((officer) => {
         if (statusFilter === 'onsite') return officer.status === 'ON_SITE'
         if (statusFilter === 'enroute') return officer.status === 'PENDING'
@@ -495,60 +545,55 @@ export default function FleetMap({
         const isSos = officer.status === 'SOS'
         const isOnSite = officer.status === 'ON_SITE'
         const stale = isTelemetryStale(officer)
-        const unitId = getOfficerUnitCode(officer)
-        const firstName = escapeHtml((officer.name || '').split(' ')[0] || '')
-        const labelText = escapeHtml(`U-${unitId} `) + firstName
+        const lineName = markerLineName(officer.name || '')
+        const meta = markerMetaLine(officer)
+        const labelSide = (officer.lng ?? 0) <= mapCenterLng ? 'label-right' : 'label-left'
+        const batteryWord = typeof officer.battery === 'number' ? `${officer.battery}% battery` : 'no battery data'
 
-        let dotStyle =
-          'background:#38bdf8;border:2px solid #FFFFFF;box-shadow:0 0 8px rgba(56,189,248,0.6);'
-        if (isSos) {
-          dotStyle = 'background:#EF4444;border:2px solid #FFFFFF;box-shadow:0 0 10px rgba(239,68,68,0.8);'
-        } else if (stale) {
-          // Grey hollow dot — telemetry older than 5 minutes
-          dotStyle = 'background:#0C0F17;border:2px solid #94A3B8;box-shadow:none;'
-        } else if (isOnSite) {
-          dotStyle = 'background:#10B981;border:2px solid #FFFFFF;box-shadow:0 0 8px rgba(16,185,129,0.6);'
-        }
+        let dotClass = 'waec-officer-dot waec-officer-dot--way'
+        if (stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
+        else if (isOnSite) dotClass = 'waec-officer-dot waec-officer-dot--onsite'
+        else if (isSos) dotClass = 'waec-officer-dot waec-officer-dot--sos'
 
-        const labelBorder = isSelected
-          ? 'border-color:#F6D300;color:#F6D300;box-shadow:0 0 16px rgba(246,211,0,0.45);'
-          : isSos
-          ? 'border-color:rgba(239,68,68,0.6);color:#FCA5A5;'
-          : 'border-color:#22263C;color:#E2E8F0;'
+        const sosIcon = isSos
+          ? `<svg viewBox="0 0 24 24" width="9" height="9" aria-hidden="true" focusable="false">
+               <path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="#FFFFFF"></path>
+               <path d="M12 8.4v5.4" stroke="#B91C1C" stroke-width="1.9" stroke-linecap="round"></path>
+               <circle cx="12" cy="17.1" r="1.15" fill="#B91C1C"></circle>
+             </svg>`
+          : ''
 
         const markerHtml = `
-          <div style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-            <div class="waec-officer-label${isSelected ? ' is-selected' : ''}" style="
-              position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:7px;
-              background:#0C0F17; border:1px solid; padding:3px 9px; border-radius:9999px;
-              font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-              font-size:11px; font-weight:700; white-space:nowrap; z-index:5;
-              ${labelBorder}
-            ">${labelText}</div>
-            <div style="position:relative;width:14px;height:14px;">
-              ${
-                isSos
-                  ? `<div style="
-                      position:absolute; inset:-7px; border-radius:50%;
-                      background:rgba(239,68,68,0.45);
-                      animation:ping 1.2s cubic-bezier(0,0,0.2,1) infinite;
-                    "></div>`
-                  : ''
-              }
-              <div style="width:14px;height:14px;border-radius:50%;position:relative;z-index:2;${dotStyle}"></div>
-            </div>
+          <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''} ${labelSide}" aria-label="${escapeHtml(`${lineName}, ${isSos ? 'SOS, help needed' : isOnSite ? 'at the centre' : 'on the way'}, ${batteryWord}`)}">
+            ${isSos ? '<span class="waec-officer-ping waec-officer-ping--reduced" aria-hidden="true"></span>' : ''}
+            <span class="${dotClass}" aria-hidden="true">${sosIcon}</span>
+            <span class="waec-officer-label" aria-hidden="true">
+              <span class="waec-officer-label-name">${escapeHtml(lineName)}</span>
+              <span class="waec-officer-label-meta">${escapeHtml(meta)}</span>
+            </span>
           </div>
         `
 
         const icon = L.divIcon({
-          className: 'waec-officer-marker',
+          className: 'waec-officer-marker-icon',
           html: markerHtml,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
         })
 
-        const marker = L.marker([officer.lat, officer.lng], { icon })
+        const marker = L.marker([officer.lat, officer.lng], { icon, keyboard: false, sos: isSos } as any)
         marker.on('click', () => onSelectOfficer(officer))
+        marker.on('add', () => {
+          const el = marker.getElement()
+          if (!el) return
+          el.setAttribute('aria-label', (el.querySelector('[aria-label]') as HTMLElement | null)?.getAttribute('aria-label') || '')
+          el.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onSelectOfficer(officer)
+            }
+          })
+        })
         markers.push(marker)
       })
 
@@ -645,7 +690,7 @@ export default function FleetMap({
   }
 
   return (
-    <div className="relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans">
+    <div className={`relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans ${selectedOfficer ? 'map-has-selection' : ''}`}>
       <div ref={mapContainerRef} className="size-full z-0" />
 
       {/* Mobile status filter chips */}

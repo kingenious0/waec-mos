@@ -113,22 +113,143 @@
   }
 }
 
-/* --- Live Fleet Map marker interactions --- */
-.custom-center-marker {
+/* --- Live Fleet Map officer markers --- */
+.leaflet-div-icon.waec-officer-marker-icon,
+.leaflet-div-icon.waec-cluster-icon,
+.leaflet-div-icon.custom-center-marker {
+  background: transparent;
+  border: none;
+  overflow: visible;
+}
+
+.waec-officer-marker {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
   cursor: pointer;
 }
-.leaflet-marker-icon.waec-officer-marker {
-  cursor: pointer;
+.waec-officer-marker:focus-visible {
+  outline: 2px solid #3b57f0;
+  outline-offset: 2px;
+  border-radius: 9999px;
 }
-.waec-officer-label {
-  opacity: 0;
-  transition: opacity 150ms ease;
+
+.waec-officer-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 150ms ease, height 150ms ease, box-shadow 150ms ease;
+}
+.waec-officer-dot--onsite { background: #10B981; }
+.waec-officer-dot--way    { background: #38bdf8; }
+.waec-officer-dot--sos    { background: #EF4444; }
+.waec-officer-dot--stale  { background: #0C0F17; border: 2px dashed #94A3B8; box-shadow: none; }
+
+.waec-officer-marker.is-selected .waec-officer-dot {
+  width: 22px;
+  height: 22px;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.45),
+    0 0 0 1.5px #FFFFFF,
+    0 0 0 4px rgba(59, 87, 240, 0.45),
+    0 0 14px rgba(59, 87, 240, 0.55);
+}
+
+/* SOS expanding pulse ring */
+.waec-officer-ping {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  margin-top: -17px;
+  border-radius: 9999px;
+  border: 2px solid rgba(239, 68, 68, 0.85);
+  animation: waec-sos-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
   pointer-events: none;
 }
-.waec-officer-marker:hover .waec-officer-label,
-.waec-officer-label.is-selected {
-  opacity: 1;
+@keyframes waec-sos-ping {
+  0%   { transform: scale(0.55); opacity: 0.95; }
+  75%  { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .waec-officer-ping { animation: none !important; opacity: 0.45; transform: none; border-style: solid; }
+}
+
+/* --- Marker label (hover/focus/tap/selected/SOS only) --- */
+.waec-officer-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  z-index: 6;
+  max-width: 190px;
+  padding: 5px 9px;
+  background: rgba(12, 15, 23, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.waec-officer-marker.label-right .waec-officer-label { left: calc(100% + 8px); }
+.waec-officer-marker.label-left  .waec-officer-label { right: calc(100% + 8px); }
+.waec-officer-marker.label-right .waec-officer-label::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -5px;
+  transform: translateY(-50%);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-right: 5px solid rgba(12, 15, 23, 0.94);
+}
+.waec-officer-marker.label-left .waec-officer-label::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 5px solid rgba(12, 15, 23, 0.94);
+}
+.waec-officer-label-name {
+  display: block;
+  font: 700 12px/1.2 var(--font-sans), system-ui, sans-serif;
+  color: #FFFFFF;
+  max-width: 168px;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.waec-officer-label-meta {
+  display: block;
+  font: 500 10px/1.25 var(--font-sans), system-ui, sans-serif;
+  color: #94A3B8;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.waec-officer-marker:hover .waec-officer-label,
+.waec-officer-marker:focus-visible .waec-officer-label,
+.waec-officer-marker.is-sos .waec-officer-label { display: block; }
+.map-has-selection .waec-officer-marker:not(.is-selected):not(.is-sos) .waec-officer-label { display: none; }
+.map-has-selection .waec-officer-marker.is-selected .waec-officer-label { display: block; }
+
+.custom-center-marker { cursor: pointer; }
 
 /* ============================================================================
    AUTH PAGES - sign-in & request access (overrides the DESIGN.md no-glass /
