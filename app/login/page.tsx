@@ -89,7 +89,7 @@ export default function LoginPage() {
       if (data.user?.role === 'ADMIN' || data.user?.role === 'SUPER_ADMIN') {
         router.push(data.user?.mustChangePassword ? '/change-password' : '/admin')
       } else {
-        router.push('/field')
+        router.push(data.user?.mustChangePassword ? '/choose-pin' : '/field')
       }
     } catch {
       setErrorMsg('Could not reach the portal. Check your connection and try again.')

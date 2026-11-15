@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
           regionName: schema.regions.name,
           centerName: schema.examinationCenters.centerName,
           centerCode: schema.examinationCenters.centerCode,
+          mustChangePassword: schema.user.mustChangePassword,
         })
         .from(schema.user)
         .leftJoin(schema.regions, eq(schema.user.regionId, schema.regions.id))
@@ -107,6 +108,23 @@ export async function POST(request: NextRequest) {
       if (matched.status !== 'ACTIVE' || !verifyPin(cleanPin, matched.pin)) {
         await recordLoginFailure(matched.id, ip, digits)
         return NextResponse.json({ error: GENERIC_ERROR }, { status: 401 })
+      }
+
+      // Temporary controller-issued PIN? Enforce the 24-hour expiry
+      if (matched.mustChangePassword) {
+        const [latestIssue] = await db
+          .select()
+          .from(schema.pinResetRequests)
+          .where(eq(schema.pinResetRequests.officerId, matched.id))
+          .orderBy(desc(schema.pinResetRequests.createdAt))
+          .limit(1)
+        if (latestIssue && latestIssue.tempExpiresAt && new Date(latestIssue.tempExpiresAt).getTime() < Date.now()) {
+          await recordLoginFailure(matched.id, ip, digits)
+          return NextResponse.json(
+            { error: 'Your temporary PIN has expired. Ask your controller to issue a new one.' },
+            { status: 401 }
+          )
+        }
       }
 
       await recordLoginSuccess(matched.id, ip, digits)
@@ -182,7 +200,7 @@ export async function POST(request: NextRequest) {
           assignedCenterCode: matched.centerCode || '',
           photo: matched.image || '',
           bio: matched.bio || '',
-          mustChangePassword: false,
+          mustChangePassword: Boolean(matched.mustChangePassword),
         },
       })
       if (rawToken) setSessionCookie(res, rawToken, { persistent: staySignedIn })

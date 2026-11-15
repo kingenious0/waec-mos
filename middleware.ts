@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server'
  *  2. Block cross-origin state-changing API requests (CSRF).
  *     Same-origin POSTs carry matching Host and Origin/Referer.
  */
-const PROTECTED = ['/admin', '/field', '/profile']
+const PROTECTED = ['/admin', '/field', '/profile', '/choose-pin']
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 export function middleware(request: NextRequest) {

@@ -229,6 +229,39 @@ export const incidentUpdates = pgTable('incident_updates', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// --- Account requests: new-officer access + PIN resets (pending controller review) ---
+
+export const accountRequests = pgTable('account_requests', {
+  id: text('id').primaryKey(),
+  fullName: text('full_name').notNull(),
+  phone: text('phone').notNull(), // national digits, e.g. 0241234567
+  staffId: text('staff_id').notNull(),
+  pinHash: text('pin_hash').notNull(), // chosen by the requester; becomes their PIN once approved
+  status: text('status').notNull().default('PENDING'), // PENDING | APPROVED | DECLINED
+  note: text('note'),
+  createdByIp: text('created_by_ip'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  decidedAt: timestamp('decided_at'),
+  decidedBy: text('decided_by'),
+  decidedByName: text('decided_by_name'),
+})
+
+export const pinResetRequests = pgTable('pin_reset_requests', {
+  id: text('id').primaryKey(),
+  officerId: text('officer_id'), // links the request to an existing field officer
+  officerName: text('officer_name'), // denormalised for the Directory list
+  officerPhone: text('officer_phone').notNull(),
+  staffId: text('staff_id'),
+  status: text('status').notNull().default('PENDING'), // PENDING | APPROVED | DECLINED | ISSUED
+  note: text('note'),
+  createdByIp: text('created_by_ip'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  decidedAt: timestamp('decided_at'),
+  decidedBy: text('decided_by'),
+  decidedByName: text('decided_by_name'),
+  tempExpiresAt: timestamp('temp_expires_at', { withTimezone: true }), // 24h after PIN issue
+})
+
 // --- Audit & Compliance Trail ---
 
 export const auditLogs = pgTable('audit_logs', {

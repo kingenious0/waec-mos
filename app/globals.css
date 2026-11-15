@@ -477,3 +477,13 @@
   .authb-pin-box { height: 56px; }
   .authb-btn { height: 52px; }
 }
+
+.authb-labelrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
+.authb-labelrow .authb-label { margin-bottom: 0; }
+.authb-labelrow:first-of-type { margin-top: 0; }

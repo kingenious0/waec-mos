@@ -2,6 +2,17 @@ import { z } from 'zod'
 
 /** Shared server-side input contracts. Every API validates with these. */
 
+export const accessRequestSchema = z.object({
+  fullName: z.string().trim().min(2, 'Enter your full name').max(120),
+  phone: z.string().trim().regex(/^0\d{9}$/, 'Enter a Ghana phone number'),
+  staffId: z.string().trim().min(3, 'Enter your staff ID').max(40).regex(/^[A-Za-z0-9\-/_]+$/, 'Staff ID can only contain letters, numbers, hyphens and slashes'),
+  pin: z.string().trim().regex(/^\d{4}$/, 'PIN must be exactly 4 digits'),
+})
+
+export const forgotPinSchema = z.object({
+  identifier: z.string().trim().min(3, 'Enter your phone number or staff ID').max(60),
+})
+
 export const loginSchema = z.object({
   phone: z.string().trim().optional(),
   pin: z.string().trim().optional(),

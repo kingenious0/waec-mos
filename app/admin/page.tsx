@@ -48,6 +48,7 @@ import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTel
 import { MobileBottomNav } from '@/components/admin/mobile/MobileBottomNav'
 import { MobileTopBar } from '@/components/admin/mobile/MobileTopBar'
 import { MobileOfficerCard } from '@/components/admin/directory/MobileOfficerCard'
+import { RequestsPanel } from '@/components/admin/directory/RequestsPanel'
 import { MobileOfficerSheet } from '@/components/admin/inspector/MobileOfficerSheet'
 import { MobileCenterCard } from '@/components/admin/centers/MobileCenterCard'
 import { formatGhanaPhone } from '@/lib/phone'
@@ -324,6 +325,10 @@ export default function AdminPage() {
       }
       if (!['ADMIN', 'SUPER_ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(String(s.role || '').toUpperCase())) {
         router.push('/field')
+        return
+      }
+      if ((s as any).mustChangePassword) {
+        router.replace('/choose-pin')
         return
       }
       setSession(s)
@@ -1340,6 +1345,9 @@ export default function AdminPage() {
                   />
                 </div>
 
+                {/* Requests — access & PIN reset review */}
+                <RequestsPanel onChanged={() => loadDashboardData(true)} />
+
                 {/* Filter chips */}
                 <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   {(
@@ -1442,6 +1450,11 @@ export default function AdminPage() {
                     <UserPlus className="size-3.5 text-white" />
                     <span>+ Register Officer</span>
                   </button>
+                </div>
+
+                {/* Requests — access & PIN reset review */}
+                <div className="mb-4">
+                  <RequestsPanel onChanged={() => loadDashboardData(true)} />
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">

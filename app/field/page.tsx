@@ -116,6 +116,10 @@ export default function FieldPage() {
         router.push('/admin')
         return
       }
+      if ((s as any).mustChangePassword) {
+        router.replace('/choose-pin')
+        return
+      }
       setSession(s)
     })
   }, [router])
