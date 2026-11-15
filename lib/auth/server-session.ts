@@ -28,13 +28,20 @@ function getClientIp(req: NextRequest | Request): string {
 
 const isProd = process.env.NODE_ENV === 'production'
 
-export function setSessionCookie(res: NextResponse, rawToken: string) {
+export function setSessionCookie(
+  res: NextResponse,
+  rawToken: string,
+  opts?: { persistent?: boolean }
+) {
+  // persistent (default): survives closing the browser, 12h absolute cap.
+  // not persistent ("Keep me signed in" off): browser-session cookie, same 12h cap.
+  const persistent = opts?.persistent !== false
   res.cookies.set(COOKIE, rawToken, {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
     path: '/',
-    maxAge: ABSOLUTE_MS / 1000,
+    ...(persistent ? { maxAge: ABSOLUTE_MS / 1000 } : {}),
   })
 }
 

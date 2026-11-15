@@ -119,7 +119,8 @@ export async function issueSmsChallenge(user: AdminRow): Promise<
 export async function completeAdminLogin(
   request: Request,
   user: AdminRow,
-  method: string
+  method: string,
+  keepSignedIn = true
 ): Promise<NextResponse> {
   // recordLoginSuccess already done by caller
   const rawToken = await createSession(user.id, request as any)
@@ -190,7 +191,7 @@ export async function completeAdminLogin(
       mustChangePassword: Boolean(user.mustChangePassword),
     },
   })
-  if (rawToken) setSessionCookie(res, rawToken)
+  if (rawToken) setSessionCookie(res, rawToken, { persistent: keepSignedIn })
   return res
 }
 

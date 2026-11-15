@@ -30,7 +30,8 @@ function clientIp(req: NextRequest): string {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { phone, pin, identifier, password } = body
+    const { phone, pin, identifier, password, keepSignedIn } = body
+    const staySignedIn = keepSignedIn !== false // default on, mirrors the toggle default
     const ip = clientIp(request)
     const userAgent = request.headers.get('user-agent') || ''
 
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
           mustChangePassword: false,
         },
       })
-      if (rawToken) setSessionCookie(res, rawToken)
+      if (rawToken) setSessionCookie(res, rawToken, { persistent: staySignedIn })
       return res
     }
 
@@ -211,7 +212,7 @@ export async function POST(request: NextRequest) {
         .set({ lastLoginAt: new Date(), updatedAt: new Date() })
         .where(eq(schema.user.id, dbUser.id))
 
-      return completeAdminLogin(request, dbUser, 'password')
+      return completeAdminLogin(request, dbUser, 'password', staySignedIn)
     }
 
     return NextResponse.json(

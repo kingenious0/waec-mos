@@ -69,8 +69,8 @@ export function WaecMosLogo({ href = '/login', className = '', size = 'md' }: Wa
         <div className={`${titleSizes[size]} text-white tracking-tight`}>
           WAEC MOS
         </div>
-        <div className={`${subtitleSizes[size]} text-zinc-400 font-normal tracking-normal`}>
-          Monitoring and Operations Suite
+        <div className={`${subtitleSizes[size]} text-white/70 font-normal tracking-normal`}>
+          Monitoring and Operations
         </div>
       </div>
     </div>
