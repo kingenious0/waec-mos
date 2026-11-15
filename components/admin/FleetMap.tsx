@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { Plus, Minus, Crosshair, Users, Layers, Map as MapIcon, Satellite, Check } from 'lucide-react'
-import { relativeTime } from '@/components/admin/inspector/OfficerTelematicsDrawer'
+import { formatRelativeTime, formatNoUpdate, formatTooltipTime } from '@/lib/relative-time'
 
 export interface OfficerCheckpoint {
   id: string
@@ -136,19 +136,14 @@ function markerLineName(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
 }
 
-/** Meta line under the name: "At the centre · 98% battery · Updated 2 min ago" */
+/** Meta line under the name. SOS always overrides; stale replaces status. */
 function markerMetaLine(o: FleetOfficer): string {
-  const statusWord = o.status === 'SOS' ? 'SOS — help needed' : o.status === 'ON_SITE' ? 'At the centre' : 'On the way'
+  if (o.status === 'SOS') return 'Needs help now'
+  if (isTelemetryStale(o)) return formatNoUpdate(o.lastPingAt)
+  const status = o.status === 'ON_SITE' ? 'At the centre' : 'On the way'
   const battery = typeof o.battery === 'number' ? `${o.battery}% battery` : 'no battery data'
-  let updated = 'Updated unknown'
-  if (o.lastPingAt) {
-    const ts = Date.parse(o.lastPingAt)
-    if (!Number.isNaN(ts)) {
-      const mins = Math.max(0, Math.round((Date.now() - ts) / 60000))
-      updated = mins < 1 ? 'Updated just now' : `Updated ${mins} min ago`
-    }
-  }
-  return `${statusWord} · ${battery} · ${updated}`
+  const rel = formatRelativeTime(o.lastPingAt)
+  return `${status} · ${battery} · Updated ${rel.charAt(0).toLowerCase()}${rel.slice(1)}`
 }
 
 interface FleetMapProps {
@@ -563,13 +558,25 @@ export default function FleetMap({
              </svg>`
           : ''
 
+        const isStale = isTelemetryStale(officer)
+        const metaClass = isSos
+          ? 'waec-officer-label-meta waec-officer-label-meta--sos'
+          : isStale
+            ? 'waec-officer-label-meta waec-officer-label-meta--stale'
+            : 'waec-officer-label-meta'
+        const metaIcon = isSos
+          ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;"><path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="currentColor"></path></svg>'
+          : isStale
+            ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
+            : ''
+
         const markerHtml = `
-          <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''} ${labelSide}" aria-label="${escapeHtml(`${lineName}, ${isSos ? 'SOS, help needed' : isOnSite ? 'at the centre' : 'on the way'}, ${batteryWord}`)}">
+          <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''}${isStale && !isSos ? ' is-stale' : ''} ${labelSide}" title="${escapeHtml(formatTooltipTime(officer.lastPingAt))}" aria-label="${escapeHtml(`${lineName}, ${isSos ? 'Needs help now' : isStale ? formatNoUpdate(officer.lastPingAt) : isOnSite ? 'at the centre' : 'on the way'}, ${batteryWord}`)}">
             ${isSos ? '<span class="waec-officer-ping waec-officer-ping--reduced" aria-hidden="true"></span>' : ''}
             <span class="${dotClass}" aria-hidden="true">${sosIcon}</span>
-            <span class="waec-officer-label" aria-hidden="true">
+            <span class="waec-officer-label" role="status">
               <span class="waec-officer-label-name">${escapeHtml(lineName)}</span>
-              <span class="waec-officer-label-meta">${escapeHtml(meta)}</span>
+              <span class="${metaClass}">${metaIcon}${escapeHtml(meta)}</span>
             </span>
           </div>
         `

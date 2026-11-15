@@ -1,8 +1,8 @@
-'use client'
+﻿'use client'
 
 import React from 'react'
 import { Phone, Flag, ChevronDown, Clock, X } from 'lucide-react'
-import { relativeTime } from '@/components/admin/inspector/OfficerTelematicsDrawer'
+import { formatRelativeTime } from '@/lib/relative-time'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
 export type SheetSnap = 'peek' | 'half' | 'full'
@@ -17,7 +17,7 @@ interface MobileOfficerSheetProps {
 }
 
 /**
- * Mobile bottom sheet for officer details with three snap points —
+ * Mobile bottom sheet for officer details with three snap points â€”
  * peek (name, chips, Call/Details), half (+ telemetry tiles + distance card),
  * full (+ activity feed + actions). Content never clips: the panel scrolls.
  */
@@ -68,7 +68,7 @@ export function MobileOfficerSheet({
   const lastPingGmt = lastPingIso
     ? new Date(lastPingIso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT'
     : null
-  const lastSeen = lastPingIso ? `${relativeTime(lastPingIso)} · ${lastPingGmt}` : 'Never pinged'
+  const lastSeen = lastPingIso ? `${formatRelativeTime(lastPingIso)} Â· ${lastPingGmt}` : 'Never pinged'
 
   const unitCode = getOfficerUnitCode(officer)
   const checkpoints = officer.checkpoints || []
@@ -141,7 +141,7 @@ export function MobileOfficerSheet({
             : 'border-[#22263C] bg-[#11131F] text-slate-500'
         }`}
       >
-        Last seen {relativeTime(lastPingIso)}
+        Last seen {formatRelativeTime(lastPingIso)}
       </span>
     </div>
   )
@@ -240,7 +240,7 @@ export function MobileOfficerSheet({
       role="dialog"
       aria-label={`Details for ${officer.name}`}
     >
-      {/* Grabber — tap to cycle peek → half → full */}
+      {/* Grabber â€” tap to cycle peek â†’ half â†’ full */}
       <div className="relative pt-2 pb-1.5 flex items-center justify-center shrink-0">
         <button
           type="button"
@@ -311,7 +311,7 @@ export function MobileOfficerSheet({
             {chipsRow}
             {telemetryTiles}
 
-            {/* Recent activity — flat list */}
+            {/* Recent activity â€” flat list */}
             <div className="space-y-0">
               <span className="text-[10px] font-sans uppercase tracking-wider text-slate-500 block pt-1">
                 Recent activity
@@ -333,7 +333,7 @@ export function MobileOfficerSheet({
                         {cp.label}
                       </span>
                       <span className="text-[10px] text-slate-500 tabular-nums whitespace-nowrap shrink-0 pt-0.5">
-                        {cp.iso ? `${relativeTime(cp.iso)} · ` : ''}
+                        {cp.iso ? `${formatRelativeTime(cp.iso)} Â· ` : ''}
                         {cp.time}
                       </span>
                     </div>
@@ -367,3 +367,4 @@ export function MobileOfficerSheet({
     </div>
   )
 }
+

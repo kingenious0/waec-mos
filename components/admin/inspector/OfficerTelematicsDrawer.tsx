@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React from 'react'
 import { Phone, Clock, Flag, X, Siren, Check } from 'lucide-react'
@@ -15,17 +15,7 @@ interface OfficerTelematicsDrawerProps {
   onResolveSos?: (officer: FleetOfficer) => void
 }
 
-/** "just now" / "3m ago" / "2h ago" from an ISO timestamp. */
-export function relativeTime(iso?: string | null): string {
-  if (!iso) return 'Never'
-  const ts = Date.parse(iso)
-  if (Number.isNaN(ts)) return 'Never'
-  const diff = Date.now() - ts
-  if (diff < 45_000) return 'just now'
-  if (diff < 3_600_000) return `${Math.max(1, Math.floor(diff / 60_000))}m ago`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
-  return `${Math.floor(diff / 86_400_000)}d ago`
-}
+import { formatRelativeTime } from '@/lib/relative-time'
 
 export function OfficerTelematicsDrawer({
   officer,
@@ -83,7 +73,7 @@ export function OfficerTelematicsDrawer({
       }) + ' GMT'
     : null
   const lastPingLine = officer.lastPingAt
-    ? `${relativeTime(officer.lastPingAt)} · ${lastPingGmt}`
+    ? `${formatRelativeTime(officer.lastPingAt)} Â· ${lastPingGmt}`
     : 'Never pinged'
 
   const withinPerimeter = typeof dist === 'number' && dist <= radiusMeters
@@ -108,7 +98,7 @@ export function OfficerTelematicsDrawer({
               <div className="flex items-center gap-2 min-w-0 text-status-sos font-sans font-bold text-[11px] tracking-wide">
                 <Siren className="size-4 shrink-0 animate-pulse" />
                 <span className="truncate">
-                  ACTIVE SOS · {officer.sosIncidentNumber || 'DISTRESS'}
+                  ACTIVE SOS Â· {officer.sosIncidentNumber || 'DISTRESS'}
                 </span>
               </div>
               {sosAcknowledged && (
@@ -143,7 +133,7 @@ export function OfficerTelematicsDrawer({
           </div>
         )}
 
-        {/* Top Officer Header Card — single status chip */}
+        {/* Top Officer Header Card â€” single status chip */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="shrink-0">
@@ -207,7 +197,7 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* Identity line — Staff ID lives only in this details panel, never on the map */}
+        {/* Identity line â€” Staff ID lives only in this details panel, never on the map */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 -mt-1">
           <span>
             Staff ID:{' '}
@@ -379,7 +369,7 @@ export function OfficerTelematicsDrawer({
                         <span className="pl-3 leading-snug">{cp.label}</span>
                       </div>
                       <span className="text-muted-foreground shrink-0 tabular-nums whitespace-nowrap">
-                        {cp.iso ? `${relativeTime(cp.iso)} · ` : ''}
+                        {cp.iso ? `${formatRelativeTime(cp.iso)} Â· ` : ''}
                         {cp.time}
                       </span>
                     </div>
@@ -414,3 +404,4 @@ export function OfficerTelematicsDrawer({
     </div>
   )
 }
+

@@ -80,16 +80,30 @@ export function AdminSidebar({
 
   return (
     <aside
-      className={`hidden lg:flex flex-col border-r border-border bg-[#0B0D14] select-none transition-all duration-200 z-20 ${
+      className={`relative hidden lg:flex flex-col border-r border-border bg-[#0B0D14] select-none transition-all duration-200 z-20 ${
         isCollapsed ? 'w-16' : 'w-60'
       }`}
     >
+      {/* Faint WAEC starburst — brand mark, never competes with content */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/waec-logo.png"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-20 right-2 w-24 opacity-[0.06] select-none"
+      />
       {/* Sidebar Header */}
       <div className="h-14 border-b border-border/80 px-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="size-7 rounded-full bg-brand flex items-center justify-center text-background font-bold shrink-0 shadow-xs">
-            <span className="text-xs tracking-tighter">M</span>
-          </div>
+          {/* Official WAEC starburst */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/waec-logo.png"
+            alt="WAEC emblem"
+            className="size-8 shrink-0 object-contain"
+            width={64}
+            height={64}
+          />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-bold tracking-wider text-foreground truncate">

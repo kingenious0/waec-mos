@@ -1,6 +1,7 @@
-'use client'
+﻿'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
+import { formatRelativeTime } from '@/lib/relative-time'
 import {
   Inbox,
   Check,
@@ -38,7 +39,7 @@ interface RequestsPanelProps {
 }
 
 /**
- * Directory requests — access requests from new volunteers and PIN reset
+ * Directory requests â€” access requests from new volunteers and PIN reset
  * requests from officers. Command staff approve, decline, or issue a
  * one-time temporary PIN (shown once).
  */
@@ -119,7 +120,7 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
-      /* clipboard unavailable — controller can still read the PIN */
+      /* clipboard unavailable â€” controller can still read the PIN */
     }
   }
 
@@ -134,7 +135,7 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
           </span>
           <div className="min-w-0">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Requests</h3>
-            <p className="text-[10px] text-slate-500">{loading ? 'Loading…' : pendingTotal === 0 ? 'Nothing waiting' : `${pendingTotal} waiting for review`}</p>
+            <p className="text-[10px] text-slate-500">{loading ? 'Loadingâ€¦' : pendingTotal === 0 ? 'Nothing waiting' : `${pendingTotal} waiting for review`}</p>
           </div>
         </div>
         <button type="button" onClick={load} aria-label="Refresh requests" className="size-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
@@ -163,10 +164,10 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
                   (() => {
                     const d = r.phone.replace(/\D/g, '')
                     const national = d.length >= 9 ? '0' + d.slice(-9) : d
-                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')} · ${r.staffId}`
+                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')} Â· ${r.staffId}`
                   })()}
                 </p>
-                <p className="text-[9px] text-slate-600 mt-0.5">{timeAgo(r.createdAt)} · needs access approval</p>
+                <p className="text-[9px] text-slate-600 mt-0.5">{formatRelativeTime(r.createdAt)} Â· needs access approval</p>
               </div>
               <div className="flex flex-col gap-1.5 shrink-0">
                 <button type="button" onClick={() => decide('access', r.id, 'approve')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 disabled:opacity-50 text-[10px] font-bold text-white inline-flex items-center gap-1.5 transition cursor-pointer">
@@ -188,10 +189,10 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
                   {(() => {
                     const d = (r.officerPhone || '').replace(/\D/g, '')
                     const national = d.length >= 9 ? '0' + d.slice(-9) : d
-                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}${r.staffId ? ` · ${r.staffId}` : ''}`
+                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}${r.staffId ? ` Â· ${r.staffId}` : ''}`
                   })()}
                 </p>
-                <p className="text-[9px] text-slate-600 mt-0.5">{timeAgo(r.createdAt)} · needs a new PIN</p>
+                <p className="text-[9px] text-slate-600 mt-0.5">{formatRelativeTime(r.createdAt)} Â· needs a new PIN</p>
               </div>
               <div className="flex flex-col gap-1.5 shrink-0">
                 <button type="button" onClick={() => decide('pin', r.id, 'issue')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-[10px] font-bold text-white inline-flex items-center gap-1.5 transition cursor-pointer">
@@ -239,13 +240,3 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
   )
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  if (diff < 60_000) return 'just now'
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
