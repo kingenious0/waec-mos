@@ -316,7 +316,7 @@ export const securityEvents = pgTable('security_events', {
   details: jsonb('details'),
   ipAddress: text('ipAddress'),
   userAgent: text('userAgent'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  createdAt: timestamp('createdAt', { withTimezone: true }).notNull().defaultNow(),
 })
 
 // --- One-time SMS login codes ---

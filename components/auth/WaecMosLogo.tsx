@@ -10,10 +10,10 @@ interface WaecMosLogoProps {
 }
 
 export function WaecMosLogo({ href = '/login', className = '', size = 'md' }: WaecMosLogoProps) {
-  const badgeSizes = {
-    sm: 'size-9 rounded-xl',
-    md: 'size-11 rounded-xl',
-    lg: 'size-12 rounded-2xl',
+  const markSizes = {
+    sm: 'h-9 w-9',
+    md: 'h-11 w-11 sm:h-12 sm:w-12',
+    lg: 'h-14 w-14 sm:h-16 sm:w-16',
   }
 
   const titleSizes = {
@@ -30,40 +30,15 @@ export function WaecMosLogo({ href = '/login', className = '', size = 'md' }: Wa
 
   const content = (
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
-      {/* Official yellow emblem with circular 'wa' badge */}
-      <div
-        className={`${badgeSizes[size]} bg-[#F6C90E] flex items-center justify-center shrink-0 shadow-md shadow-amber-500/10 p-1`}
-      >
-        <svg
-          viewBox="0 0 32 32"
-          className="size-full"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Black circle contour */}
-          <circle
-            cx="16"
-            cy="16"
-            r="12"
-            stroke="#0A0D18"
-            strokeWidth="2.2"
-            fill="none"
-          />
-          {/* Stylized lowercase 'wa' ligature */}
-          <text
-            x="16"
-            y="20.5"
-            textAnchor="middle"
-            fill="#0A0D18"
-            fontFamily="Inter, system-ui, -apple-system, sans-serif"
-            fontWeight="900"
-            fontSize="12.5"
-            letterSpacing="-0.8px"
-          >
-            wa
-          </text>
-        </svg>
-      </div>
+      {/* Real West African Examinations Council emblem */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/waec-logo.png"
+        alt="The West African Examinations Council emblem"
+        className={`${markSizes[size]} object-contain shrink-0`}
+        width={96}
+        height={96}
+      />
 
       <div className="leading-tight">
         <div className={`${titleSizes[size]} text-white tracking-tight`}>
