@@ -626,7 +626,7 @@ export function ExamCenterModal({
                 />
 
                 {suggestions.length > 0 && (
-                  <ul className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-[#22263C] bg-[#121626] shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-[#1C2237]">
+                  <ul className="absolute left-0 right-0 top-full z-[1001] mt-1 max-h-60 overflow-y-auto overflow-hidden rounded-xl border border-[#22263C] bg-[#121626] shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-[#1C2237]">
                     {suggestions.map((s) => (
                       <li key={s.id}>
                         <button

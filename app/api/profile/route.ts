@@ -67,7 +67,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { name, email, phone, pin, photo, bio } = body
+    const { name, email, phone, pin, photo, bio, title, firstName, lastName } = body
     const userId = session.userId // self-service only
 
     if (!isLiveDatabase || !db) {
@@ -85,11 +85,58 @@ export async function PUT(request: Request) {
     }
 
     const updates: Record<string, unknown> = { updatedAt: new Date() }
-    if (name !== undefined && String(name).trim()) updates.name = String(name).trim()
-    if (email !== undefined && String(email).trim()) updates.email = String(email).trim()
-    if (phone !== undefined) updates.phone = String(phone).trim()
+
+    // Split-name fields — keep the display `name` column recomposed so every
+    // surface that reads `name` stays consistent.
+    if (title !== undefined) updates.title = String(title).trim().slice(0, 40)
+    if (firstName !== undefined) updates.firstName = String(firstName).trim().slice(0, 80)
+    if (lastName !== undefined) updates.lastName = String(lastName).trim().slice(0, 80)
+    if (firstName !== undefined || lastName !== undefined || title !== undefined) {
+      const row = await db
+        .select({
+          title: schema.user.title,
+          firstName: schema.user.firstName,
+          lastName: schema.user.lastName,
+          name: schema.user.name,
+        })
+        .from(schema.user)
+        .where(eq(schema.user.id, userId))
+        .limit(1)
+      const merged = {
+        title: title !== undefined ? String(title).trim() : row[0]?.title || '',
+        firstName: firstName !== undefined ? String(firstName).trim() : row[0]?.firstName || '',
+        lastName: lastName !== undefined ? String(lastName).trim() : row[0]?.lastName || '',
+      }
+      const composed = [merged.title, merged.firstName, merged.lastName].filter(Boolean).join(' ').trim()
+      if (composed && !String(name || '').trim()) updates.name = composed
+    }
+
+    const phoneValidator = /^(\+233|0)\d{9}$/
+    if (name !== undefined && String(name).trim()) {
+      if (String(name).trim().length > 120) {
+        return NextResponse.json({ error: 'Name is too long.' }, { status: 400 })
+      }
+      updates.name = String(name).trim()
+    }
+    if (email !== undefined) {
+      const emailClean = String(email).trim()
+      if (emailClean && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean)) {
+        return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
+      }
+      if (emailClean.length > 120) {
+        return NextResponse.json({ error: 'Email is too long.' }, { status: 400 })
+      }
+      updates.email = emailClean
+    }
+    if (phone !== undefined) {
+      const phoneClean = String(phone).trim().replace(/\s+/g, '')
+      if (phoneClean && !phoneValidator.test(phoneClean)) {
+        return NextResponse.json({ error: 'Enter a Ghana phone number (e.g. 024 000 0000).' }, { status: 400 })
+      }
+      updates.phone = phoneClean
+    }
     if (pin !== undefined && String(pin).trim()) {
-      const effectivePhone = phone !== undefined ? String(phone).trim() : existing[0].phone || ''
+      const effectivePhone = phone !== undefined ? String(phone).trim().replace(/\s+/g, '') : existing[0].phone || ''
       const check = validatePin(String(pin).trim(), effectivePhone)
       if (!check.ok) {
         return NextResponse.json({ error: check.reason }, { status: 400 })
@@ -97,8 +144,23 @@ export async function PUT(request: Request) {
       updates.pin = hashPin(String(pin).trim())
       updates.pinChangedAt = new Date()
     }
-    if (photo !== undefined) updates.image = String(photo)
-    if (bio !== undefined) updates.bio = String(bio)
+    if (photo !== undefined) {
+      const photoClean = String(photo)
+      if (photoClean.length > 900_000) {
+        return NextResponse.json({ error: 'That image is too large. Pick a smaller one (max ~600 KB).' }, { status: 400 })
+      }
+      if (photoClean && !photoClean.startsWith('data:image/') && !photoClean.startsWith('https://')) {
+        return NextResponse.json({ error: 'Unsupported image format.' }, { status: 400 })
+      }
+      updates.image = photoClean
+    }
+    if (bio !== undefined) {
+      const bioClean = String(bio).trim()
+      if (bioClean.length > 500) {
+        return NextResponse.json({ error: 'About is too long (max 500 characters).' }, { status: 400 })
+      }
+      updates.bio = bioClean
+    }
 
     await db.update(schema.user).set(updates).where(eq(schema.user.id, userId))
 
@@ -111,6 +173,7 @@ export async function PUT(request: Request) {
       entityId: userId,
       details: {
         message: `${(updates.name as string) || existing[0].name} updated account profile details`,
+        fields: Object.keys(updates).filter((k) => k !== 'updatedAt'),
       },
     })
 

@@ -508,12 +508,12 @@ export function TimetablePanel() {
         <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{loadError}</div>
       )}
 
-      {/* The four WAEC series cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      {/* The four WAEC series cards — a swipe strip on mobile, grid on md+ */}
+      <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x snap-mandatory snap-always pb-1 md:mx-0 md:px-0 md:grid md:grid-cols-2 xl:grid-cols-4 md:overflow-visible md:snap-none md:transition-none">
         {cards.map(({ display, windowNote, series: s, isPlaceholder }) => (
           <div
             key={display}
-            className="rounded-2xl border border-[#22263C] bg-[#0E1220] p-4 flex flex-col gap-3 hover:border-indigo-500/40 transition-colors"
+            className="snap-center min-w-[78vw] sm:min-w-[56vw] flex-none md:min-w-0 md:flex-auto rounded-2xl border border-[#22263C] bg-[#0E1220] p-4 flex flex-col gap-2.5 hover:border-indigo-500/40 transition-colors"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">

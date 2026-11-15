@@ -180,7 +180,7 @@ export default function AdminPage() {
   const [centerSearchQuery, setCenterSearchQuery] = useState('')
   const [centerDistrictFilter, setCenterDistrictFilter] = useState('ALL')
 
-  const hasInitializedSelectionRef = useRef(false)
+
   const prevSosCountRef = useRef(0)
 
   const activeTabTitle = useMemo(() => {
@@ -267,13 +267,12 @@ export default function AdminPage() {
           const nextFleet: FleetOfficer[] = fleetData.officers
           setFleetOfficers(nextFleet)
           setSelectedOfficer((prev) => {
-            if (!hasInitializedSelectionRef.current) {
-              hasInitializedSelectionRef.current = true
-              const sos = nextFleet.find((o) => o.status === 'SOS')
-              return sos || nextFleet[0] || null
+            if (prev) {
+              return nextFleet.find((o) => o.id === prev.id) || null
             }
-            if (!prev) return null
-            return nextFleet.find((o) => o.id === prev.id) || null
+            // Do NOT auto-open the officer card — the map is the primary surface.
+            // It opens only when the user taps an officer marker or picks one from a list.
+            return null
           })
         }
 
@@ -1288,6 +1287,7 @@ export default function AdminPage() {
                     snap={sheetSnap}
                     onSnapChange={setSheetSnap}
                     onCallOfficer={handleCallOfficer}
+                    onClose={() => setSelectedOfficer(null)}
                     onViewLogs={(officerId) => {
                       setAuditOfficerFilterId(officerId)
                       setActiveTab('incidents')

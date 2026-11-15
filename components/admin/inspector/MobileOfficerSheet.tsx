@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Phone, Flag, ChevronDown, Clock } from 'lucide-react'
+import { Phone, Flag, ChevronDown, Clock, X } from 'lucide-react'
 import { relativeTime } from '@/components/admin/inspector/OfficerTelematicsDrawer'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
@@ -13,6 +13,7 @@ interface MobileOfficerSheetProps {
   onSnapChange: (snap: SheetSnap) => void
   onCallOfficer: (phone: string) => void
   onViewLogs: (officerId: string) => void
+  onClose: () => void
 }
 
 /**
@@ -26,6 +27,7 @@ export function MobileOfficerSheet({
   onSnapChange,
   onCallOfficer,
   onViewLogs,
+  onClose,
 }: MobileOfficerSheetProps) {
   const isSos = officer.status === 'SOS'
   const isOnSite = officer.status === 'ON_SITE'
@@ -234,7 +236,7 @@ export function MobileOfficerSheet({
 
   return (
     <div
-      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl border-t border-[#22263C] bg-[#0C0F17]/97 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.55)] transition-[height] duration-300 ${snapHeight}`}
+      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl border-t border-[#22263C] bg-[#0C0F17] shadow-[0_-10px_40px_rgba(0,0,0,0.55)] transition-[height] duration-300 ${snapHeight}`}
       role="dialog"
       aria-label={`Details for ${officer.name}`}
     >
@@ -248,16 +250,26 @@ export function MobileOfficerSheet({
         >
           <span className="block h-1 w-12 rounded-full bg-slate-600" />
         </button>
-        {snap !== 'peek' && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {snap !== 'peek' && (
+            <button
+              type="button"
+              onClick={stepDown}
+              aria-label="Collapse panel"
+              className="size-9 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+            >
+              <ChevronDown className="size-5" />
+            </button>
+          )}
           <button
             type="button"
-            onClick={stepDown}
-            aria-label="Collapse panel"
-            className="absolute right-3 top-1/2 -translate-y-1/2 size-9 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+            onClick={onClose}
+            aria-label="Close details"
+            className="size-9 flex items-center justify-center rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
-            <ChevronDown className="size-5" />
+            <X className="size-5" />
           </button>
-        )}
+        </div>
       </div>
 
       {snap === 'peek' && (

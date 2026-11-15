@@ -20,13 +20,41 @@ Identity: WAEC deep navy + slate + a restrained yellow. Yellow is a brand accent
 - Use only `components/ui/*` (shadcn). Need a new primitive? Add it via shadcn, never hand-roll a styled `div` button, card, badge, input, tabs or dialog.
 - No inline hex/rgb/oklch values in components. Use semantic tokens (`bg-card`, `text-muted-foreground`, `text-status-sos`).
 - No arbitrary Tailwind values (`w-[437px]`, `text-[11px]`, `tracking-[0.2em]`) except map and chart sizing.
-- No gradients, glows, glassmorphism, neon borders, or animated backgrounds.
+- No gradients, glows, glassmorphism, neon borders, or animated backgrounds **outside the four auth pages (see §2.0).**
 - No uppercase + letter-spaced labels except the sidebar section label and table headers (`text-xs uppercase tracking-wide`).
 - No all-monospace UI. Mono is for data only (section 4).
 - No bracketed text tags like `[ON-SITE 07:54 GMT]`. Use `StatusBadge`.
 - No emoji in the UI. Icons are lucide, 16px (`size-4`) default, 20px max.
 - One border radius family: `--radius` (0.625rem). Cards `rounded-lg`, controls `rounded-md`, pills `rounded-full`.
 - Spacing on a 4px grid only (`p-2/3/4/6`, `gap-2/3/4/6`).
+
+## 2.0 Glass is page-specific, never ambient
+
+The frosted-glass style (translucent cards over the navy→violet gradient,
+`backdrop-filter` blur) is allowed ONLY on:
+
+- `/login`
+- `/request-access`
+- `/forgot-password`
+- `/choose-pin`
+
+Every other screen uses **solid surfaces** — no `backdrop-filter`, no gradient
+behind content, no ambient blur. Small blur is allowed only on floating map
+chips and modal backdrops, and only behind a
+`prefers-reduced-transparency` / no-support fallback to a solid colour.
+Auth screens may set `backdrop-filter` and gradients freely, but never leak
+them into shared components consumed by the rest of the console.
+
+### 2.1 Shared tokens for every non-auth screen
+
+Everything aligns to ONE family — not restyled, just aligned:
+
+- Navy surfaces (`bg-card` / `#0E1220` family), one blue primary: **`#3b57f0`**.
+  Yellow (`#F6D300` / `--brand`) is WAEC brand only — never a primary action.
+- Inter only. 12–16 px border radius. 44–48 px touch targets on buttons and rows.
+- Plain-language wording everywhere. No technical terms on screen.
+- If auth pages need a blur, keep it small and behind a solid fallback —
+  never on content heavy scroll containers.
 
 ## 3. Colour tokens
 
@@ -43,7 +71,7 @@ Neutral scale (navy-tinted, hue 265):
 | `--border` | `oklch(1 0 0 / 9%)` | All dividers and outlines |
 | `--foreground` | `oklch(0.96 0.01 265)` | Primary text |
 | `--muted-foreground` | `oklch(0.70 0.02 265)` | Secondary text (AA on card) |
-| `--primary` | `oklch(0.62 0.17 265)` | Selected nav, primary button, focus ring |
+| `--primary` | `#3b57f0` (oklch-minted equivalents may be used) | Selected nav, primary button, focus ring — the only blue used for interaction |
 | `--brand` | `oklch(0.84 0.16 90)` | WAEC yellow: logo mark and one header accent only |
 
 Status tokens (add to `@theme inline`, expose as `bg-status-*`, `text-status-*`):
