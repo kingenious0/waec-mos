@@ -475,8 +475,8 @@ export function TimetablePanel() {
             Examination timetable
           </h2>
           <p className="text-[12px] text-muted-foreground mt-1">
-            What each monitored centre is writing on every exam day. Import an official WAEC timetable and officers
-            resolve their papers automatically on the day.
+            What each monitored centre writes on every exam day. Import a timetable, then deploy who covers each
+            centre — officers resolve their paper automatically on the day.
           </p>
         </div>
         <button
@@ -598,14 +598,16 @@ export function TimetablePanel() {
 
       {/* Papers view — only when a series is open */}
       {activeSeries && (
-        <div className="rounded-2xl border border-[#22263C] bg-[#0E1220] overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-4 border-b border-[#22263C]">
-            <div>
-              <h3 className="text-sm font-bold text-white">{activeSeries.name}</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {papers.length} papers · {pendingCouncil} awaiting times from WAEC
-              </p>
-            </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+          {/* Papers list — left column on desktop, below the deployment panel on mobile */}
+          <div className="order-2 xl:order-1 xl:col-span-2 rounded-2xl border border-[#22263C] bg-[#0E1220] overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-4 border-b border-[#22263C]">
+              <div>
+                <h3 className="text-sm font-bold text-white">{activeSeries.name}</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {papers.length} papers · {pendingCouncil} awaiting times from WAEC
+                </p>
+              </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -634,8 +636,8 @@ export function TimetablePanel() {
           ) : (
             <div className="max-h-[560px] overflow-y-auto divide-y divide-[#1A1E32]">
               {papersByDate.map(([date, rows]) => (
-                <div key={date} className="px-4 sm:px-5 py-3">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#F6D300] mb-2">{formatDate(date)}</div>
+                <div key={date} className="px-4 sm:px-5 py-3 bg-indigo-500/[0.03]">
+                  <div className="mb-2 pl-2 border-l-2 border-[#F6D300]/60 text-[11px] font-bold uppercase tracking-wider text-[#F6D300]">{formatDate(date)}</div>
                   <div className="space-y-1.5">
                     {rows.map((p) =>
                       editingRow === p.id ? (
@@ -656,7 +658,7 @@ export function TimetablePanel() {
                           <input value={draft.paperName || ''} onChange={(e) => setDraft((d) => ({ ...d, paperName: e.target.value }))} className="col-span-2 sm:col-span-6 rounded-lg border border-[#22263C] bg-[#0E1220] px-2 py-1.5 text-[11px] text-white" />
                         </div>
                       ) : (
-                        <div key={p.id} className="flex items-center gap-2 sm:gap-3 rounded-xl border border-transparent hover:border-[#22263C] hover:bg-[#0A0D17] px-2 py-1.5 group transition">
+                        <div key={p.id} className="flex items-center gap-2 sm:gap-3 rounded-xl border border-transparent hover:border-[#22263C] hover:bg-[#0A0D17] px-2 py-2 group transition">
                           <span className={`text-[9px] sm:text-[10px] font-mono border rounded-full px-2 py-0.5 shrink-0 ${SLOT_STYLE[p.sessionSlot]}`}>{slotLabel(p.sessionSlot)}</span>
                           <span className="font-mono text-[10px] sm:text-[11px] text-slate-500 w-16 sm:w-20 shrink-0 truncate">{p.paperCode || '—'}</span>
                           <span className="text-[11px] sm:text-xs text-slate-200 flex-1 min-w-0 truncate" title={p.paperName}>
@@ -679,70 +681,95 @@ export function TimetablePanel() {
               {papersByDate.length === 0 && <div className="py-12 text-center text-xs text-slate-500">No papers in this series yet — import the official timetable.</div>}
             </div>
           )}
-        </div>
-      )}
+          </div>
 
-      {/* Officer deployment board for the open series */}
-      {activeSeries && (
-        <div className="rounded-2xl border border-[#22263C] bg-[#0E1220] p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
+          {/* Deploy who covers each centre — first on mobile, sticky side panel on desktop */}
+          <div className="order-1 xl:order-2 xl:col-span-1 xl:sticky xl:top-5 rounded-2xl border border-[#22263C] bg-[#0E1220] p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3 mb-1.5">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <UserCheck className="size-4 text-[#F6D300]" />
-                Who is deployed for this series
+                Who covers which centre
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Anchor an officer to a centre for the whole series, or assign a one-day override.</p>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300">
+                {deployments.length} assigned
+              </span>
             </div>
-          </div>
+            <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+              Officers see their paper automatically from this. <span className="text-slate-400">Whole series</span> = same
+              centre every day; <span className="text-slate-400">one day</span> = override for a single sitting (relief).
+            </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 mb-3">
-            <select value={deployOfficerId} onChange={(e) => setDeployOfficerId(e.target.value)} className="sm:col-span-3 rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2 text-xs text-white">
-              <option value="">Pick officer…</option>
-              {officers.map((o) => (
-                <option key={o.id} value={o.id}>{o.name}{o.staffId ? ` (${o.staffId})` : ''}</option>
-              ))}
-            </select>
-            <select value={deployCenterId} onChange={(e) => setDeployCenterId(e.target.value)} className="sm:col-span-3 rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2 text-xs text-white">
-              <option value="">Pick centre…</option>
-              {centers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-              ))}
-            </select>
-            <select value={deployScope} onChange={(e) => setDeployScope(e.target.value as any)} className="sm:col-span-2 rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2 text-xs text-white">
-              <option value="anchor">Whole series</option>
-              <option value="day">One day</option>
-            </select>
-            {deployScope === 'day' ? (
-              <input type="date" value={deployDate} onChange={(e) => setDeployDate(e.target.value)} className="sm:col-span-2 rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2 text-xs text-white" />
-            ) : (
-              <select value={deployRole} onChange={(e) => setDeployRole(e.target.value)} className="sm:col-span-2 rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2 text-xs text-white">
-                <option value="MONITOR">Monitor</option>
-                <option value="GROUP_LEADER">Group leader</option>
-                <option value="RELIEF">Relief</option>
-              </select>
-            )}
-            <button type="button" onClick={deployOfficer} disabled={deployBusy} className="sm:col-span-2 rounded-lg bg-[#1E2B7B] hover:bg-[#273a9c] disabled:opacity-60 px-3 py-2 text-xs font-semibold text-white transition cursor-pointer">
-              {deployBusy ? 'Saving…' : 'Deploy'}
-            </button>
-          </div>
+            <div className="space-y-2 mb-3">
+              <label className="block">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Officer</span>
+                <select value={deployOfficerId} onChange={(e) => setDeployOfficerId(e.target.value)} className="w-full rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white">
+                  <option value="">Choose officer…</option>
+                  {officers.map((o) => (
+                    <option key={o.id} value={o.id}>{o.name}{o.staffId ? ` (${o.staffId})` : ''}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Centre</span>
+                <select value={deployCenterId} onChange={(e) => setDeployCenterId(e.target.value)} className="w-full rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white">
+                  <option value="">Choose centre…</option>
+                  {centers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Coverage</span>
+                  <select value={deployScope} onChange={(e) => setDeployScope(e.target.value as any)} className="w-full rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white">
+                    <option value="anchor">Whole series</option>
+                    <option value="day">One day</option>
+                  </select>
+                </label>
+                {deployScope === 'day' ? (
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Day</span>
+                    <input type="date" value={deployDate} onChange={(e) => setDeployDate(e.target.value)} className="w-full rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white" />
+                  </label>
+                ) : (
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1 block">Role</span>
+                    <select value={deployRole} onChange={(e) => setDeployRole(e.target.value)} className="w-full rounded-lg border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white">
+                      <option value="MONITOR">Monitor</option>
+                      <option value="GROUP_LEADER">Group leader</option>
+                      <option value="RELIEF">Relief</option>
+                    </select>
+                  </label>
+                )}
+              </div>
+              <button type="button" onClick={deployOfficer} disabled={deployBusy || !deployOfficerId || !deployCenterId} className="w-full rounded-lg bg-[#1E2B7B] hover:bg-[#273a9c] disabled:opacity-50 disabled:cursor-not-allowed px-3 py-3 text-xs font-bold text-white transition cursor-pointer">
+                {deployBusy ? 'Saving…' : 'Deploy to centre'}
+              </button>
+            </div>
 
-          <div className="max-h-52 overflow-y-auto divide-y divide-[#1A1E32]">
-            {deployments.length === 0 ? (
-              <div className="py-6 text-center text-[11px] text-slate-500">No deployments yet for this series.</div>
-            ) : (
-              deployments.map((d) => (
-                <div key={d.id} className="flex items-center gap-3 py-2 px-1">
-                  <span className="text-xs font-medium text-slate-200 flex-1 min-w-0 truncate">{d.officerName}</span>
-                  <span className="text-[10px] font-mono text-slate-500 truncate max-w-[40%]">{d.centerName}</span>
-                  <span className="text-[10px] font-mono text-slate-500 shrink-0 w-24 text-right">
-                    {d.deploymentDate ? formatDate(d.deploymentDate).replace(/,.*$/, '') : 'Whole series'} · {d.shiftRole === 'GROUP_LEADER' ? 'GL' : d.shiftRole === 'RELIEF' ? 'Relief' : 'Mon'}
-                  </span>
-                  <button type="button" onClick={() => removeDeployment(d.id)} className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400" aria-label="Remove deployment">
-                    <Trash2 className="size-3.5" />
-                  </button>
+            <div className="border-t border-[#1A1E32] pt-3 max-h-64 overflow-y-auto divide-y divide-[#1A1E32]">
+              {deployments.length === 0 ? (
+                <div className="py-6 text-center text-[11px] text-slate-500 leading-relaxed">
+                  No one deployed yet.<br />
+                  <span className="text-slate-600">Pick an officer and a centre, then tap Deploy — officers will see their paper on their phones.</span>
                 </div>
-              ))
-            )}
+              ) : (
+                deployments.map((d) => (
+                  <div key={d.id} className="py-2.5 flex items-center gap-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-100 truncate">{d.officerName}</p>
+                      <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                        {d.centerName} · {d.deploymentDate ? formatDate(d.deploymentDate).replace(/,.*$/, '') : 'Whole series'} ·{' '}
+                        {d.shiftRole === 'GROUP_LEADER' ? 'Group leader' : d.shiftRole === 'RELIEF' ? 'Relief' : 'Monitor'}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => removeDeployment(d.id)} className="p-2 rounded-lg text-slate-500 hover:text-rose-400 transition" aria-label={`Remove ${d.officerName} from ${d.centerName}`}>
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
