@@ -34,7 +34,7 @@ export function MobileBottomNav({
     },
     {
       id: 'directory' as const,
-      label: 'Directory',
+      label: 'Officers',
       icon: Users,
     },
     {

@@ -127,7 +127,7 @@ export function AdminTopNav({
             <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search fleet, zones..."
+              placeholder="Search officers, centres, incidents"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full bg-[#111420] border border-border/80 rounded-lg pl-8.5 pr-8 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:border-brand/50 transition-colors"

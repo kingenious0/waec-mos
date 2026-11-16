@@ -31,7 +31,7 @@ interface MobileOfficerCardProps {
 }
 
 /**
- * Compact officer card for the mobile Monitor Directory (< lg).
+ * Compact officer card for the mobile Officers page (< lg).
  * Avatar, two-line name, formatted phone + group, status/leader/no-centre
  * tags. PIN is never shown — controller resets it via the ⋯ menu.
  */
@@ -97,7 +97,7 @@ export function MobileOfficerCard({
                   isActive ? 'bg-emerald-400' : 'bg-rose-400'
                 }`}
               />
-              {isActive ? 'Active' : 'Blocked'}
+              {isActive ? 'Account active' : 'Blocked'}
             </span>
             {isLeader && (
               <span className="inline-flex items-center gap-1 rounded-full border border-[#22263C] bg-[#121629] px-2 py-0.5 text-[11px] font-semibold text-slate-300 whitespace-nowrap">
@@ -144,7 +144,7 @@ export function MobileOfficerCard({
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
             >
               <KeyRound className="size-4 shrink-0 text-slate-400" />
-              Reset PIN
+              Give new PIN
             </button>
             <button
               type="button"

@@ -39,6 +39,7 @@ import {
   Trash2,
   Filter,
   RefreshCw,
+  MoreVertical,
 } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
@@ -176,7 +177,9 @@ export default function AdminPage() {
   const [showLogIncidentModal, setShowLogIncidentModal] = useState(false)
   const [centerToDelete, setCenterToDelete] = useState<ExamCenter | null>(null)
   const [officerToDelete, setOfficerToDelete] = useState<UserAccount | null>(null)
+  const [openActionsOfficerId, setOpenActionsOfficerId] = useState<string | null>(null)
   const [revokingOfficer, setRevokingOfficer] = useState<UserAccount | null>(null)
+  const [undoBlock, setUndoBlock] = useState<UserAccount | null>(null)
   const [isDeletingRecord, setIsDeletingRecord] = useState(false)
   const [centerSearchQuery, setCenterSearchQuery] = useState('')
   const [centerDistrictFilter, setCenterDistrictFilter] = useState('ALL')
@@ -189,7 +192,7 @@ export default function AdminPage() {
       case 'map':
         return 'Live map'
       case 'directory':
-        return 'Monitor Directory'
+        return 'Officers'
       case 'centers':
         return 'Exam Centres'
       case 'incidents':
@@ -559,6 +562,7 @@ export default function AdminPage() {
       if (res.ok) {
         setFeedback(`Security status for ${officer.name} updated to ${newStatus}`)
         loadDashboardData(true)
+        if (newStatus === 'REVOKED') setUndoBlock(officer)
       } else {
         const err = await res.json().catch(() => ({}))
         setFeedback(`Failed to update status: ${err.error || 'Server error'}`)
@@ -567,6 +571,13 @@ export default function AdminPage() {
       setFeedback('Failed to update officer status.')
     }
   }
+
+  // Auto-dismiss the Block undo toast after 6 seconds
+  useEffect(() => {
+    if (!undoBlock) return
+    const t = setTimeout(() => setUndoBlock(null), 6000)
+    return () => clearTimeout(t)
+  }, [undoBlock])
 
   // Block is destructive (it locks the officer out) → requires a confirm.
   // Restoring access is not destructive, so it happens immediately.
@@ -654,10 +665,10 @@ export default function AdminPage() {
       )
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setFeedback(`Failed to delete center: ${data.error || 'Server error'}`)
+        setFeedback(`Failed to delete centre: ${data.error || 'Server error'}`)
         return
       }
-      setFeedback(`Center ${centerToDelete.name} decommissioned successfully`)
+      setFeedback(`Centre ${centerToDelete.name} deleted`)
       setCenterToDelete(null)
       loadDashboardData(true)
     } catch {
@@ -684,7 +695,7 @@ export default function AdminPage() {
         setFeedback(`Failed to delete officer: ${data.error || 'Server error'}`)
         return
       }
-      setFeedback(`Officer ${officerToDelete.name} decommissioned from roster`)
+      setFeedback(`Officer ${officerToDelete.name} deleted`)
       setOfficerToDelete(null)
       loadDashboardData(true)
     } catch {
@@ -1142,7 +1153,7 @@ export default function AdminPage() {
             activeTab === 'map'
               ? 'Live map'
               : activeTab === 'directory'
-              ? 'Directory'
+              ? 'Officers'
               : activeTab === 'centers'
               ? 'Centres'
               : activeTab === 'incidents'
@@ -1201,6 +1212,24 @@ export default function AdminPage() {
           onOpenProfile={() => router.push('/profile')}
           onSignOut={handleSignOut}
         />
+
+        {/* Undo-block toast */}
+        {undoBlock && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-amber-500/40 bg-[#1A150A]/95 px-4 py-2.5 text-xs text-amber-200 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 max-w-[90vw]">
+            <ShieldAlert className="size-4 shrink-0 text-amber-400" />
+            <span className="whitespace-nowrap truncate">{undoBlock.name} blocked</span>
+            <button
+              type="button"
+              onClick={() => {
+                handleToggleStatus(undoBlock)
+                setUndoBlock(null)
+              }}
+              className="shrink-0 rounded-lg border border-amber-500/60 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-extrabold text-amber-100 hover:bg-amber-500/25 transition cursor-pointer min-h-[36px]"
+            >
+              Undo
+            </button>
+          </div>
+        )}
 
         {/* Floating Feedback Toast */}
         {feedback &&
@@ -1424,38 +1453,22 @@ export default function AdminPage() {
             {/* ===== DESKTOP (lg+) — existing console layout ===== */}
             <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 bg-[#090A0F] font-sans">
               <div className="flex flex-col gap-3 pb-3 border-b border-[#22263C]">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="size-9 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] shrink-0">
-                      <Users className="size-4.5" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                        <span>Field Officers Directory</span>
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                          {filteredDirectoryOfficers.length}{' '}
-                          {filteredDirectoryOfficers.length === 1 ? 'officer' : 'officers'}
-                        </span>
-                      </h2>
-                      <p className="text-xs text-slate-400 hidden sm:block">
-                        Manage field personnel, exam center assignments, and login credentials
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-slate-300 max-w-md">
+                    Add officers, assign them to centres, and give new PINs.
+                  </p>
 
                   <button
                     onClick={() => setShowCreateModal(true)}
-                    className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
                   >
                     <UserPlus className="size-3.5 text-white" />
-                    <span>+ Register Officer</span>
+                    <span>Register officer</span>
                   </button>
                 </div>
 
                 {/* Requests — access & PIN reset review */}
-                <div className="mb-4">
-                  <RequestsPanel onChanged={() => loadDashboardData(true)} />
-                </div>
+                <RequestsPanel onChanged={() => loadDashboardData(true)} />
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                   <div className="relative flex-1">
@@ -1464,7 +1477,7 @@ export default function AdminPage() {
                       type="text"
                       value={directorySearch}
                       onChange={(e) => setDirectorySearch(e.target.value)}
-                      placeholder="Search by name, phone, staff ID, or assigned center..."
+                      placeholder="Search by name, phone, staff ID, or assigned centre..."
                       className="w-full rounded-xl border border-[#22263C] bg-[#11131F] py-2 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans"
                     />
                     {directorySearch && (
@@ -1506,21 +1519,8 @@ export default function AdminPage() {
                     return (
                       <div
                         key={officer.id}
-                        className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-[#0E111D] transition-all duration-200 ${
-                          officer.status === 'ACTIVE'
-                            ? 'border-[#22263C] hover:border-emerald-500/40 hover:shadow-[0_18px_45px_-22px_rgba(16,185,129,0.35)]'
-                            : 'border-rose-950/70 hover:border-rose-500/40 hover:shadow-[0_18px_45px_-22px_rgba(244,63,94,0.3)]'
-                        }`}
+                        className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] transition-all duration-200 hover:border-indigo-500/40"
                       >
-                        {/* Status accent strip */}
-                        <div
-                          className={`h-0.5 w-full shrink-0 ${
-                            officer.status === 'ACTIVE'
-                              ? 'bg-gradient-to-r from-emerald-400 via-emerald-500/40 to-transparent'
-                              : 'bg-gradient-to-r from-rose-500 via-rose-500/40 to-transparent'
-                          }`}
-                        />
-
                         <div className="space-y-3.5 p-4">
                           {/* Identity */}
                           <div className="flex items-start gap-3">
@@ -1541,18 +1541,6 @@ export default function AdminPage() {
                                     .slice(0, 2)
                                 )}
                               </div>
-                              <span
-                                className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-[#0E111D] ${
-                                  officer.status === 'ACTIVE'
-                                    ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]'
-                                    : 'bg-rose-400'
-                                }`}
-                              />
-                              {officer.isGroupLeader && (
-                                <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-[#F6D300] text-black shadow">
-                                  <Star className="size-2.5 fill-black" />
-                                </span>
-                              )}
                             </div>
 
                             <div className="min-w-0 flex-1">
@@ -1575,7 +1563,7 @@ export default function AdminPage() {
                                     }`}
                                   />
                                   <span>
-                                    {officer.status === 'ACTIVE' ? 'Active' : 'Blockd'}
+                                    {officer.status === 'ACTIVE' ? 'Account active' : 'Blocked'}
                                   </span>
                                 </span>
                               </div>
@@ -1592,8 +1580,9 @@ export default function AdminPage() {
                                   <span>{formatGhanaPhone(officer.phone)}</span>
                                 </span>
                                 {officer.staffId && (
-                                  <span className="rounded-md border border-[#22263C] bg-[#121626] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-500">
-                                    {officer.staffId}
+                                  <span className="flex items-center gap-1 rounded-md border border-[#22263C] bg-[#121626] px-1.5 py-0.5">
+                                    <span className="text-[9px] font-sans uppercase tracking-wide text-slate-500">Staff ID</span>
+                                    <span className="font-mono text-[10px] font-semibold text-slate-400">{officer.staffId}</span>
                                   </span>
                                 )}
                               </div>
@@ -1606,9 +1595,9 @@ export default function AdminPage() {
                             <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
                               <Building2 className="size-3.5 text-sky-400" />
                             </span>
-                            <span className="shrink-0 font-semibold text-slate-500">Center</span>
+                            <span className="shrink-0 font-semibold text-slate-500">Centre</span>
                             <span
-                              className={`ml-auto truncate text-right font-medium ${
+                              className={`ml-auto text-right font-medium leading-snug line-clamp-2 min-w-0 break-words ${
                                 isOfficerUnassigned(officer) ? 'text-amber-400' : 'text-slate-200'
                               }`}
                               title={isOfficerUnassigned(officer) ? 'No centre yet' : officer.assignedCenter}
@@ -1622,7 +1611,7 @@ export default function AdminPage() {
                               <Users className="size-3.5 text-indigo-400" />
                             </span>
                             <span className="shrink-0 font-semibold text-slate-500">Group</span>
-                            <span className="ml-auto font-bold text-sky-400">
+                            <span className="ml-auto font-semibold text-slate-300">
                               {officer.group || 'Group 1'}
                             </span>
                           </div>
@@ -1631,56 +1620,86 @@ export default function AdminPage() {
                         </div>
 
                         {/* Actions footer */}
-                        <div className="mt-auto grid grid-cols-4 gap-1.5 border-t border-[#1C2237] bg-[#0B0E18] p-3">
-                          <button
-                            type="button"
-                            onClick={() => setInspectedOfficer(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2 px-1 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
-                            title="View & Edit Officer Profile & Assignment"
-                          >
-                            <User className="size-3.5 text-slate-400 shrink-0" />
-                            <span>Profile</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowResetPinModal(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2 px-1 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
-                            title="Reset 4-Digit Field PIN"
-                          >
-                            <KeyRound className="size-3.5 text-[#F6D300] shrink-0" />
-                            <span>PIN</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatusGuarded(officer)}
-                            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-1 text-[11px] font-bold transition cursor-pointer border ${
-                              officer.status === 'ACTIVE'
-                                ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300'
-                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300'
-                            }`}
-                            title={officer.status === 'ACTIVE' ? 'Block access' : 'Unblock access'}
-                          >
-                            {officer.status === 'ACTIVE' ? (
-                              <>
-                                <ShieldAlert className="size-3.5 shrink-0" />
-                                <span>Block</span>
-                              </>
-                            ) : (
-                              <>
-                                <ShieldCheck className="size-3.5 shrink-0" />
-                                <span>Activate</span>
-                              </>
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setOfficerToDelete(officer)}
-                            className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-950/20 py-2 px-1 text-[11px] font-semibold text-rose-400 transition cursor-pointer hover:bg-rose-900/40 hover:text-rose-300"
-                            title="Remove field officer"
-                          >
-                            <Trash2 className="size-3.5 shrink-0" />
-                            <span>Delete</span>
-                          </button>
+                        <div className="mt-auto relative border-t border-[#1C2237] bg-[#0B0E18] p-2.5">
+                          <div className="flex items-stretch gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setInspectedOfficer(officer)}
+                              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2.5 px-2 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
+                              title="View & edit officer profile & assignment"
+                            >
+                              <User className="size-3.5 text-slate-400 shrink-0" />
+                              <span>Profile</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowResetPinModal(officer)}
+                              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2.5 px-2 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
+                              title="Give the officer a new PIN"
+                            >
+                              <KeyRound className="size-3.5 text-[#F6D300] shrink-0" />
+                              <span>Give new PIN</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOpenActionsOfficerId(openActionsOfficerId === officer.id ? null : officer.id)}
+                              className="w-11 flex items-center justify-center rounded-lg border border-[#22263C] bg-[#121626] text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
+                              aria-label="More actions"
+                              aria-expanded={openActionsOfficerId === officer.id}
+                            >
+                              <MoreVertical className="size-4" />
+                            </button>
+                          </div>
+
+                          {/* Overflow menu — Block and Delete live here */}
+                          {openActionsOfficerId === officer.id && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label="Close menu"
+                                className="fixed inset-0 z-30 cursor-default"
+                                onClick={() => setOpenActionsOfficerId(null)}
+                              />
+                              <div className="absolute right-2 bottom-full z-40 mb-1.5 w-52 overflow-hidden rounded-xl border border-[#22263C] bg-[#121629] shadow-2xl py-1 animate-in fade-in slide-in-from-bottom-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionsOfficerId(null)
+                                    handleToggleStatusGuarded(officer)
+                                  }}
+                                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer ${
+                                    officer.status === 'ACTIVE'
+                                      ? 'text-rose-400 hover:bg-rose-500/10'
+                                      : 'text-emerald-400 hover:bg-emerald-500/10'
+                                  }`}
+                                >
+                                  {officer.status === 'ACTIVE' ? (
+                                    <>
+                                      <ShieldAlert className="size-4 shrink-0" />
+                                      <span>Block access</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShieldCheck className="size-4 shrink-0" />
+                                      <span>Activate access</span>
+                                    </>
+                                  )}
+                                </button>
+                                <div className="my-1 border-t border-[#22263C]" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenActionsOfficerId(null)
+                                    setOfficerToDelete(officer)
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                                >
+                                  <Trash2 className="size-4 shrink-0" />
+                                  <span>Delete officer…</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )
@@ -2626,10 +2645,10 @@ export default function AdminPage() {
               </div>
               <div>
                 <h3 id="delete-officer-title" className="text-base font-bold text-white">
-                  Remove field officer
+                  Delete {officerToDelete.name.split(' ')[0]}? This can&apos;t be undone
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Permanently purge credentials and officer record
+                  Permanently remove the officer and their records
                 </p>
               </div>
             </div>
@@ -2642,7 +2661,7 @@ export default function AdminPage() {
                 Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned: {officerToDelete.assignedCenter || 'No centre yet'}
               </p>
               <p className="text-[11px] text-rose-300/90 leading-relaxed pt-1">
-                This will delete the officer account, revoke active login sessions, remove exam center shift assignments, and archive incident audit references. This action is irreversible.
+                This deletes the officer account, signs them out everywhere, removes their centre and shift assignments, and archives incident audit references. This can&apos;t be undone.
               </p>
             </div>
 
@@ -2664,12 +2683,12 @@ export default function AdminPage() {
                 {isDeletingRecord ? (
                   <>
                     <RefreshCw className="size-3.5 animate-spin" />
-                    <span>Removing...</span>
+                    <span>Deleting…</span>
                   </>
                 ) : (
                   <>
                     <Trash2 className="size-3.5" />
-                    <span>Confirm Remove</span>
+                    <span>Delete officer</span>
                   </>
                 )}
               </button>

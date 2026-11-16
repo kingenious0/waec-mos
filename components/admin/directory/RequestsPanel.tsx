@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { formatRelativeTime } from '@/lib/relative-time'
@@ -39,7 +39,7 @@ interface RequestsPanelProps {
 }
 
 /**
- * Directory requests â€” access requests from new volunteers and PIN reset
+ * Directory requests — access requests from new volunteers and PIN reset
  * requests from officers. Command staff approve, decline, or issue a
  * one-time temporary PIN (shown once).
  */
@@ -61,6 +61,7 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
       if (!res.ok) throw new Error(data.error || 'Could not load requests.')
       setAccessRequests((data.accessRequests || []).filter((r: AccessRequest) => r.status === 'PENDING'))
       setPinResetRequests((data.pinResetRequests || []).filter((r: PinResetRequest) => r.status === 'PENDING'))
+      setLastUpdated(new Date())
     } catch (e: any) {
       setError(e?.message || 'Could not load requests.')
     } finally {
@@ -120,11 +121,42 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
-      /* clipboard unavailable â€” controller can still read the PIN */
+      /* clipboard unavailable — controller can still read the PIN */
     }
   }
 
   const pendingTotal = accessRequests.length + pinResetRequests.length
+  const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date())
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 30_000)
+    return () => window.clearInterval(t)
+  }, [])
+  const updatedLabel = formatRelativeTime(lastUpdated.toISOString())
+
+  if (loading) {
+    return (
+      <section aria-label="Requests" className="h-12 flex items-center gap-2.5 rounded-2xl border border-[#22263C] bg-[#0E111D] px-4">
+        <Loader2 className="size-4 animate-spin text-indigo-400" aria-hidden />
+        <span className="text-xs text-slate-400">Loading requests…</span>
+      </section>
+    )
+  }
+
+  if (pendingTotal === 0 && !error) {
+    return (
+      <section aria-label="Requests" className="h-12 flex items-center gap-2.5 rounded-2xl border border-[#22263C] bg-[#0E111D] px-4">
+        <ShieldCheck className="size-4 text-emerald-400/80 shrink-0" aria-hidden />
+        <span className="text-xs font-semibold text-slate-300 truncate">No requests waiting</span>
+        <span className="ml-auto flex items-center gap-2 shrink-0">
+          <span className="text-[10px] text-slate-400 hidden sm:inline">Updated {updatedLabel}</span>
+          <button type="button" onClick={load} aria-label="Refresh requests" title={`Refresh requests — updated ${updatedLabel}`} className="size-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
+            <RefreshCw className="size-3.5" aria-hidden />
+          </button>
+        </span>
+      </section>
+    )
+  }
 
   return (
     <section aria-label="Requests" className="rounded-2xl border border-[#22263C] bg-[#0E111D] overflow-hidden">
@@ -134,40 +166,32 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
             <Inbox className="size-4" aria-hidden />
           </span>
           <div className="min-w-0">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">Requests</h3>
-            <p className="text-[10px] text-slate-500">{loading ? 'Loadingâ€¦' : pendingTotal === 0 ? 'Nothing waiting' : `${pendingTotal} waiting for review`}</p>
+            <h3 className="text-xs font-bold tracking-wider text-slate-300">Requests</h3>
+            <p className="text-[10px] text-slate-400">{pendingTotal} waiting for review</p>
           </div>
         </div>
-        <button type="button" onClick={load} aria-label="Refresh requests" className="size-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
-          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+        <button type="button" onClick={load} aria-label="Refresh requests" title={`Refresh requests — updated ${updatedLabel}`} className="size-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
+          <RefreshCw className="size-4" aria-hidden />
         </button>
       </div>
 
       {error && <div role="alert" className="px-4 py-2 text-[11px] text-rose-300 bg-rose-950/40 border-b border-rose-500/20">{error}</div>}
 
-      {loading ? (
-        <div className="px-4 py-6 flex items-center justify-center"><Loader2 className="size-5 animate-spin text-indigo-400" aria-hidden /></div>
-      ) : pendingTotal === 0 ? (
-        <div className="px-4 py-6 flex flex-col items-center text-center gap-1.5">
-          <ShieldCheck className="size-6 text-emerald-400/70" aria-hidden />
-          <p className="text-xs font-semibold text-slate-300">All clear</p>
-          <p className="text-[10px] text-slate-500">No access or PIN requests waiting right now.</p>
-        </div>
-      ) : (
+      {pendingTotal > 0 ? (
         <div className="max-h-96 overflow-y-auto divide-y divide-[#1C2237]">
           {/* Access requests */}
           {accessRequests.map((r) => (
             <div key={r.id} className="px-4 py-3 flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-white truncate">{r.fullName}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5 truncate">{
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">{
                   (() => {
                     const d = r.phone.replace(/\D/g, '')
                     const national = d.length >= 9 ? '0' + d.slice(-9) : d
-                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')} Â· ${r.staffId}`
+                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')} · ${r.staffId}`
                   })()}
                 </p>
-                <p className="text-[9px] text-slate-600 mt-0.5">{formatRelativeTime(r.createdAt)} Â· needs access approval</p>
+                <p className="text-[9px] text-slate-500 mt-0.5">{formatRelativeTime(r.createdAt)} · needs access approval</p>
               </div>
               <div className="flex flex-col gap-1.5 shrink-0">
                 <button type="button" onClick={() => decide('access', r.id, 'approve')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 disabled:opacity-50 text-[10px] font-bold text-white inline-flex items-center gap-1.5 transition cursor-pointer">
@@ -185,14 +209,14 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
             <div key={r.id} className="px-4 py-3 flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-white truncate">{r.officerName || 'Field officer'}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                <p className="text-[10px] text-slate-400 mt-0.5 truncate">
                   {(() => {
                     const d = (r.officerPhone || '').replace(/\D/g, '')
                     const national = d.length >= 9 ? '0' + d.slice(-9) : d
-                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}${r.staffId ? ` Â· ${r.staffId}` : ''}`
+                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}${r.staffId ? ` · ${r.staffId}` : ''}`
                   })()}
                 </p>
-                <p className="text-[9px] text-slate-600 mt-0.5">{formatRelativeTime(r.createdAt)} Â· needs a new PIN</p>
+                <p className="text-[9px] text-slate-500 mt-0.5">{formatRelativeTime(r.createdAt)} · needs a new PIN</p>
               </div>
               <div className="flex flex-col gap-1.5 shrink-0">
                 <button type="button" onClick={() => decide('pin', r.id, 'issue')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-[10px] font-bold text-white inline-flex items-center gap-1.5 transition cursor-pointer">
@@ -205,7 +229,7 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* One-time temporary PIN modal */}
       {tempPin && (
@@ -217,7 +241,7 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
               </span>
               <div className="min-w-0">
                 <h4 className="text-sm font-bold text-white">Temporary PIN for {tempPin.name}</h4>
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-slate-400 mt-1">
                   Shown once. Expires in 24 hours{tempPin.expiresAt ? ` (${new Date(tempPin.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })})` : ''}. They choose their own PIN at first sign-in.
                 </p>
               </div>

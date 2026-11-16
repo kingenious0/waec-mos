@@ -52,7 +52,7 @@ export function AdminSidebar({
     },
     {
       id: 'directory' as const,
-      label: 'Monitor Directory',
+      label: 'Officers',
       icon: Laptop,
     },
     {
@@ -84,14 +84,6 @@ export function AdminSidebar({
         isCollapsed ? 'w-16' : 'w-60'
       }`}
     >
-      {/* Faint WAEC starburst — brand mark, never competes with content */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/images/waec-logo.png"
-        alt=""
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-20 right-2 w-24 opacity-[0.06] select-none"
-      />
       {/* Sidebar Header */}
       <div className="h-14 border-b border-border/80 px-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 overflow-hidden">
@@ -189,7 +181,7 @@ export function AdminSidebar({
             </div>
             {!isCollapsed && (
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-medium text-foreground truncate">
+                <span className="text-xs font-medium text-foreground truncate" title={adminName}>
                   {adminName}
                 </span>
                 <div className="flex items-center gap-1.5 text-[10px] text-status-ok font-medium">
