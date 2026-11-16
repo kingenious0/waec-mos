@@ -36,6 +36,40 @@ export function joinName(title: string, firstName: string, lastName: string): st
   return [title, firstName, lastName].map((s) => (s || '').trim()).filter(Boolean).join(' ')
 }
 
+/**
+ * One casing rule for every name on screen: "Prof. Kingenious Entsiwah".
+ * ALL-CAPS tokens (the classic shouty surname, e.g. "ENTSIWAH") are title-cased;
+ * mixed-case tokens are left as stored; hyphens and trailing dots handled.
+ */
+export function displayName(full?: string | null): string {
+  if (!full) return ''
+  return full
+    .trim()
+    .split(/\s+/)
+    .map(titleCaseToken)
+    .join(' ')
+}
+
+function titleCaseToken(word: string): string {
+  if (!word) return word
+  return word
+    .split('-')
+    .map((seg) => {
+      const dot = seg.endsWith('.')
+      const core = dot ? seg.slice(0, -1) : seg
+      if (!core) return seg
+      if (core.length > 1 && core === core.toUpperCase() && /[A-Z]/.test(core)) {
+        return core[0].toUpperCase() + core.slice(1).toLowerCase() + (dot ? '.' : '')
+      }
+      if (core === core.toLowerCase() && /^[a-z]/.test(core) && core.length > 2) {
+        // all-lowercase word: capitalise the first letter so the name reads as a name
+        return core[0].toUpperCase() + core.slice(1) + (dot ? '.' : '')
+      }
+      return seg
+    })
+    .join('-')
+}
+
 /** Human-readable role labels used on the profile screen. */
 export function humanizeRole(role?: string): string {
   switch ((role || '').toUpperCase()) {

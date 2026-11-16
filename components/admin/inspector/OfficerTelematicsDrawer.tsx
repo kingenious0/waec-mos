@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React from 'react'
 import { Phone, Clock, Flag, X, Siren, Check } from 'lucide-react'
@@ -73,7 +73,7 @@ export function OfficerTelematicsDrawer({
       }) + ' GMT'
     : null
   const lastPingLine = officer.lastPingAt
-    ? `${formatRelativeTime(officer.lastPingAt)} Â· ${lastPingGmt}`
+    ? `${formatRelativeTime(officer.lastPingAt)} · ${lastPingGmt}`
     : 'Never pinged'
 
   const withinPerimeter = typeof dist === 'number' && dist <= radiusMeters
@@ -98,7 +98,7 @@ export function OfficerTelematicsDrawer({
               <div className="flex items-center gap-2 min-w-0 text-status-sos font-sans font-bold text-[11px] tracking-wide">
                 <Siren className="size-4 shrink-0 animate-pulse" />
                 <span className="truncate">
-                  ACTIVE SOS Â· {officer.sosIncidentNumber || 'DISTRESS'}
+                  ACTIVE SOS · {officer.sosIncidentNumber || 'DISTRESS'}
                 </span>
               </div>
               {sosAcknowledged && (
@@ -133,7 +133,7 @@ export function OfficerTelematicsDrawer({
           </div>
         )}
 
-        {/* Top Officer Header Card â€” single status chip */}
+        {/* Top Officer Header Card — single status chip */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="shrink-0">
@@ -197,7 +197,7 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* Identity line â€” Staff ID lives only in this details panel, never on the map */}
+        {/* Identity line — Staff ID lives only in this details panel, never on the map */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 -mt-1">
           <span>
             Staff ID:{' '}
@@ -369,7 +369,7 @@ export function OfficerTelematicsDrawer({
                         <span className="pl-3 leading-snug">{cp.label}</span>
                       </div>
                       <span className="text-muted-foreground shrink-0 tabular-nums whitespace-nowrap">
-                        {cp.iso ? `${formatRelativeTime(cp.iso)} Â· ` : ''}
+                        {cp.iso ? `${formatRelativeTime(cp.iso)} · ` : ''}
                         {cp.time}
                       </span>
                     </div>

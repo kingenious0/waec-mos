@@ -53,6 +53,14 @@ import { MobileOfficerSheet } from '@/components/admin/inspector/MobileOfficerSh
 import { MobileCenterCard } from '@/components/admin/centers/MobileCenterCard'
 import { formatGhanaPhone } from '@/lib/phone'
 import { isOfficerAtCentre, effectiveRadius } from '@/lib/presence'
+import { displayName } from '@/lib/name-utils'
+import {
+  formatDayTime,
+  formatTimeOnly,
+  dayGroupLabel,
+  formatDurationBetween,
+  formatWaitingSince,
+} from '@/lib/day-time'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 import { SafetyCenter } from '@/components/admin/safety/SafetyCenter'
 import { TimetablePanel } from '@/components/admin/timetable/TimetablePanel'
@@ -115,6 +123,55 @@ interface LiveAuditLogRecord {
   timeFormatted: string
 }
 
+/** Tag colour means something: red = act, amber = look, green = good, grey = routine. */
+type AuditTone = 'crit' | 'warn' | 'ok' | 'muted'
+const AUDIT_ACTION_META: Record<string, { label: string; tone: AuditTone }> = {
+  SOS_TRIGGERED: { label: 'SOS', tone: 'crit' },
+  GEOFENCE_BREACH: { label: 'Breach', tone: 'crit' },
+  USER_REVOKED: { label: 'Access blocked', tone: 'crit' },
+  NEW_DEVICE_SIGNIN: { label: 'New device sign-in', tone: 'warn' },
+  LOW_BATTERY_ALERT: { label: 'Low battery', tone: 'warn' },
+  CHECK_IN_LOGGED: { label: 'Check-in', tone: 'ok' },
+  CHECK_OUT_LOGGED: { label: 'Check-out', tone: 'muted' },
+  SOS_STAND_DOWN: { label: 'SOS stood down', tone: 'ok' },
+  INCIDENT_RESOLVED: { label: 'Incident fixed', tone: 'ok' },
+  INCIDENT_UPDATED: { label: 'Incident updated', tone: 'muted' },
+  USER_RESTORED: { label: 'Access restored', tone: 'ok' },
+  ADMIN_LOGIN: { label: 'Dashboard sign-in', tone: 'muted' },
+  OFFICER_LOGIN: { label: 'Field app sign-in', tone: 'muted' },
+  PASSWORD_ROTATED: { label: 'PIN changed', tone: 'muted' },
+  PROFILE_UPDATED: { label: 'Profile updated', tone: 'muted' },
+}
+function auditActionMeta(action: string): { label: string; tone: AuditTone } {
+  if (AUDIT_ACTION_META[action]) return AUDIT_ACTION_META[action]
+  const label = action.toLowerCase().replace(/_/g, ' ')
+  return { label: label.charAt(0).toUpperCase() + label.slice(1), tone: 'muted' }
+}
+const ATTENTION_ACTIONS = new Set(['SOS_TRIGGERED', 'GEOFENCE_BREACH', 'USER_REVOKED', 'NEW_DEVICE_SIGNIN', 'LOW_BATTERY_ALERT'])
+const CHECKIN_ACTIONS = new Set(['CHECK_IN_LOGGED', 'CHECK_OUT_LOGGED'])
+const SIGNIN_ACTIONS = new Set(['ADMIN_LOGIN', 'OFFICER_LOGIN', 'NEW_DEVICE_SIGNIN'])
+type ActivityFilter = 'attention' | 'all' | 'checkins' | 'signins'
+
+/** Renders the one-line summary for an audit row. */
+function auditMessage(log: LiveAuditLogRecord): string {
+  const actor = displayName(log.actorName)
+  if (log.action === 'CHECK_IN_LOGGED' && typeof log.details?.distanceMeters === 'number') {
+    const center = log.details?.centerName || 'the assigned centre'
+    return `${actor} checked in at ${center} · ${Math.round(log.details.distanceMeters)} m`
+  }
+  const raw = typeof log.details?.message === 'string' ? (log.details.message as string) : ''
+  if (raw) {
+    let msg = raw
+      .replace(/Command Console/g, 'the dashboard')
+      .replace(/field portal/gi, 'the field app')
+    if (log.actorName && msg.startsWith(log.actorName)) {
+      msg = actor + msg.slice(log.actorName.length)
+    }
+    return msg
+  }
+  return `${actor} — ${auditActionMeta(log.action).label}`
+}
+
 export default function AdminPage() {
   const router = useRouter()
   const [session, setSession] = useState<SessionData | null>(null)
@@ -150,7 +207,6 @@ export default function AdminPage() {
     lng: number
     zoom?: number
   } | null>(null)
-  const [patrolDispatchedIds, setPatrolDispatchedIds] = useState<Record<string, boolean>>({})
   const [rosterSearch, setRosterSearch] = useState('')
   const [directorySearch, setDirectorySearch] = useState('')
   const [directoryFilter, setDirectoryFilter] = useState<
@@ -158,6 +214,7 @@ export default function AdminPage() {
   >('all')
   const [incidentFilter, setIncidentFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL')
   const [showAllActivity, setShowAllActivity] = useState(false)
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('attention')
   const [auditOfficerFilterId, setAuditOfficerFilterId] = useState<string | null>(null)
 
   // Responsive Layout & Feedback
@@ -507,11 +564,28 @@ export default function AdminPage() {
     setFeedback(`Showing ${center.name} on the live map`)
   }
 
-  const handleDispatchPatrol = (incidentId: string) => {
-    setPatrolDispatchedIds((prev) => ({ ...prev, [incidentId]: true }))
-    setFeedback('EMERGENCY PATROL DISPATCHED! Dialing Police Command 191...')
-    if (typeof window !== 'undefined') {
-      window.open('tel:191')
+  /** "It was them" / "Block account" for a new-device sign-in row. */
+  const handleSecurityReview = async (log: LiveAuditLogRecord, action: 'it_was_me' | 'block') => {
+    const name = displayName(log.actorName)
+    if (!log.actorId) {
+      setFeedback('No account is linked to this sign-in.')
+      return
+    }
+    if (action === 'block' && !window.confirm(`Block ${name}'s account? They will be signed out everywhere and can't sign back in.`)) {
+      return
+    }
+    try {
+      const res = await fetch('/api/security/oddities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action, targetUserId: log.actorId }),
+      })
+      if (!res.ok) throw new Error()
+      setFeedback(action === 'block' ? `${name}'s account blocked.` : 'Marked as expected.')
+      loadDashboardData(true)
+    } catch {
+      setFeedback('Could not update. Try again.')
     }
   }
 
@@ -857,16 +931,23 @@ export default function AdminPage() {
     return list
   }, [filteredDirectoryOfficers, directoryFilter])
 
+  const isIncidentOpen = (inc: LiveIncidentRecord) =>
+    !['RESOLVED', 'CLOSED'].includes(inc.status)
+
   const filteredIncidents = useMemo(() => {
-    return incidents.filter((inc) => {
-      if (incidentFilter === 'OPEN') {
-        return !['RESOLVED', 'CLOSED'].includes(inc.status)
-      }
-      if (incidentFilter === 'RESOLVED') {
-        return ['RESOLVED', 'CLOSED'].includes(inc.status)
-      }
+    const list = incidents.filter((inc) => {
+      if (incidentFilter === 'OPEN') return isIncidentOpen(inc)
+      if (incidentFilter === 'RESOLVED') return !isIncidentOpen(inc)
       return true
     })
+    // Open first, then resolved — newest first within each group.
+    const open = list
+      .filter(isIncidentOpen)
+      .sort((a, b) => (Date.parse(b.reportedAt || '') || 0) - (Date.parse(a.reportedAt || '') || 0))
+    const done = list
+      .filter((inc) => !isIncidentOpen(inc))
+      .sort((a, b) => (Date.parse(b.reportedAt || '') || 0) - (Date.parse(a.reportedAt || '') || 0))
+    return [...open, ...done]
   }, [incidents, incidentFilter])
 
   const filteredAuditLogs = useMemo(() => {
@@ -875,6 +956,32 @@ export default function AdminPage() {
       (log) => log.actorId === auditOfficerFilterId || log.entityId === auditOfficerFilterId
     )
   }, [auditLogs, auditOfficerFilterId])
+
+  const activityFiltered = useMemo(() => {
+    switch (activityFilter) {
+      case 'attention':
+        return filteredAuditLogs.filter((l) => ATTENTION_ACTIONS.has(l.action))
+      case 'checkins':
+        return filteredAuditLogs.filter((l) => CHECKIN_ACTIONS.has(l.action))
+      case 'signins':
+        return filteredAuditLogs.filter((l) => SIGNIN_ACTIONS.has(l.action))
+      default:
+        return filteredAuditLogs
+    }
+  }, [filteredAuditLogs, activityFilter])
+
+  /** Activity rows grouped by day, capped at 8 unless "Show full history" is on. */
+  const groupedAuditLogs = useMemo(() => {
+    const rows = showAllActivity ? activityFiltered : activityFiltered.slice(0, 8)
+    const groups: Array<{ label: string; rows: LiveAuditLogRecord[] }> = []
+    for (const log of rows) {
+      const label = dayGroupLabel(log.createdAt)
+      const last = groups[groups.length - 1]
+      if (last && last.label === label) last.rows.push(log)
+      else groups.push({ label, rows: [log] })
+    }
+    return groups
+  }, [activityFiltered, showAllActivity])
 
   const adminDisplayName = session?.name || 'Regional Command'
 
@@ -889,234 +996,336 @@ export default function AdminPage() {
 
 
   // --- Incident blocks shared by the mobile + desktop layouts (defined once) ---
-  const criticalSosCards = (
-    <>
-{/* Active Critical SOS Incident Cards */}
-              {criticalSosIncidents.length > 0 && (
-                <div className="space-y-3">
-                  {criticalSosIncidents.map((inc) => (
-                    <div
-                      key={inc.id}
-                      className="rounded-2xl border border-[#EF4444]/80 bg-gradient-to-br from-rose-950/40 via-[#14121F] to-[#0C0F17] p-4 sm:p-5 space-y-4 shadow-2xl"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="size-11 rounded-xl bg-[#EF4444] text-white flex items-center justify-center shadow-lg shadow-rose-950 shrink-0">
-                            <AlertTriangle className="size-6 animate-pulse" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-[#EF4444] px-2.5 py-0.5 text-[10px] font-black text-white tracking-wider">
-                                CRITICAL SOS
-                              </span>
-                              <span className="text-xs font-sans text-rose-300 font-semibold">
-                                {inc.incidentNumber}
-                              </span>
-                            </div>
-                            <h3 className="font-bold text-base sm:text-lg text-white mt-0.5">
-                              {inc.reporterName} — {inc.centerName}
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            onClick={() => handleFocusIncidentLocation(inc)}
-                            className="px-3 py-2 rounded-xl bg-[#11131F] hover:bg-[#1A1F36] border border-[#22263C] text-xs font-bold text-slate-200 transition cursor-pointer"
-                          >
-                            Focus on Map
-                          </button>
-                          <button
-                            onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
-                            className="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-xs font-bold text-emerald-300 transition cursor-pointer"
-                          >
-                            Resolve Alert
-                          </button>
-                          <button
-                            onClick={() => handleDispatchPatrol(inc.id)}
-                            className="px-3.5 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer"
-                          >
-                            <Phone className="size-3.5" />
-                            <span>
-                              {patrolDispatchedIds[inc.id]
-                                ? 'Dispatched (191)'
-                                : 'Call Emergency (191)'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-[#0A0D17]/90 border border-[#22263C] text-xs text-slate-200">
-                        <span className="text-slate-400 font-semibold">Incident Report: </span>
-                        <span>{inc.description}</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-slate-300">
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Device Battery
-                          </span>
-                          <div className="text-[#EF4444] font-bold text-sm mt-0.5 flex items-center gap-1">
-                            <Battery className="size-3.5" />
-                            <span>
-                              {typeof inc.reporterBattery === 'number'
-                                ? `${inc.reporterBattery}%`
-                                : '--%'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Contact Phone
-                          </span>
-                          <div className="text-white font-sans font-bold text-sm mt-0.5">
-                            {inc.reporterPhone || 'N/A'}
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Reported Time
-                          </span>
-                          <div className="text-white font-sans font-bold text-sm mt-0.5">
-                            {inc.reportedTimeFormatted || 'Just now'}
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-xl bg-[#0A0D17]/80 border border-[#22263C]">
-                          <span className="text-slate-400 block text-[11px] font-medium">
-                            Center Proximity
-                          </span>
-                          <div className="text-emerald-400 font-bold text-sm mt-0.5">
-                            {typeof inc.reporterDistance === 'number'
-                              ? inc.reporterDistance >= 1000
-                                ? `${(inc.reporterDistance / 1000).toFixed(1)} km`
-                                : `${inc.reporterDistance} m`
-                              : 'No location yet'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-    </>
-  )
-
+  // --- Incident list shared by the mobile + desktop layouts (defined once) ---
+  // Open first, then resolved — newest first. Open cards carry actions.
   const recordedIncidentsBlock = (
-    <>
-{/* All Incidents Workflow Table / List */}
-              <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
-                    Recorded Incidents ({filteredIncidents.length})
-                  </h3>
+    <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3 shadow-md">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h3 className="font-bold text-xs text-slate-300 tracking-wider">
+          Incidents <span className="text-slate-500 font-semibold">({filteredIncidents.length})</span>
+        </h3>
 
-                  <div className="flex items-center gap-1.5 text-[11px]">
-                    {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setIncidentFilter(tab)}
-                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
-                          incidentFilter === tab
-                            ? 'bg-[#1E2B7B] text-white border border-sky-400/30'
-                            : 'text-slate-400 hover:text-white bg-[#0A0D17]'
-                        }`}
-                      >
-                        {tab === 'ALL'
-                          ? `All (${incidents.length})`
-                          : tab === 'OPEN'
-                          ? `Open (${unresolvedIncidents.length})`
-                          : `Resolved (${incidents.length - unresolvedIncidents.length})`}
-                      </button>
-                    ))}
-                  </div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => {
+            const openCount = unresolvedIncidents.length
+            const resolvedCount = incidents.length - unresolvedIncidents.length
+            const active = incidentFilter === tab
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setIncidentFilter(tab)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                  active
+                    ? 'bg-[#1E2B7B] text-white border border-indigo-400/40'
+                    : 'text-slate-400 hover:text-white bg-[#0A0D17]'
+                }`}
+              >
+                {tab === 'ALL'
+                  ? `All (${incidents.length})`
+                  : tab === 'OPEN'
+                  ? `Open (${openCount})`
+                  : `Resolved (${resolvedCount})`}
+                {tab === 'OPEN' && openCount > 0 && (
+                  <span className="size-1.5 rounded-full bg-rose-500" aria-hidden />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {filteredIncidents.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+          {incidentFilter === 'OPEN' ? 'No open incidents right now.' : 'Nothing recorded in this view yet.'}
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {filteredIncidents.map((inc) => {
+            const isClosed = !isIncidentOpen(inc)
+            const isSos = inc.severity === 'CRITICAL' || inc.category === 'SOS'
+            const isAck = inc.status === 'ACKNOWLEDGED'
+            const reporter = displayName(inc.reporterName)
+            const fixedLog = auditLogs.find(
+              (l) => l.action === 'INCIDENT_RESOLVED' && l.entityId === inc.id
+            )
+            // Auto-written status notes ("Cleared by X" / "Status transitioned to …")
+            // duplicate the footer — only surface notes a person actually wrote.
+            const noteRaw = (inc.resolutionNotes || '').trim()
+            const note = noteRaw && !/^(Status transitioned to|Cleared by)/i.test(noteRaw) ? noteRaw : null
+            const fixedBy = fixedLog ? displayName(fixedLog.actorName) : null
+            const fixedIn = formatDurationBetween(inc.reportedAt, inc.resolvedAt)
+            const waiting = formatWaitingSince(inc.reportedAt)
+            const distanceKm =
+              typeof inc.reporterDistance === 'number' ? inc.reporterDistance : null
+            const distanceText =
+              distanceKm === null
+                ? null
+                : distanceKm >= 1000
+                ? `${(distanceKm / 1000).toFixed(1)} km`
+                : `${Math.round(distanceKm)} m`
+
+            return (
+              <div
+                key={inc.id}
+                className={`rounded-xl bg-[#0C0F1D] border border-l-4 p-4 space-y-2 ${
+                  isClosed
+                    ? 'border-[#22263C] border-l-[#22263C]'
+                    : isSos
+                    ? 'border-rose-500/40 border-l-rose-500'
+                    : 'border-amber-500/30 border-l-amber-500/70'
+                }`}
+              >
+                {/* Tag + reference + when */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      isSos
+                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                        : inc.severity === 'HIGH'
+                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        : 'bg-slate-500/10 text-slate-400 border-[#22263C]'
+                    }`}
+                  >
+                    {isSos ? 'SOS' : inc.severity.charAt(0).toUpperCase() + inc.severity.slice(1).toLowerCase()}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Reference {inc.incidentNumber}
+                  </span>
+                  <span className="text-[11px] text-slate-500 tabular-nums">
+                    {formatDayTime(inc.reportedAt)}
+                  </span>
                 </div>
 
-                {filteredIncidents.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
-                    No incidents recorded in this filter view.
-                  </div>
+                {/* Title + centre */}
+                <h4 className="text-sm font-bold text-white leading-snug">
+                  {isSos
+                    ? `SOS from ${reporter}`
+                    : inc.title?.trim() || `Incident at ${inc.centerName}`}
+                </h4>
+                <p className="text-xs text-slate-300">{inc.centerName}</p>
+
+                {/* Footer line */}
+                {isClosed ? (
+                  <p className="text-[11px] text-slate-400">
+                    {fixedBy ? (
+                      <>
+                        Fixed by <span className="text-slate-200">{fixedBy}</span> ·{' '}
+                      </>
+                    ) : null}
+                    {formatDayTime(inc.resolvedAt)}
+                    {fixedIn ? (
+                      <>
+                        {' '}
+                        · <span className="text-emerald-400 font-semibold">Fixed in {fixedIn}</span>
+                      </>
+                    ) : null}
+                  </p>
                 ) : (
-                  <div className="space-y-2.5">
-                    {filteredIncidents.map((inc) => {
-                      const isClosed = ['RESOLVED', 'CLOSED'].includes(inc.status)
-                      return (
-                        <div
-                          key={inc.id}
-                          className="rounded-xl bg-[#0C0F1D] border border-[#22263C] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  <p className="text-[11px] font-semibold text-rose-400">
+                    {isAck ? 'On it' : 'Open'} · waiting for {waiting}
+                  </p>
+                )}
+
+                {/* Note — only when a person actually wrote one */}
+                {note ? (
+                  <p className="text-[11px] text-slate-400 border-t border-[#1E243A] pt-2 leading-snug">
+                    Note: {note}
+                  </p>
+                ) : null}
+
+                {/* Actions — open cards only */}
+                {!isClosed && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {inc.status === 'REPORTED' && (
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateIncidentStatus(inc.id, 'ACKNOWLEDGED')}
+                        className="px-3 py-2 rounded-xl border border-indigo-400/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-200 text-xs font-semibold transition cursor-pointer min-h-[40px]"
+                      >
+                        I&apos;m on it
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
+                      className="px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 text-xs font-semibold transition cursor-pointer min-h-[40px]"
+                    >
+                      Problem fixed
+                    </button>
+                    {isSos && (
+                      <>
+                        <a
+                          href="tel:191"
+                          className="px-3 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer min-h-[40px]"
                         >
-                          <div className="space-y-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  inc.severity === 'CRITICAL'
-                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                    : inc.severity === 'HIGH'
-                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                    : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
-                                }`}
-                              >
-                                {inc.severity} · {inc.category}
-                              </span>
-                              <span className="font-mono text-[11px] text-slate-400">
-                                {inc.incidentNumber}
-                              </span>
-                              <span className="text-slate-500">•</span>
-                              <span className="text-slate-400">
-                                {inc.reportedTimeFormatted}
-                              </span>
-                            </div>
-                            <div className="font-bold text-white text-sm">{inc.title}</div>
-                            <div className="text-slate-300">{inc.description}</div>
-                            <div className="text-[11px] text-slate-400">
-                              Centre: <span className="text-slate-200">{inc.centerName}</span> ·
-                              Reported by:{' '}
-                              <span className="text-slate-200">{inc.reporterName}</span>
-                              {inc.resolutionNotes ? ` · Note: ${inc.resolutionNotes}` : ''}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                isClosed
-                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                              }`}
-                            >
-                              {inc.status}
-                            </span>
-
-                            {!isClosed && inc.status === 'REPORTED' && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleUpdateIncidentStatus(inc.id, 'INVESTIGATING')
-                                }
-                                className="px-2.5 py-1.5 rounded-lg bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-sky-300 font-semibold transition cursor-pointer"
-                              >
-                                Investigate
-                              </button>
-                            )}
-                            {!isClosed && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
-                                className="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-semibold transition cursor-pointer"
-                              >
-                                Resolve
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
+                          <Phone className="size-3.5" />
+                          <span>Call 191</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleFocusIncidentLocation(inc)}
+                          className="px-3 py-2 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-slate-200 hover:text-white text-xs font-semibold transition cursor-pointer min-h-[40px]"
+                        >
+                          Show on map
+                        </button>
+                      </>
+                    )}
+                    {isSos && (
+                      <span className="flex items-center gap-3 text-[10px] text-slate-500 sm:ml-auto">
+                        {typeof inc.reporterBattery === 'number' && (
+                          <span className="tabular-nums">Battery {inc.reporterBattery}%</span>
+                        )}
+                        {distanceText && <span className="tabular-nums">{distanceText}</span>}
+                        {inc.reporterPhone && <span className="tabular-nums">{inc.reporterPhone}</span>}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
-    </>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 
+  // --- Activity history: grouped by day, tagged by meaning, filterable ---
+  const activityTabs = [
+    { id: 'attention', label: 'Needs attention' },
+    { id: 'all', label: 'All' },
+    { id: 'checkins', label: 'Check-ins' },
+    { id: 'signins', label: 'Sign-ins' },
+  ] as const
+
+  const activityHistoryBlock = (
+    <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3 shadow-md">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-bold text-xs text-slate-300 tracking-wider">
+          Activity history <span className="text-slate-500 font-semibold">({activityFiltered.length})</span>
+        </h3>
+        <div className="flex items-center gap-2">
+          {auditOfficerFilterId && (
+            <button
+              type="button"
+              onClick={() => setAuditOfficerFilterId(null)}
+              className="text-[11px] bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer"
+            >
+              <span>Officer: {displayName(filteredAuditOfficerName)}</span>
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filters: routine events (sign-ins, profile updates) only show under All or Sign-ins */}
+      <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Filter activity">
+        {activityTabs.map((tab) => {
+          const active = activityFilter === tab.id
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActivityFilter(tab.id as ActivityFilter)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                active
+                  ? 'bg-[#1E2B7B] text-white border border-indigo-400/40'
+                  : 'text-slate-400 hover:text-white bg-[#0A0D17] border border-transparent'
+              }`}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {activityFiltered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+          {activityFilter === 'attention'
+            ? 'Nothing needs attention right now.'
+            : 'No events match this filter yet.'}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {groupedAuditLogs.map((group) => (
+            <div key={group.label}>
+              <div className="px-1 pb-1.5 text-[10px] font-semibold tracking-wider text-slate-500">
+                {group.label}
+              </div>
+              <div className="rounded-xl border border-[#22263C] bg-[#0C0F1D] overflow-hidden divide-y divide-[#1C2237]">
+                {group.rows.map((log) => {
+                  const meta = auditActionMeta(log.action)
+                  const isSecurity = meta.tone === 'warn' || meta.tone === 'crit'
+                  const tagClass =
+                    meta.tone === 'crit'
+                      ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                      : meta.tone === 'warn'
+                      ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+                      : meta.tone === 'ok'
+                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                      : 'text-slate-400 bg-[#121626] border-[#22263C]'
+                  return (
+                    <div
+                      key={log.id}
+                      className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${
+                        isSecurity ? 'bg-amber-500/5 border-l-2 border-l-amber-500/60' : ''
+                      }`}
+                    >
+                      <span className="text-[11px] tabular-nums text-slate-500 w-9 shrink-0">
+                        {formatTimeOnly(log.createdAt)}
+                      </span>
+                      <span className="text-xs text-slate-200 leading-snug min-w-0 flex-1 order-3 sm:order-none w-full sm:w-auto">
+                        {auditMessage(log)}
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+                        {log.action === 'NEW_DEVICE_SIGNIN' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleSecurityReview(log, 'it_was_me')}
+                              className="h-7 px-2.5 rounded-lg border border-[#22263C] bg-[#121626] text-[10px] font-semibold text-slate-200 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
+                            >
+                              It was them
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSecurityReview(log, 'block')}
+                              className="h-7 px-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
+                            >
+                              Block account
+                            </button>
+                          </>
+                        )}
+                        <span
+                          className={`font-semibold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
+                        >
+                          {meta.label}
+                        </span>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+
+          {activityFiltered.length > 8 && (
+            <button
+              type="button"
+              onClick={() => setShowAllActivity((v) => !v)}
+              className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-[#22263C] bg-[#0C0F17] hover:bg-[#151A28] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+            >
+              {showAllActivity
+                ? 'Show less'
+                : `Show full history (${activityFiltered.length})`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-[#090A0F] text-foreground font-sans select-none antialiased">
@@ -1463,7 +1672,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
               >
                 <UserPlus className="size-5" />
                 Register officer
@@ -1808,7 +2017,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setCenterModalState({ mode: 'create' })}
-                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
               >
                 <Plus className="size-5" />
                 Register centre
@@ -2070,96 +2279,32 @@ export default function AdminPage() {
             {/* ===== MOBILE (< lg) — strip, chips, flat activity, FAB ===== */}
             <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
               <div className="p-4 space-y-4 pb-32">
-                {/* Status strip */}
-                {unresolvedIncidents.length === 0 ? (
-                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
-                    <CheckCircle2 className="size-6 text-emerald-400 shrink-0" />
-                    <div>
-                      <div className="text-sm font-bold text-emerald-400">No open incidents</div>
-                      <div className="text-xs text-emerald-400/70">All stations nominal</div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-[#EF4444]/40 bg-status-sos/10 p-4 flex items-center gap-3">
-                    <Siren className="size-6 text-status-sos shrink-0 animate-pulse" />
-                    <div>
-                      <div className="text-sm font-bold text-status-sos">
-                        {unresolvedIncidents.length} open incident
-                        {unresolvedIncidents.length > 1 ? 's' : ''}
-                      </div>
-                      <div className="text-xs text-red-100/75">Emergency response required</div>
-                    </div>
-                  </div>
-                )}
-
-                {criticalSosCards}
-                {recordedIncidentsBlock}
-
-                {/* Recent activity — flat list, no inner scroll */}
-                <div>
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <span className="text-[10px] font-sans uppercase tracking-wider text-slate-500">
-                      Recent activity
+                {/* Subtitle + one status chip */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-slate-400">SOS alerts and what happened, in order.</p>
+                  {unresolvedIncidents.length === 0 ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-400">
+                      <span className="size-1.5 rounded-full bg-emerald-400" />
+                      No open incidents
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowAllActivity((v) => !v)}
-                      className="text-xs font-semibold text-indigo-300 hover:text-indigo-200 transition cursor-pointer"
-                    >
-                      {showAllActivity
-                        ? 'Show less'
-                        : `Show full history (${filteredAuditLogs.length})`}
-                    </button>
-                  </div>
-                  {filteredAuditLogs.length === 0 ? (
-                    <div className="mt-2 rounded-2xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
-                      No operational audit events recorded yet.
-                    </div>
                   ) : (
-                    <div className="mt-2 rounded-2xl border border-[#22263C] bg-[#11131F] overflow-hidden divide-y divide-[#1E243A]">
-                      {(showAllActivity
-                        ? filteredAuditLogs
-                        : filteredAuditLogs.slice(0, 8)
-                      ).map((log) => {
-                        const isCrit = [
-                          'SOS_TRIGGERED',
-                          'GEOFENCE_BREACH',
-                          'USER_REVOKED',
-                        ].includes(log.action)
-                        const isOk = [
-                          'CHECK_IN_LOGGED',
-                          'SOS_STAND_DOWN',
-                          'INCIDENT_RESOLVED',
-                          'USER_RESTORED',
-                        ].includes(log.action)
-                        const dot = isCrit
-                          ? 'bg-status-sos shadow-[0_0_6px_rgba(244,63,94,0.6)]'
-                          : isOk
-                          ? 'bg-status-ok'
-                          : 'bg-sky-400'
-                        return (
-                          <div key={log.id} className="flex items-center gap-3 px-3.5 py-3">
-                            <span className={`size-2 shrink-0 rounded-full ${dot}`} />
-                            <span className="text-[11px] font-semibold tabular-nums text-slate-500 w-10 shrink-0">
-                              {log.timeFormatted || '--:--'}
-                            </span>
-                            <span className="text-xs text-slate-200 leading-snug min-w-0">
-                              {log.details?.message ||
-                                `${log.actorName} — ${log.action.replace(/_/g, ' ')}`}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[11px] font-semibold text-rose-400">
+                      <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      {unresolvedIncidents.length} open
+                    </span>
                   )}
                 </div>
+
+                {recordedIncidentsBlock}
+
+                {activityHistoryBlock}
               </div>
 
               {/* Floating Log incident button — above the tab bar */}
               <button
                 type="button"
                 onClick={() => setShowLogIncidentModal(true)}
-                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
               >
                 <Plus className="size-5" />
                 Log incident
@@ -2169,189 +2314,77 @@ export default function AdminPage() {
             {/* ===== DESKTOP (lg+) — existing console layout ===== */}
             <div className="hidden lg:block flex-1 overflow-y-auto p-5 pb-6 space-y-5 bg-[#090A0F] font-sans">
               <div className="border-b border-[#22263C] pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                    <Siren className="size-4.5 text-[#EF4444]" />
-                    <span>Incidents</span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Real-time emergency SOS alerts, incident workflows, and operational activity history
-                  </p>
-                </div>
+                <p className="text-xs text-slate-400">SOS alerts and what happened, in order.</p>
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
-                  {totalCriticalSosCount > 0 ? (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-semibold text-rose-400">
-                      <span className="size-2 rounded-full bg-rose-500 animate-ping" />
+                  {unresolvedIncidents.length > 0 ? (
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-400">
+                      <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
                       <span>
-                        {totalCriticalSosCount} Active SOS Alert
-                        {totalCriticalSosCount > 1 ? 's' : ''}
+                        {unresolvedIncidents.length} open
                       </span>
-                    </div>
+                    </span>
                   ) : (
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-semibold text-emerald-400">
+                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-xs font-semibold text-emerald-400">
                       <span className="size-2 rounded-full bg-emerald-400" />
-                      <span>All Stations Nominal</span>
-                    </div>
+                      <span>No open incidents</span>
+                    </span>
                   )}
 
                   <button
                     type="button"
                     onClick={() => setShowLogIncidentModal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-3.5 py-2 text-xs font-bold shadow-md border border-white/10 transition cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold shadow-md border border-white/10 transition cursor-pointer"
                   >
                     <Plus className="size-3.5" />
-                    <span>Log Incident</span>
+                    <span>Log incident</span>
                   </button>
                 </div>
               </div>
 
-              {criticalSosCards}
-
               {recordedIncidentsBlock}
 
-              {/* Bento Row: Live Audit Trail + Security Readiness */}
+              {/* Activity history + safety summary */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
-                <div className="lg:col-span-2 rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3.5 shadow-md">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
-                      Activity history
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {auditOfficerFilterId && (
-                        <button
-                          type="button"
-                          onClick={() => setAuditOfficerFilterId(null)}
-                          className="text-[11px] bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>Officer: {filteredAuditOfficerName}</span>
-                          <X className="size-3" />
-                        </button>
-                      )}
-                      <span className="text-[11px] text-slate-400 font-sans tabular-nums">
-                        {filteredAuditLogs.length} events
+                <div className="lg:col-span-2">{activityHistoryBlock}</div>
+                {/* When an SOS comes in — the four things a controller actually does */}
+                <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 space-y-3 shadow-md">
+                  <h3 className="font-bold text-xs text-slate-300 tracking-wider">
+                    Safety summary
+                  </h3>
+                  <div className="space-y-0 text-xs divide-y divide-[#1E243A] border-y border-[#1E243A]">
+                    <div className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-400">Open incidents</span>
+                      <span
+                        className={`font-bold tabular-nums ${
+                          incidentSummary.openIncidentsCount > 0 ? 'text-rose-400' : 'text-emerald-400'
+                        }`}
+                      >
+                        {incidentSummary.openIncidentsCount}
+                      </span>
+                    </div>
+                    <div className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-400">Check-in areas clear</span>
+                      <span className="text-white font-bold tabular-nums">
+                        {safeCentersCount} / {examCenters.length}
+                      </span>
+                    </div>
+                    <div className="py-2.5 flex items-center justify-between">
+                      <span className="text-slate-400">Officers at centre</span>
+                      <span className="text-white font-bold tabular-nums">
+                        {verifiedOnSiteCount} of {deployedMonitorsCount}
                       </span>
                     </div>
                   </div>
 
-                  {filteredAuditLogs.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
-                      No operational audit events recorded yet.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="space-y-2 text-xs">
-                        {(showAllActivity ? filteredAuditLogs : filteredAuditLogs.slice(0, 8)).map((log) => {
-                        const isCrit = [
-                          'SOS_TRIGGERED',
-                          'GEOFENCE_BREACH',
-                          'USER_REVOKED',
-                        ].includes(log.action)
-                        const isOk = [
-                          'CHECK_IN_LOGGED',
-                          'SOS_STAND_DOWN',
-                          'INCIDENT_RESOLVED',
-                          'USER_RESTORED',
-                        ].includes(log.action)
-
-                        const badgeClass = isCrit
-                          ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
-                          : isOk
-                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                          : 'text-sky-400 bg-sky-500/10 border-sky-500/30'
-
-                        const timeColor = isCrit
-                          ? 'text-[#EF4444]'
-                          : isOk
-                          ? 'text-emerald-400'
-                          : 'text-amber-400'
-
-                        return (
-                          <div
-                            key={log.id}
-                            className={`p-3 rounded-xl bg-[#0C0F1D] border flex items-center justify-between gap-2 ${
-                              isCrit ? 'border-rose-500/30' : 'border-[#22263C]'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2 min-w-0">
-                              <span
-                                className={`${timeColor} font-sans font-bold shrink-0 tabular-nums`}
-                              >
-                                [{log.timeFormatted || '--:--'}]
-                              </span>
-                              <span className="text-slate-200 leading-snug">
-                                {log.details?.message ||
-                                  `${log.actorName} — ${log.action.replace(/_/g, ' ')}`}
-                              </span>
-                            </div>
-                            <span
-                              className={`font-bold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${badgeClass}`}
-                            >
-                              {log.action.replace(/_/g, ' ')}
-                            </span>
-                          </div>
-                        )
-                      })}
-                      </div>
-
-                      {filteredAuditLogs.length > 8 && (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllActivity((v) => !v)}
-                          className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-[#22263C] bg-[#0C0F17] hover:bg-[#151A28] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
-                        >
-                          {showAllActivity
-                            ? 'Show less'
-                            : `Show full history (${filteredAuditLogs.length})`}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                {/* Live Security Network Status */}
-                <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 space-y-4 shadow-md flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-xs text-slate-300 uppercase tracking-wider font-sans">
-                      Security Network Status
-                    </h3>
-                    <div className="mt-3 space-y-2.5 text-xs">
-                      <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Check-in areas clear:</span>
-                        <span className="text-emerald-400 font-bold">
-                          {safeCentersCount} / {examCenters.length} centres clear
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Officers at centre:</span>
-                        <span className="text-sky-400 font-bold">
-                          {verifiedOnSiteCount} / {deployedMonitorsCount} at the centre
-                        </span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Open Incidents:</span>
-                        <span
-                          className={`font-bold ${
-                            incidentSummary.openIncidentsCount > 0
-                              ? 'text-amber-400'
-                              : 'text-emerald-400'
-                          }`}
-                        >
-                          {incidentSummary.openIncidentsCount} Open ({incidentSummary.breachCount}{' '}
-                          Breaches)
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-xs text-slate-300">
-                    <span className="text-sky-400 font-bold block mb-1">
-                      WAEC Incident Protocol:
-                    </span>
-                    <span>
-                      Emergency SOS dispatches and status transitions are recorded
-                      immediately and kept in the full operator audit history.
-                    </span>
+                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#22263C] text-xs text-slate-400 space-y-1.5">
+                    <p className="text-slate-100 font-semibold">When an SOS comes in</p>
+                    <ol className="space-y-1 leading-snug">
+                      <li><span className="text-slate-200 font-semibold">1.</span> Call the officer.</li>
+                      <li><span className="text-slate-200 font-semibold">2.</span> Tap <span className="text-slate-200">I&apos;m on it</span>.</li>
+                      <li><span className="text-slate-200 font-semibold">3.</span> Send help if needed.</li>
+                      <li><span className="text-slate-200 font-semibold">4.</span> Mark <span className="text-slate-200">Problem fixed</span> and add a note.</li>
+                    </ol>
                   </div>
                 </div>
               </div>

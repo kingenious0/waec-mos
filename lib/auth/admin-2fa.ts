@@ -151,7 +151,7 @@ export async function completeAdminLogin(
     entityType: 'users',
     entityId: user.id,
     details: {
-      message: `${user.name} signed in to Command Console`,
+      message: `${user.name} signed in to the dashboard`,
       method,
       userAgent,
       ip,

@@ -124,7 +124,7 @@ export async function POST(request: Request) {
           entityType: 'assignments',
           entityId: row.assignmentId || officerId,
           details: {
-            message: `${row.name} verified on-site at ${row.centerName || 'Assigned Center'} (${numericDist}m)`,
+            message: `${row.name} checked in at ${row.centerName || 'the assigned centre'} (${Math.round(numericDist)} m)`,
             centerName: row.centerName || 'Assigned Center',
             distanceMeters: numericDist,
             battery: typeof battery === 'number' ? Math.round(battery) : null,

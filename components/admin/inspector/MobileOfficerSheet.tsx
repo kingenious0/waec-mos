@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React from 'react'
 import { Phone, Flag, ChevronDown, Clock, X } from 'lucide-react'
@@ -17,7 +17,7 @@ interface MobileOfficerSheetProps {
 }
 
 /**
- * Mobile bottom sheet for officer details with three snap points â€”
+ * Mobile bottom sheet for officer details with three snap points —
  * peek (name, chips, Call/Details), half (+ telemetry tiles + distance card),
  * full (+ activity feed + actions). Content never clips: the panel scrolls.
  */
@@ -68,7 +68,7 @@ export function MobileOfficerSheet({
   const lastPingGmt = lastPingIso
     ? new Date(lastPingIso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT'
     : null
-  const lastSeen = lastPingIso ? `${formatRelativeTime(lastPingIso)} Â· ${lastPingGmt}` : 'Never pinged'
+  const lastSeen = lastPingIso ? `${formatRelativeTime(lastPingIso)} · ${lastPingGmt}` : 'Never pinged'
 
   const unitCode = getOfficerUnitCode(officer)
   const checkpoints = officer.checkpoints || []
@@ -240,7 +240,7 @@ export function MobileOfficerSheet({
       role="dialog"
       aria-label={`Details for ${officer.name}`}
     >
-      {/* Grabber â€” tap to cycle peek â†’ half â†’ full */}
+      {/* Grabber — tap to cycle peek → half → full */}
       <div className="relative pt-2 pb-1.5 flex items-center justify-center shrink-0">
         <button
           type="button"
@@ -311,7 +311,7 @@ export function MobileOfficerSheet({
             {chipsRow}
             {telemetryTiles}
 
-            {/* Recent activity â€” flat list */}
+            {/* Recent activity — flat list */}
             <div className="space-y-0">
               <span className="text-[10px] font-sans uppercase tracking-wider text-slate-500 block pt-1">
                 Recent activity
@@ -333,7 +333,7 @@ export function MobileOfficerSheet({
                         {cp.label}
                       </span>
                       <span className="text-[10px] text-slate-500 tabular-nums whitespace-nowrap shrink-0 pt-0.5">
-                        {cp.iso ? `${formatRelativeTime(cp.iso)} Â· ` : ''}
+                        {cp.iso ? `${formatRelativeTime(cp.iso)} · ` : ''}
                         {cp.time}
                       </span>
                     </div>

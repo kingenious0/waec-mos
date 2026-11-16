@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         entityType: 'users',
         entityId: matched.id,
         details: {
-          message: `${matched.name} signed in on the field portal`,
+          message: `${matched.name} signed in on the field app`,
           centerName: matched.centerName || 'Unassigned',
           userAgent,
           ip,
