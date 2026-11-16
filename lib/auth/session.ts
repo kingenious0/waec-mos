@@ -21,9 +21,6 @@ export interface SessionData {
   photo?: string
   bio?: string
   mustChangePassword: boolean
-  paperName?: string
-  startTime?: string
-  endTime?: string
 }
 
 const LEGACY_KEY = 'waec_mos_session'

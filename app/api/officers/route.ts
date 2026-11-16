@@ -7,7 +7,7 @@ import { splitName } from '@/lib/name-utils'
 import { validatePin } from '@/lib/auth/pin-policy'
 import { requireCommand, requireAdmin } from '@/lib/auth/guard'
 import { officerCreateSchema } from '@/lib/validation-schemas'
-import { desc, eq, or } from 'drizzle-orm'
+import { desc, eq, or, inArray } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
@@ -46,6 +46,39 @@ export async function GET(request: Request) {
         .where(eq(schema.user.role, 'FIELD_OFFICER'))
         .orderBy(desc(schema.assignments.updatedAt))
 
+      // Centre truth now lives in officer_deployments — prefer the latest deployment
+      // (series anchor first) over any legacy assignment row for display names.
+      const deploymentRows = await db
+        .select({
+          officerId: schema.officerDeployments.officerId,
+          centerId: schema.officerDeployments.centerId,
+          deploymentDate: schema.officerDeployments.deploymentDate,
+          updatedAt: schema.officerDeployments.updatedAt,
+        })
+        .from(schema.officerDeployments)
+        .orderBy(desc(schema.officerDeployments.updatedAt))
+
+      const deploymentCenterIds = new Map<string, string>()
+      for (const d of deploymentRows) {
+        if (!deploymentCenterIds.has(d.officerId)) {
+          deploymentCenterIds.set(d.officerId, d.centerId)
+        }
+      }
+
+      const deploymentCenterRows =
+        deploymentCenterIds.size === 0
+          ? []
+          : await db
+              .select({
+                id: schema.examinationCenters.id,
+                name: schema.examinationCenters.centerName,
+                code: schema.examinationCenters.centerCode,
+              })
+              .from(schema.examinationCenters)
+              .where(inArray(schema.examinationCenters.id, Array.from(deploymentCenterIds.values())))
+
+      const deploymentCenterMap = new Map(deploymentCenterRows.map((c) => [c.id, c]))
+
       // Deduplicate by officer id (keeping latest assignment)
       const seen = new Set<string>()
       const officers: UserAccount[] = []
@@ -54,6 +87,8 @@ export async function GET(request: Request) {
         if (seen.has(u.id)) continue
         seen.add(u.id)
 
+        const dCenterId = deploymentCenterIds.get(u.id)
+        const dCenter = dCenterId ? deploymentCenterMap.get(dCenterId) : undefined
         officers.push({
           id: u.id,
           staffId: u.staffId || 'WAEC-GH-0000',
@@ -66,8 +101,8 @@ export async function GET(request: Request) {
           region: u.regionName || 'Ashanti Region',
           group: u.groupName || 'Group 1',
           isGroupLeader: Boolean(u.isGroupLeader),
-          assignedCenter: u.centerName || 'Unassigned',
-          assignedCenterCode: u.centerCode || '',
+          assignedCenter: dCenter?.name || u.centerName || 'Unassigned',
+          assignedCenterCode: dCenter?.code || u.centerCode || '',
           dutyStatus: u.assignmentStatus === 'ON_SITE' ? 'ON_DUTY' : 'OFF_DUTY',
           mustChangePassword: Boolean(u.mustChangePassword),
           passwordHash: '',
@@ -77,9 +112,6 @@ export async function GET(request: Request) {
           checkInTime: u.checkInTime
             ? new Date(u.checkInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT'
             : undefined,
-          paperName: u.paperName || 'Core Mathematics Paper 1 & 2',
-          startTime: u.startTime || '08:30 GMT',
-          endTime: u.endTime || '12:00 GMT',
         })
       }
 
@@ -195,30 +227,9 @@ export async function POST(request: Request) {
         mustChangePassword: false,
       })
 
-      const centers = await db
-        .select()
-        .from(schema.examinationCenters)
-        .where(
-          assignedCenterCode
-            ? eq(schema.examinationCenters.centerCode, assignedCenterCode)
-            : eq(schema.examinationCenters.centerName, assignedCenter)
-        )
-        .limit(1)
-
-      const centerId = centers[0]?.id
-      if (centerId) {
-        await db.insert(schema.assignments).values({
-          id: `asg-${Date.now()}`,
-          operationId: 'op-wassce-2026',
-          centerId,
-          officerId: newUserId,
-          date: new Date().toISOString().split('T')[0],
-          paperName: 'Core Mathematics Paper 1 & 2',
-          startTime: '08:30 GMT',
-          endTime: '12:00 GMT',
-          status: 'PENDING',
-        })
-      }
+      // NOTE: registering an officer does NOT invent a duty. Officers are
+      // deployed to papers via the Timetable tab (officer_deployments) —
+      // nothing else creates a duty record.
 
       await recordAuditLog({
         actorId,
@@ -228,8 +239,8 @@ export async function POST(request: Request) {
         entityType: 'users',
         entityId: newUserId,
         details: {
-          message: `Registered officer ${name.trim()} (${effectiveStaffId}) at ${assignedCenter}`,
-          centerName: assignedCenter,
+          message: `Registered officer ${name.trim()} (${effectiveStaffId}) at ${assignedCenter || 'Unassigned'}`,
+          centerName: assignedCenter || 'Unassigned',
           group: group || 'Group 1',
         },
       })
@@ -282,9 +293,6 @@ async function updateOfficerRecord(body: any, actorId: string, actorName: string
     image,
     bio,
     dutyStatus,
-    paperName,
-    startTime,
-    endTime,
   } = body
 
   if (!id) {
@@ -348,55 +356,9 @@ async function updateOfficerRecord(body: any, actorId: string, actorName: string
     ) {
       // Explicit unassign — remove all centre assignments for this officer
       await db.delete(schema.assignments).where(eq(schema.assignments.officerId, id))
-    } else if (assignedCenter || assignedCenterCode || paperName || startTime || endTime) {
-      let centerId: string | undefined = undefined
-      if (assignedCenter || assignedCenterCode) {
-        const center = await db
-          .select()
-          .from(schema.examinationCenters)
-          .where(
-            assignedCenterCode
-              ? eq(schema.examinationCenters.centerCode, assignedCenterCode)
-              : eq(schema.examinationCenters.centerName, assignedCenter)
-          )
-          .limit(1)
-
-        if (center.length > 0) {
-          centerId = center[0].id
-        }
-      }
-
-      const existingAsg = await db
-        .select()
-        .from(schema.assignments)
-        .where(eq(schema.assignments.officerId, id))
-        .orderBy(desc(schema.assignments.updatedAt))
-        .limit(1)
-
-      const asgUpdates: Record<string, unknown> = { updatedAt: new Date() }
-      if (centerId) asgUpdates.centerId = centerId
-      if (paperName) asgUpdates.paperName = String(paperName).trim()
-      if (startTime) asgUpdates.startTime = String(startTime).trim()
-      if (endTime) asgUpdates.endTime = String(endTime).trim()
-
-      if (existingAsg.length > 0) {
-        await db
-          .update(schema.assignments)
-          .set(asgUpdates)
-          .where(eq(schema.assignments.id, existingAsg[0].id))
-      } else if (centerId) {
-        await db.insert(schema.assignments).values({
-          id: `asg-${Date.now()}`,
-          operationId: 'op-wassce-2026',
-          centerId,
-          officerId: id,
-          date: new Date().toISOString().split('T')[0],
-          paperName: paperName ? String(paperName).trim() : 'Core Mathematics Paper 1 & 2',
-          startTime: startTime ? String(startTime).trim() : '08:30 GMT',
-          endTime: endTime ? String(endTime).trim() : '12:00 GMT',
-          status: 'PENDING',
-        })
-      }
+    } else {
+      // Centre changes flow through the Timetable deployments board.
+      // An officer's check-in centre is never rewritten from a profile edit.
     }
 
     const targetName = (userUpdates.name as string) || existing.name
@@ -440,9 +402,6 @@ async function updateOfficerRecord(body: any, actorId: string, actorName: string
   if (assignedCenterCode !== undefined) storeUpdates.assignedCenterCode = assignedCenterCode
   if (bio !== undefined) storeUpdates.bio = bio
   if (dutyStatus !== undefined) storeUpdates.dutyStatus = dutyStatus as any
-  if (paperName !== undefined) storeUpdates.paperName = paperName
-  if (startTime !== undefined) storeUpdates.startTime = startTime
-  if (endTime !== undefined) storeUpdates.endTime = endTime
 
   const updatedStoreOfficer = store.updateUser(id, storeUpdates)
 

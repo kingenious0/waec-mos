@@ -3,7 +3,7 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseOfflineTimeoutMs, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { requireCommand } from '@/lib/auth/guard'
-import { and, desc, eq, ne } from 'drizzle-orm'
+import { and, desc, eq, ne, inArray } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
@@ -70,6 +70,38 @@ export async function GET(request: Request) {
       )
       .orderBy(desc(schema.incidents.reportedAt))
 
+    // Centre truth: prefer the officer's latest deployment for venue display —
+    // assignments only exist after a check-in, deployments exist before one.
+    const deploymentRows = await db
+      .select({
+        officerId: schema.officerDeployments.officerId,
+        centerId: schema.officerDeployments.centerId,
+        updatedAt: schema.officerDeployments.updatedAt,
+      })
+      .from(schema.officerDeployments)
+      .orderBy(desc(schema.officerDeployments.updatedAt))
+
+    const depCenterByOfficer = new Map<string, string>()
+    for (const d of deploymentRows) {
+      if (!depCenterByOfficer.has(d.officerId)) depCenterByOfficer.set(d.officerId, d.centerId)
+    }
+    const depCenterIds = Array.from(new Set(depCenterByOfficer.values()))
+    const depCenters =
+      depCenterIds.length > 0
+        ? await db
+            .select({
+              id: schema.examinationCenters.id,
+              centerName: schema.examinationCenters.centerName,
+              centerCode: schema.examinationCenters.centerCode,
+              latitude: schema.examinationCenters.latitude,
+              longitude: schema.examinationCenters.longitude,
+              geofenceRadiusMeters: schema.examinationCenters.geofenceRadiusMeters,
+            })
+            .from(schema.examinationCenters)
+            .where(inArray(schema.examinationCenters.id, depCenterIds))
+        : []
+    const depCenterMap = new Map(depCenters.map((c) => [c.id, c]))
+
     // Fetch recent audit logs for live per-officer checkpoints
     const recentLogs = await db
       .select()
@@ -96,9 +128,14 @@ export async function GET(request: Request) {
         status = 'ON_SITE'
       }
 
-      const centerLat = Number(r.centerLat) || 6.7028
-      const centerLng = Number(r.centerLng) || -1.6369
-      const effectiveRadius = r.centerRadius || defaultRadius
+      // Venue for the trail/marker: live check-in assignment wins; otherwise the
+      // officer's deployment centre (deployments exist before a check-in does).
+      const depCenter = r.centerLat ? null : depCenterMap.get(depCenterByOfficer.get(r.userId) || '')
+      const venueName = r.centerName || depCenter?.centerName || 'Unassigned'
+      const venueCode = r.centerCode || depCenter?.centerCode || ''
+      const centerLat = Number(r.centerLat ?? depCenter?.latitude) || 6.7028
+      const centerLng = Number(r.centerLng ?? depCenter?.longitude) || -1.6369
+      const effectiveRadius = Number(r.centerRadius ?? depCenter?.geofenceRadiusMeters) || defaultRadius
 
       const lat = r.lastLatitude
         ? Number(r.lastLatitude)
@@ -162,8 +199,8 @@ export async function GET(request: Request) {
         accountStatus: r.userStatus || 'ACTIVE',
         group: r.userGroupName || 'Group 1',
         isLeader: Boolean(r.userIsGroupLeader),
-        assignedCenter: r.centerName || 'Unassigned',
-        centerCode: r.centerCode || '',
+        assignedCenter: venueName,
+        centerCode: venueCode,
         centerRadius: effectiveRadius,
         status,
         assignmentStatus: r.assignmentStatus || 'UNASSIGNED',

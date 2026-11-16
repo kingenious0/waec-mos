@@ -46,9 +46,6 @@ export interface UserAccount {
   bio?: string
   lastLoginAt?: string
   checkInTime?: string
-  paperName?: string
-  startTime?: string
-  endTime?: string
 }
 
 // --- V1 Data Store with Seed Data ---

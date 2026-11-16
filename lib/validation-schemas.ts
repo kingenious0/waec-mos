@@ -53,9 +53,6 @@ export const officerUpdateSchema = z.object({
   image: z.string().optional(),
   bio: z.string().max(500).optional(),
   dutyStatus: z.string().optional(),
-  paperName: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
 })
 
 export const centerCreateSchema = z.object({

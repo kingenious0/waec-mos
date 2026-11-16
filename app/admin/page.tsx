@@ -759,9 +759,6 @@ export default function AdminPage() {
         pin: updated.pin,
         photo: updated.photo,
         bio: updated.bio,
-        paperName: updated.paperName,
-        startTime: updated.startTime,
-        endTime: updated.endTime,
         assignedCenter: updated.assignedCenter,
         assignedCenterCode: updated.assignedCenterCode,
         actorId: session?.userId,
@@ -2627,9 +2624,6 @@ export default function AdminPage() {
             photo: inspectedOfficer.photo,
             bio: inspectedOfficer.bio,
             mustChangePassword: inspectedOfficer.mustChangePassword,
-            paperName: inspectedOfficer.paperName,
-            startTime: inspectedOfficer.startTime,
-            endTime: inspectedOfficer.endTime,
           }}
           onDutyStatus={inspectedOfficer.dutyStatus === 'ON_DUTY' ? 'ON DUTY' : 'OFF DUTY'}
           examCenters={examCenters.map((c) => ({ id: c.id, code: c.code, name: c.name }))}
