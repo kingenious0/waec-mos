@@ -270,11 +270,13 @@
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("/images/waec-logo.png");
-  background-repeat: no-repeat;
-  background-position: center 62%;
-  background-size: clamp(220px, 34vw, 340px);
-  opacity: 0.20;
+  background-image:
+    url("/images/waec-logo.png"),
+    url("/images/waec-logo.png");
+  background-repeat: no-repeat, no-repeat;
+  background-position: left -90px center, right -90px center;
+  background-size: min(46vw, 460px) auto, min(46vw, 460px) auto;
+  opacity: 0.10;
   pointer-events: none;
   z-index: 1;
 }
