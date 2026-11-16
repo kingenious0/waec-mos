@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { Plus, Minus, Crosshair, Users, Layers, Map as MapIcon, Satellite, Check } from 'lucide-react'
-import { formatRelativeTime, formatNoUpdate, formatTooltipTime } from '@/lib/relative-time'
+import { formatRelativeTime, formatTooltipTime } from '@/lib/relative-time'
 
 export interface OfficerCheckpoint {
   id: string
@@ -136,10 +136,25 @@ function markerLineName(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
 }
 
+/** "at the centre" when within the geofence radius, otherwise "450 m from the centre". */
+function lastSeenWhere(o: FleetOfficer): string {
+  const hasCentre = Boolean((o.assignedCenter && o.assignedCenter !== 'Unassigned') || o.centerCode)
+  if (!hasCentre) return ''
+  const radius = typeof o.centerRadius === 'number' && o.centerRadius > 0 ? o.centerRadius : 150
+  const d = typeof o.distanceFromDatum === 'number' && !Number.isNaN(o.distanceFromDatum) ? o.distanceFromDatum : null
+  if (d === null) return 'at the centre'
+  if (d <= radius) return 'at the centre'
+  return `${Math.max(1, Math.round(d))} m from the centre`
+}
+
 /** Meta line under the name. SOS always overrides; stale replaces status. */
 function markerMetaLine(o: FleetOfficer): string {
   if (o.status === 'SOS') return 'Needs help now'
-  if (isTelemetryStale(o)) return formatNoUpdate(o.lastPingAt)
+  if (isTelemetryStale(o)) {
+    const rel = formatRelativeTime(o.lastPingAt) // e.g. "16 hours ago"
+    const where = lastSeenWhere(o)
+    return where ? `Last seen ${where} · ${rel}` : `Last seen ${rel}`
+  }
   const status = o.status === 'ON_SITE' ? 'At the centre' : 'On the way'
   const battery = typeof o.battery === 'number' ? `${o.battery}% battery` : 'no battery data'
   const rel = formatRelativeTime(o.lastPingAt)
@@ -180,6 +195,7 @@ export default function FleetMap({
   const [legendOpen, setLegendOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
+  const [zoomLow, setZoomLow] = useState(true)
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
@@ -191,8 +207,11 @@ export default function FleetMap({
 
   // Default framing is intentionally tight: exam centres sit close together
   // across Kumasi, so a wider view just scatters the labels off-screen.
+  // Centre name pills only appear once the map is properly zoomed into a
+  // centre (or when a pin is hovered/tapped); below this the pins stand alone.
   const BASE_ZOOM = 14
   const SATELLITE_MIN_ZOOM = 15
+  const CENTRE_PILLS_MIN_ZOOM = 15
 
   const createTileLayer = (L: any, mode: 'map' | 'satellite') => {
     if (mode === 'satellite') {
@@ -275,7 +294,10 @@ export default function FleetMap({
       map.addLayer(officersLayerRef.current)
       trailLayerRef.current = L.layerGroup().addTo(map)
 
+      map.on('zoomend', () => setZoomLow(map.getZoom() < CENTRE_PILLS_MIN_ZOOM))
+
       mapInstanceRef.current = map
+      setZoomLow(map.getZoom() < CENTRE_PILLS_MIN_ZOOM)
       setMapLoaded(true)
     }
 
@@ -370,51 +392,21 @@ export default function FleetMap({
           dashArray: '5, 5',
         }).addTo(group)
 
-        const shortName =
-          center.name.length > 28 ? `${center.name.slice(0, 27).trimEnd()}…` : center.name
-
-        // Auto-width pill: `width: max-content` is critical — Leaflet sets the
-        // icon wrapper to width:0 (iconSize [0,0]), which otherwise collapses
-        // the flex row and squeezes the name span out of existence.
+        // Full name, never truncated — wraps to two lines inside the pill.
+        // The pill hides below zoom 15 (pins only) and on hover at any zoom.
+        // The code is always labelled "Centre code" so a controller knows what it is.
         const centerIcon = L.divIcon({
           className: 'custom-center-marker',
           html: `
-            <div style="
-              transform: translate(-50%, -50%);
-              width: max-content;
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              background: rgba(10, 13, 23, 0.92);
-              border: 1px solid ${hasBreach ? 'rgba(239, 68, 68, 0.55)' : 'rgba(56, 189, 248, 0.35)'};
-              color: #E2E8F0;
-              padding: 4px 9px;
-              border-radius: 9999px;
-              font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-              font-size: 11px;
-              font-weight: 700;
-              white-space: nowrap;
-              box-shadow: 0 6px 18px rgba(0,0,0,0.55);
-              backdrop-filter: blur(6px);
-            ">
-              <span style="
-                display:inline-block; width:7px; height:7px; border-radius:50%;
-                background:${hasBreach ? '#EF4444' : '#38bdf8'};
-                box-shadow: 0 0 7px ${hasBreach ? '#EF4444' : '#38bdf8'};
-                flex-shrink: 0;
-              "></span>
-              <span style="flex-shrink: 0;">${escapeHtml(shortName)}</span>
-              <span style="
-                color:${hasBreach ? '#FCA5A5' : '#38bdf8'};
-                background:${hasBreach ? 'rgba(239,68,68,0.12)' : 'rgba(56,189,248,0.12)'};
-                border:1px solid ${hasBreach ? 'rgba(239,68,68,0.3)' : 'rgba(56,189,248,0.28)'};
-                border-radius:6px;
-                padding:1px 5px;
-                font-size:9px;
-                font-weight:800;
-                letter-spacing:0.05em;
-                flex-shrink:0;
-              ">${escapeHtml(center.code)}</span>
+            <div class="waec-centre-marker" role="button" tabindex="0" title="${escapeHtml(`${center.name} — Centre code ${center.code}`)}" aria-label="${escapeHtml(`${center.name}, centre code ${center.code}`)}">
+              <div class="waec-centre-pin${hasBreach ? ' is-breach' : ''}"></div>
+              <div class="waec-centre-pill${hasBreach ? ' is-breach' : ''}">
+                <span class="waec-centre-pill-dot" aria-hidden="true"></span>
+                <span class="waec-centre-pill-body">
+                  <span class="waec-centre-pill-name">${escapeHtml(center.name)}</span>
+                  <span class="waec-centre-pill-code">Centre code ${escapeHtml(center.code)}</span>
+                </span>
+              </div>
             </div>
           `,
           iconSize: [0, 0],
@@ -571,7 +563,7 @@ export default function FleetMap({
             : ''
 
         const markerHtml = `
-          <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''}${isStale && !isSos ? ' is-stale' : ''} ${labelSide}" title="${escapeHtml(formatTooltipTime(officer.lastPingAt))}" aria-label="${escapeHtml(`${lineName}, ${isSos ? 'Needs help now' : isStale ? formatNoUpdate(officer.lastPingAt) : isOnSite ? 'at the centre' : 'on the way'}, ${batteryWord}`)}">
+          <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''}${isStale && !isSos ? ' is-stale' : ''} ${labelSide}" title="Last update ${escapeHtml(formatTooltipTime(officer.lastPingAt))}" aria-label="${escapeHtml(`${lineName}, ${meta}, ${batteryWord}`)}">
             ${isSos ? '<span class="waec-officer-ping waec-officer-ping--reduced" aria-hidden="true"></span>' : ''}
             <span class="${dotClass}" aria-hidden="true">${sosIcon}</span>
             <span class="waec-officer-label" role="status">
@@ -697,7 +689,7 @@ export default function FleetMap({
   }
 
   return (
-    <div className={`relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans ${selectedOfficer ? 'map-has-selection' : ''}`}>
+    <div className={`relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans ${selectedOfficer ? 'map-has-selection' : ''} ${zoomLow ? 'map-zoom-low' : 'map-zoom-high'}`}>
       <div ref={mapContainerRef} className="size-full z-0" />
 
       {/* Mobile status filter chips */}

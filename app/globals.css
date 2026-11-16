@@ -154,9 +154,11 @@
 .waec-officer-dot--way    { background: #38bdf8; }
 .waec-officer-dot--sos    { background: #EF4444; }
 .waec-officer-dot--stale  {
+  width: 20px;
+  height: 20px;
   background: transparent;
   border: 2px solid #94A3B8;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px #FFFFFF, 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .waec-officer-marker.is-selected .waec-officer-dot {
@@ -198,6 +200,8 @@
   transform: translateY(-50%);
   display: none;
   z-index: 6;
+  width: max-content;
+  min-width: 220px;
   max-width: 280px;
   padding: 12px 14px;
   background: rgba(12, 15, 23, 0.97);
@@ -234,9 +238,8 @@
   font: 700 12.5px/1.3 var(--font-sans), system-ui, sans-serif;
   color: #FFFFFF;
   max-width: 252px;
-  white-space: normal;
+  white-space: nowrap;
   word-break: normal;
-  overflow-wrap: break-word;
 }
 .waec-officer-label-meta {
   display: block;
@@ -254,6 +257,100 @@
 .waec-officer-marker.is-sos .waec-officer-label { display: block; }
 .map-has-selection .waec-officer-marker:not(.is-selected):not(.is-sos) .waec-officer-label { display: none; }
 .map-has-selection .waec-officer-marker.is-selected .waec-officer-label { display: block; }
+
+/* --- Centre pins & name pills ---
+   Below zoom 15 the pin stands alone; the pill appears on hover at any zoom
+   and stays visible once zoomed in. While an officer is selected only the
+   selected officer label + centre pills on hover are shown. */
+.custom-center-marker { overflow: visible; }
+.waec-centre-marker {
+  position: relative;
+  width: 0;
+  height: 0;
+  cursor: pointer;
+}
+.waec-centre-pin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: #F6D300;
+  border: 2px solid #0C0F17;
+  box-shadow: 0 0 0 1px rgba(246, 211, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.waec-centre-pin.is-breach {
+  background: #EF4444;
+  border-color: #1A0D12;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.65), 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.waec-centre-pill {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  max-width: 212px;
+  padding: 7px 10px;
+  background: rgba(10, 13, 23, 0.94);
+  border: 1px solid rgba(246, 211, 0, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  z-index: 5;
+  pointer-events: none;
+}
+.waec-centre-pill::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid rgba(10, 13, 23, 0.94);
+}
+.waec-centre-pill.is-breach { border-color: rgba(239, 68, 68, 0.55); }
+.waec-centre-pill.is-breach .waec-centre-pill-dot { background: #EF4444; box-shadow: 0 0 7px rgba(239, 68, 68, 0.8); }
+.waec-centre-pill-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 3px;
+  border-radius: 9999px;
+  background: #F6D300;
+  box-shadow: 0 0 7px rgba(246, 211, 0, 0.7);
+}
+.waec-centre-pill-body { min-width: 0; }
+.waec-centre-pill-name {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #FFFFFF;
+  overflow-wrap: break-word;
+  white-space: normal;
+  max-width: 172px;
+}
+.waec-centre-pill-code {
+  display: block;
+  margin-top: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #94A3B8;
+  font-variant-numeric: tabular-nums;
+}
+.map-zoom-low .waec-centre-pill { display: none; }
+.waec-centre-marker:hover .waec-centre-pill,
+.waec-centre-marker:focus-visible .waec-centre-pill { display: flex; }
+.map-has-selection .waec-centre-pill { display: none; }
+.map-has-selection .waec-centre-marker:hover .waec-centre-pill { display: flex; }
 
 .custom-center-marker { cursor: pointer; }
 
