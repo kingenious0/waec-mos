@@ -45,8 +45,15 @@ export default function LoginPage() {
     if (role === 'OFFICER') {
       const cleanPin = pin.trim()
       const digits = phone.replace(/\D/g, '')
-      if (digits.length !== 9) {
-        setErrorMsg('Enter a Ghana phone number')
+      // Ghanaians know their number starting with 0 — accept "0506746307",
+      // "233506746307", "+233 50 674 6307" or "506746307" alike.
+      const national = digits.startsWith('233')
+        ? digits.slice(3)
+        : digits.startsWith('0')
+        ? digits.slice(1)
+        : digits
+      if (national.length !== 9) {
+        setErrorMsg('Enter a Ghana phone number — e.g. 050 674 6307')
         return
       }
       if (cleanPin.length !== 4) {
@@ -54,7 +61,7 @@ export default function LoginPage() {
         return
       }
       // Server normalises the 9 national digits against registered numbers
-      payload = { phone: digits, pin: cleanPin, keepSignedIn }
+      payload = { phone: national, pin: cleanPin, keepSignedIn }
     } else {
       if (!identifier.trim() || !password) {
         setErrorMsg('Enter your Staff ID or email and password')
@@ -254,14 +261,13 @@ export default function LoginPage() {
                       Phone number
                     </label>
                     <div className="authb-field">
-                      <span className="authb-prefix">+233</span>
                       <input
                         id="phone"
                         name="phone"
                         type="tel"
                         inputMode="numeric"
                         pattern="[0-9 ]*"
-                        placeholder="24 000 0000"
+                        placeholder="050 674 6307"
                         autoComplete="tel-national"
                         value={phone}
                         onChange={(e) => {

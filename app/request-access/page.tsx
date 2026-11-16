@@ -34,7 +34,12 @@ export default function RequestAccessPage() {
     const errs: typeof fieldErrors = {}
     if (fullName.trim().replace(/\s+/g, ' ').length < 2) errs.fullName = 'Enter your full name'
     const digits = phone.replace(/\D/g, '')
-    if (digits.length !== 9 || !/^0\d{9}$/.test(digits)) errs.phone = 'Enter a Ghana phone number'
+    const national = digits.startsWith('233')
+      ? digits.slice(3)
+      : digits.startsWith('0')
+      ? digits.slice(1)
+      : digits
+    if (national.length !== 9) errs.phone = 'Enter a Ghana phone number — e.g. 050 674 6307'
     if (staffId.trim().length < 3) errs.staffId = 'Enter your staff ID'
     if (pin.length !== 4) errs.pin = 'Enter a 4-digit PIN'
     else if (pin !== confirmPin) errs.confirmPin = "The PINs don't match"
@@ -50,12 +55,17 @@ export default function RequestAccessPage() {
     setLoading(true)
     try {
       const digits = phone.replace(/\D/g, '')
+      const national = digits.startsWith('233')
+        ? digits.slice(3)
+        : digits.startsWith('0')
+        ? digits.slice(1)
+        : digits
       const res = await fetch('/api/auth/request-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: fullName.trim().replace(/\s+/g, ' '),
-          phone: digits,
+          phone: national,
           staffId: staffId.trim().toUpperCase(),
           pin,
         }),
@@ -148,7 +158,6 @@ export default function RequestAccessPage() {
             {/* Phone */}
             <label htmlFor="phone" className="authb-label" style={{ marginTop: 14, marginBottom: 6 }}>Phone number</label>
             <div className="authb-field" style={fieldErrors.phone ? { borderColor: 'rgba(253,164,175,0.65)' } : undefined}>
-              <span className="authb-prefix">+233</span>
               <input
                 id="phone"
                 name="phone"
@@ -156,7 +165,7 @@ export default function RequestAccessPage() {
                 inputMode="numeric"
                 pattern="[0-9 ]*"
                 autoComplete="tel-national"
-                placeholder="24 000 0000"
+                placeholder="050 674 6307"
                 value={phone}
                 onChange={(e) => { setPhone(e.target.value); setFieldErrors((s) => ({ ...s, phone: undefined })); setErrorMsg('') }}
                 className="authb-input"

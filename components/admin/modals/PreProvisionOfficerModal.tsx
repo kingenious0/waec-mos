@@ -210,7 +210,7 @@ export function PreProvisionOfficerModal({
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+233 24 000 0000"
+                    placeholder="050 674 6307"
                     className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs font-sans text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors"
                   />
                   <Phone className="size-3.5 absolute right-3 top-3 text-slate-500 pointer-events-none" />
