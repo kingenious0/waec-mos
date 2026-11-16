@@ -123,6 +123,7 @@ interface LiveAuditLogRecord {
   details: Record<string, any>
   createdAt: string | null
   timeFormatted: string
+  isRead?: boolean
 }
 
 /** Tag colour means something: red = act, amber = look, green = good, grey = routine. */
@@ -570,6 +571,7 @@ export default function AdminPage() {
   const [blockAccountTarget, setBlockAccountTarget] = useState<{
     actorId: string
     name: string
+    logId: string
   } | null>(null)
   const [blockAccountBusy, setBlockAccountBusy] = useState(false)
 
@@ -577,6 +579,7 @@ export default function AdminPage() {
     action: 'it_was_me' | 'block'
     targetUserId: string
     name: string
+    logId: string
   }) => {
     try {
       const res = await fetch('/api/security/oddities', {
@@ -586,10 +589,17 @@ export default function AdminPage() {
         body: JSON.stringify({ action: input.action, targetUserId: input.targetUserId }),
       })
       if (!res.ok) throw new Error()
+      // The row is now resolved — mark it read so it leaves "Needs attention".
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ sourceType: 'audit', sourceId: input.logId }),
+      }).catch(() => {})
       setFeedback(
         input.action === 'block'
           ? `${input.name}'s account blocked. Restore anytime from the Officers page.`
-          : 'Marked as expected.'
+          : `${input.name} confirmed — removed from Needs attention.`
       )
       loadDashboardData(true)
       return true
@@ -608,10 +618,10 @@ export default function AdminPage() {
       return
     }
     if (action === 'block') {
-      setBlockAccountTarget({ actorId: log.actorId, name })
+      setBlockAccountTarget({ actorId: log.actorId, name, logId: log.id })
       return
     }
-    await runSecurityReview({ action: 'it_was_me', targetUserId: log.actorId, name })
+    await runSecurityReview({ action: 'it_was_me', targetUserId: log.actorId, name, logId: log.id })
   }
 
   const handleMarkAllNotificationsRead = async () => {
@@ -985,7 +995,10 @@ export default function AdminPage() {
   const activityFiltered = useMemo(() => {
     switch (activityFilter) {
       case 'attention':
-        return filteredAuditLogs.filter((l) => ATTENTION_ACTIONS.has(l.action))
+        // A review ("It was them" / block) resolves the row — it leaves the tab.
+        return filteredAuditLogs.filter(
+          (l) => ATTENTION_ACTIONS.has(l.action) && !l.isRead
+        )
       case 'checkins':
         return filteredAuditLogs.filter((l) => CHECKIN_ACTIONS.has(l.action))
       case 'signins':
@@ -1343,15 +1356,17 @@ export default function AdminPage() {
               <div className="rounded-xl border border-[#22263C] bg-[#0C0F1D] overflow-hidden divide-y divide-[#1C2237]">
                 {group.rows.map((log) => {
                   const meta = auditActionMeta(log.action)
-                  const isSecurity = meta.tone === 'warn' || meta.tone === 'crit'
-                  const tagClass =
-                    meta.tone === 'crit'
+                  const reviewed = Boolean(log.isRead) && log.action === 'NEW_DEVICE_SIGNIN'
+                  const isSecurity = !reviewed && (meta.tone === 'warn' || meta.tone === 'crit')
+                  const tagClass = reviewed
+                    ? 'text-slate-400 bg-[#121626] border-[#22263C]'
+                    : meta.tone === 'crit'
                       ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
                       : meta.tone === 'warn'
-                      ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
-                      : meta.tone === 'ok'
-                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                      : 'text-slate-400 bg-[#121626] border-[#22263C]'
+                        ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+                        : meta.tone === 'ok'
+                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                          : 'text-slate-400 bg-[#121626] border-[#22263C]'
                   return (
                     <div
                       key={log.id}
@@ -1366,7 +1381,7 @@ export default function AdminPage() {
                         {auditMessage(log)}
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
-                        {log.action === 'NEW_DEVICE_SIGNIN' && (
+                        {log.action === 'NEW_DEVICE_SIGNIN' && !reviewed && (
                           <>
                             <button
                               type="button"
@@ -1387,7 +1402,7 @@ export default function AdminPage() {
                         <span
                           className={`font-semibold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
                         >
-                          {meta.label}
+                          {reviewed ? 'Reviewed' : meta.label}
                         </span>
                       </span>
                     </div>
@@ -2573,6 +2588,7 @@ export default function AdminPage() {
             action: 'block',
             targetUserId: blockAccountTarget.actorId,
             name: blockAccountTarget.name,
+            logId: blockAccountTarget.logId,
           })
           setBlockAccountBusy(false)
           if (ok) setBlockAccountTarget(null)
