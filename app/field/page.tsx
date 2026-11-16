@@ -38,10 +38,21 @@ interface FieldVenue {
   radiusMeters: number
 }
 
+interface FieldDutyPaper {
+  paperName: string
+  startTime: string | null
+  endTime: string | null
+  sessionSlot: string | null
+}
+
 interface FieldAssignmentState {
   venue: FieldVenue | null
   paper: PaperAssignment | null
+  papers: FieldDutyPaper[]
   timeline: TimelineItem[]
+  seriesName: string | null
+  isDeployed: boolean
+  nextPaper: { date: string; paperName: string; startTime: string | null } | null
 }
 
 const QUEUED_SOS_KEY = 'waec_mos_queued_sos'
@@ -50,8 +61,7 @@ export default function FieldPage() {
   const router = useRouter()
   const [session, setSession] = useState<SessionData | null>(null)
 
-  // Geofence & GPS States
-  const [gpsMode, setGpsMode] = useState<'live' | 'mock-inside' | 'mock-outside'>('live')
+  // Geofence & GPS States — live GPS only, no simulator in production
   const [liveCoords, setLiveCoords] = useState<{
     lat: number
     lng: number
@@ -59,18 +69,17 @@ export default function FieldPage() {
     speedKmh: number
   } | null>(null)
   const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'denied'>('searching')
-  const [testVenueOverride, setTestVenueOverride] = useState<{
-    lat: number
-    lng: number
-    name: string
-  } | null>(null)
 
   // Live DB Operational States
   const [isAssignmentLoading, setIsAssignmentLoading] = useState<boolean>(true)
   const [assignment, setAssignment] = useState<FieldAssignmentState>({
     venue: null,
     paper: null,
+    papers: [],
     timeline: [],
+    seriesName: null,
+    isDeployed: false,
+    nextPaper: null,
   })
   const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false)
   const [checkInTimestamp, setCheckInTimestamp] = useState<string>('')
@@ -222,17 +231,47 @@ export default function FieldPage() {
       if (!session?.userId) return
       if (!silent) setIsAssignmentLoading(true)
       try {
-        const url = `/api/field/assignment?officerId=${encodeURIComponent(
+        const url = `/api/field/duty?officerId=${encodeURIComponent(
           session.userId
         )}&staffId=${encodeURIComponent(session.staffId || '')}`
         const res = await fetch(url)
         if (!res.ok) return
         const data = await res.json()
         if (data.success) {
+          const papers: FieldDutyPaper[] = Array.isArray(data.papers) ? data.papers : []
+          // "Today's paper" = the first paper that hasn't ended yet; if all
+          // are done, keep the last one shown as ended.
+          const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+          const parseMin = (raw?: string | null) => {
+            if (!raw) return null
+            const m = String(raw).match(/(\d{1,2}):(\d{2})/)
+            return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null
+          }
+          const current = papers.find((p) => {
+            const end = parseMin(p.endTime)
+            return end === null || end >= nowMinutes
+          })
+          const paperAssignment: PaperAssignment | null = current
+            ? {
+                title: current.paperName,
+                timeRange:
+                  current.startTime && current.endTime
+                    ? `${current.startTime} to ${current.endTime} GMT`
+                    : current.startTime
+                    ? `${current.startTime} GMT`
+                    : 'Time not confirmed by WAEC',
+                arriveBy: data.arriveBy ?? '—',
+                collectBy: data.arriveBy ? `Check-in opens ${data.arriveBy}` : 'To be advised',
+              }
+            : null
           setAssignment({
             venue: data.venue || null,
-            paper: data.paper || null,
+            paper: paperAssignment,
+            papers,
             timeline: Array.isArray(data.timeline) ? data.timeline : [],
+            seriesName: data.seriesName || null,
+            isDeployed: Boolean(data.isDeployed),
+            nextPaper: data.nextPaper || null,
           })
           setIsCheckedIn(Boolean(data.isCheckedIn))
           setCheckInTimestamp(data.checkInTimeFormatted || '')
@@ -360,18 +399,7 @@ export default function FieldPage() {
     )}`
   }
 
-  // Active Venue details (Strictly from Neon DB or user-initiated Test Spot)
-  const baseVenue = assignment.venue
-  const activeVenue: FieldVenue | null = baseVenue
-    ? testVenueOverride
-      ? {
-          ...baseVenue,
-          lat: testVenueOverride.lat,
-          lng: testVenueOverride.lng,
-          name: testVenueOverride.name,
-        }
-      : baseVenue
-    : null
+  const activeVenue: FieldVenue | null = assignment.venue
 
   const officerName = session?.name || 'Field Officer'
   const centerVenue =
@@ -382,7 +410,7 @@ export default function FieldPage() {
     : isAssignmentLoading
     ? session?.assignedCenterCode || ''
     : ''
-  const centerZone = activeVenue?.zone || 'Ashanti Examination Zone'
+  const centerZone = activeVenue?.zone || ''
   const centerRegion = activeVenue?.region || session?.region || 'Ashanti Region'
   const geofenceRadius = activeVenue?.radiusMeters || 150
 
@@ -406,43 +434,27 @@ export default function FieldPage() {
   let distanceMeters: number | null = null
   let isInside = false
 
-  if (gpsMode === 'live') {
-    if (liveCoords) {
-      effectiveUserLat = liveCoords.lat
-      effectiveUserLng = liveCoords.lng
-      if (activeVenue) {
-        distanceMeters = calculateHaversine(
-          liveCoords.lat,
-          liveCoords.lng,
-          activeVenue.lat,
-          activeVenue.lng
-        )
-        isInside = distanceMeters <= geofenceRadius
-      }
-    }
-  } else if (gpsMode === 'mock-outside') {
+  if (liveCoords) {
+    effectiveUserLat = liveCoords.lat
+    effectiveUserLng = liveCoords.lng
     if (activeVenue) {
-      effectiveUserLat = activeVenue.lat + 0.00405
-      effectiveUserLng = activeVenue.lng
+      distanceMeters = calculateHaversine(
+        liveCoords.lat,
+        liveCoords.lng,
+        activeVenue.lat,
+        activeVenue.lng
+      )
+      isInside = distanceMeters <= geofenceRadius
     }
-    distanceMeters = 450
-    isInside = false
-  } else if (gpsMode === 'mock-inside') {
-    if (activeVenue) {
-      effectiveUserLat = activeVenue.lat + 0.00038
-      effectiveUserLng = activeVenue.lng
-    }
-    distanceMeters = 42
-    isInside = true
   }
 
   const statusCardState: StatusCardState = isCheckedIn
     ? 'checked-in'
     : !isAssignmentLoading && !activeVenue
     ? 'unassigned'
-    : gpsMode === 'live' && gpsStatus === 'denied'
+    : gpsStatus === 'denied'
     ? 'gps-denied'
-    : gpsMode === 'live' && (!liveCoords || gpsStatus === 'searching')
+    : !liveCoords || gpsStatus === 'searching'
     ? 'gps-searching'
     : isInside
     ? 'inside'
@@ -466,10 +478,10 @@ export default function FieldPage() {
         lat: effectiveUserLat,
         lng: effectiveUserLng,
         battery: batteryLevel,
-        speedKmh: gpsMode === 'live' && liveCoords ? liveCoords.speedKmh : 0,
-        accuracyMeters: gpsMode === 'live' && liveCoords ? liveCoords.accuracy : 10,
+        speedKmh: liveCoords ? liveCoords.speedKmh : 0,
+        accuracyMeters: liveCoords ? liveCoords.accuracy : undefined,
         distanceMeters,
-        isSimulated: gpsMode !== 'live' || Boolean(testVenueOverride),
+        isSimulated: false,
       }
     : null
 
@@ -488,16 +500,14 @@ export default function FieldPage() {
     }
   }, [isOffline])
 
-  // Immediately sync on first GPS lock / simulation mode change, then repeat every refreshIntervalMs
   useEffect(() => {
     if (!session?.userId || isOffline) return
     if (effectiveUserLat === undefined || effectiveUserLng === undefined) return
-    const key = `${gpsMode}:${Boolean(testVenueOverride)}`
-    if (initialTelemetrySentRef.current !== key) {
-      initialTelemetrySentRef.current = key
+    if (initialTelemetrySentRef.current !== 'sent') {
+      initialTelemetrySentRef.current = 'sent'
       sendTelemetryHeartbeat()
     }
-  }, [session?.userId, isOffline, effectiveUserLat, effectiveUserLng, gpsMode, testVenueOverride, sendTelemetryHeartbeat])
+  }, [session?.userId, isOffline, effectiveUserLat, effectiveUserLng, sendTelemetryHeartbeat])
 
   useEffect(() => {
     if (!session?.userId) return
@@ -527,7 +537,7 @@ export default function FieldPage() {
           distanceMeters: distanceMeters ?? 0,
           battery: batteryLevel,
           accuracyMeters: liveCoords?.accuracy,
-          isTestMode: gpsMode !== 'live' || Boolean(testVenueOverride),
+          isTestMode: false,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -710,6 +720,36 @@ export default function FieldPage() {
   const paperAssignment: PaperAssignment | null = assignment.paper
   const todayTimeline: TimelineItem[] = assignment.timeline
 
+  // Honest empty state when nothing is on today — say what's next, in plain words.
+  const emptyDutyCard = !isAssignmentLoading && !paperAssignment ? (
+    <div className="w-full rounded-2xl border border-[#1C2337] bg-[#0F121E] p-4 text-center select-none">
+      <Building2 className="size-6 text-slate-500 mx-auto mb-1.5" />
+      <p className="text-xs font-semibold text-slate-200">No paper deployed for today</p>
+      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
+        {assignment.isDeployed
+          ? assignment.seriesName
+            ? `You're deployed to ${assignment.seriesName}.`
+            : "You're deployed this series."
+          : 'You are not deployed to an exam centre yet.'}
+      </p>
+      {assignment.nextPaper ? (
+        <p className="text-[10px] text-slate-400 mt-2 tabular-nums">
+          Next up:{' '}
+          <span className="text-slate-200 font-semibold">
+            {new Date(`${assignment.nextPaper.date}T00:00:00Z`).toLocaleDateString('en-GB', {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            })}
+            {' · '}
+            {assignment.nextPaper.paperName}
+            {assignment.nextPaper.startTime ? ` · ${assignment.nextPaper.startTime}` : ''}
+          </span>
+        </p>
+      ) : null}
+    </div>
+  ) : null
+
   return (
     <div className="min-h-screen w-full bg-[#070913] text-zinc-100 flex flex-col font-sans select-none antialiased">
       {/* Offline Alert Banner */}
@@ -763,7 +803,7 @@ export default function FieldPage() {
         session={session}
         zoneName={centerZone}
         batteryLevel={batteryLevel}
-        isGpsActive={deviceGpsActive || gpsMode !== 'live'}
+        isGpsActive={deviceGpsActive}
         onOpenProfile={() => setShowProfileModal(true)}
         onLogout={handleLogout}
       />
@@ -796,70 +836,6 @@ export default function FieldPage() {
               </div>
             </div>
           ) : null}
-
-          {/* Testing & GPS Mode switcher */}
-          {activeVenue && (
-            <div className="absolute top-3 right-3 z-[400] flex items-center p-0.5 rounded-lg bg-[#0B0F1A]/90 border border-[#212A40] text-[10px] backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => setGpsMode('live')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer flex items-center gap-1 ${
-                  gpsMode === 'live' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <span
-                  className={`size-1.5 rounded-full ${
-                    gpsStatus === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
-                  }`}
-                />
-                Live
-              </button>
-              <button
-                type="button"
-                onClick={() => setGpsMode('mock-inside')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                  gpsMode === 'mock-inside' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Sim 42m
-              </button>
-              <button
-                type="button"
-                onClick={() => setGpsMode('mock-outside')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                  gpsMode === 'mock-outside' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Sim 450m
-              </button>
-            </div>
-          )}
-
-          {/* Quick Test Trigger for Live GPS */}
-          {gpsMode === 'live' && liveCoords && distanceMeters !== null && distanceMeters > geofenceRadius && (
-            <button
-              type="button"
-              onClick={() => {
-                setTestVenueOverride({
-                  lat: liveCoords.lat,
-                  lng: liveCoords.lng,
-                  name: 'My Spot (Test Venue)',
-                })
-              }}
-              className="absolute bottom-12 left-3 z-[400] text-[10px] font-semibold bg-[#0B0F1A]/95 text-sky-300 hover:text-white border border-[#23335A] hover:border-sky-400 px-2 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
-            >
-              Test Check-In Here
-            </button>
-          )}
-          {testVenueOverride && (
-            <button
-              type="button"
-              onClick={() => setTestVenueOverride(null)}
-              className="absolute bottom-12 right-3 z-[400] text-[10px] font-semibold bg-[#1C1215]/95 text-red-300 hover:text-white border border-red-500/30 px-2 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
-            >
-              Reset Venue
-            </button>
-          )}
         </div>
 
         {/* Status Card */}
@@ -881,10 +857,10 @@ export default function FieldPage() {
         />
 
         {/* Paper / Arrive Tiles */}
-        <PaperTiles assignment={paperAssignment} />
+        {emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />}
 
         {/* Mobile Collapsible Schedule Timeline */}
-        <DayTimeline items={todayTimeline} collapsible={true} />
+        {todayTimeline.length > 0 && <DayTimeline items={todayTimeline} collapsible={true} />}
 
         {/* Action Dock */}
         <div className="w-full space-y-2.5 pt-2">
@@ -945,70 +921,6 @@ export default function FieldPage() {
               </p>
             </div>
           ) : null}
-
-          {/* Testing & GPS Mode switcher */}
-          {activeVenue && (
-            <div className="absolute top-3 right-3 z-[400] flex items-center p-0.5 rounded-lg bg-[#0B0F1A]/90 border border-[#212A40] text-[10px] backdrop-blur-md">
-              <button
-                type="button"
-                onClick={() => setGpsMode('live')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer flex items-center gap-1 ${
-                  gpsMode === 'live' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <span
-                  className={`size-1.5 rounded-full ${
-                    gpsStatus === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
-                  }`}
-                />
-                Live GPS
-              </button>
-              <button
-                type="button"
-                onClick={() => setGpsMode('mock-inside')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                  gpsMode === 'mock-inside' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Sim Inside (42m)
-              </button>
-              <button
-                type="button"
-                onClick={() => setGpsMode('mock-outside')}
-                className={`px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
-                  gpsMode === 'mock-outside' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Sim Outside (450m)
-              </button>
-            </div>
-          )}
-
-          {/* Quick Test Trigger for Live GPS */}
-          {gpsMode === 'live' && liveCoords && distanceMeters !== null && distanceMeters > geofenceRadius && (
-            <button
-              type="button"
-              onClick={() => {
-                setTestVenueOverride({
-                  lat: liveCoords.lat,
-                  lng: liveCoords.lng,
-                  name: 'My Spot (Test Venue)',
-                })
-              }}
-              className="absolute bottom-12 left-3 z-[400] text-[10px] font-semibold bg-[#0B0F1A]/95 text-sky-300 hover:text-white border border-[#23335A] hover:border-sky-400 px-2.5 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
-            >
-              Set Venue to My Location (Test Check-In)
-            </button>
-          )}
-          {testVenueOverride && (
-            <button
-              type="button"
-              onClick={() => setTestVenueOverride(null)}
-              className="absolute bottom-12 right-3 z-[400] text-[10px] font-semibold bg-[#1C1215]/95 text-red-300 hover:text-white border border-red-500/30 px-2.5 py-1 rounded-lg backdrop-blur-md shadow-md transition cursor-pointer"
-            >
-              Reset to {baseVenue?.name || 'Assigned Venue'}
-            </button>
-          )}
         </div>
 
         {/* Right Column: 460px panel with action dock pinned to bottom */}
@@ -1033,10 +945,10 @@ export default function FieldPage() {
             />
 
             {/* Paper / Arrive Tiles */}
-            <PaperTiles assignment={paperAssignment} />
+            {emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />}
 
             {/* Today Timeline */}
-            <DayTimeline items={todayTimeline} />
+            {todayTimeline.length > 0 && <DayTimeline items={todayTimeline} />}
           </div>
 
           {/* Action Dock (Pinned to panel bottom) */}

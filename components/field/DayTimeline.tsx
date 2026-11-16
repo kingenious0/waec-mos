@@ -15,14 +15,7 @@ interface DayTimelineProps {
   defaultOpen?: boolean
 }
 
-const DEFAULT_TIMELINE: TimelineItem[] = [
-  { time: '07:45', label: 'Collect papers', isHighlight: false },
-  { time: '08:00', label: 'Check in deadline', isHighlight: true },
-  { time: '08:30', label: 'Core Mathematics 1 and 2 begins', isHighlight: false },
-  { time: '12:00', label: 'Paper ends', isHighlight: false },
-]
-
-export function DayTimeline({ items = DEFAULT_TIMELINE, collapsible = false, defaultOpen = false }: DayTimelineProps) {
+export function DayTimeline({ items, collapsible = false, defaultOpen = false }: DayTimelineProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
 
   if (!items || items.length === 0) return null

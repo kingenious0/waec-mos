@@ -5,7 +5,7 @@ import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
 import { checkinSchema } from '@/lib/validation-schemas'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, asc, sql, or } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
@@ -101,6 +101,67 @@ export async function POST(request: Request) {
               updatedAt: now,
             })
             .where(eq(schema.assignments.id, row.assignmentId))
+        } else {
+          // No shift row yet — create one on demand from the officer's deployment
+          // so check-in works on deployed days with no pre-seeded assignment.
+          const todayStr = now.toISOString().slice(0, 10)
+          const deps = await db
+            .select()
+            .from(schema.officerDeployments)
+            .where(eq(schema.officerDeployments.officerId, officerId))
+          const perDay = deps.find((d) => d.deploymentDate === todayStr)
+          const series = deps.filter((d) => !d.deploymentDate)
+          const activeDep = perDay || series[0]
+          if (activeDep) {
+            const opIds = Array.from(
+              new Set((perDay ? [perDay] : series).map((d) => d.operationId))
+            )
+            let paper: {
+              paperName: string
+              startTime: string | null
+              endTime: string | null
+            } | null = null
+            try {
+              const papers = await db
+                .select({
+                  paperName: schema.examTimetable.paperName,
+                  startTime: schema.examTimetable.startTime,
+                  endTime: schema.examTimetable.endTime,
+                  sortOrder: schema.examTimetable.sortOrder,
+                })
+                .from(schema.examTimetable)
+                .where(
+                  sql`${schema.examTimetable.operationId} IN (${sql.join(
+                    opIds.map((id) => sql`${id}`),
+                    sql`, `
+                  )}) AND ${schema.examTimetable.examDate} = ${todayStr}`
+                )
+                .orderBy(asc(schema.examTimetable.sortOrder))
+                .limit(1)
+              paper = papers[0] || null
+            } catch {
+              paper = null
+            }
+            await db
+              .insert(schema.assignments)
+              .values({
+                id: `asg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                operationId: activeDep.operationId,
+                centerId: activeDep.centerId,
+                officerId,
+                date: todayStr,
+                paperName: paper?.paperName || 'Duty shift',
+                startTime: paper?.startTime || '',
+                endTime: paper?.endTime || '',
+                status: 'ON_SITE',
+                checkInTime: now,
+                checkInLatitude: safeLat || null,
+                checkInLongitude: safeLng || null,
+                checkInDistanceMeters: numericDist,
+                createdAt: now,
+                updatedAt: now,
+              })
+          }
         }
 
         const userTel: Record<string, unknown> = {

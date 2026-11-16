@@ -11,9 +11,9 @@ interface VenueCardProps {
 
 export function VenueCard({
   venueName,
-  venueCode = '050102',
-  zoneName = 'Kumasi Central Examination Zone',
-  regionName = 'Ashanti Region',
+  venueCode,
+  zoneName,
+  regionName,
 }: VenueCardProps) {
   return (
     <div className="w-full rounded-2xl bg-[#0F121E] border border-[#1C2337] p-4 text-zinc-100 shadow-md select-none font-sans">

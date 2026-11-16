@@ -13,14 +13,7 @@ interface PaperTilesProps {
   assignment?: PaperAssignment | null
 }
 
-const DEFAULT_PAPER: PaperAssignment = {
-  title: 'Core Mathematics 1 and 2',
-  timeRange: '08:30 to 12:00 GMT',
-  arriveBy: '08:00',
-  collectBy: 'Collect at 07:45',
-}
-
-export function PaperTiles({ assignment = DEFAULT_PAPER }: PaperTilesProps) {
+export function PaperTiles({ assignment }: PaperTilesProps) {
   if (!assignment) {
     return (
       <div className="w-full rounded-2xl bg-[#0F121E] border border-[#1C2337] p-4 text-center text-xs text-slate-400 select-none">

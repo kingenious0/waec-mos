@@ -5,10 +5,10 @@ import 'leaflet/dist/leaflet.css'
 import { MapPin, Crosshair } from 'lucide-react'
 
 interface FieldMapProps {
-  centerName?: string
+  centerName: string
   centerCode?: string
-  centerLat?: number
-  centerLng?: number
+  centerLat: number
+  centerLng: number
   radiusMeters?: number
   isInside?: boolean
   distanceMeters?: number | null
@@ -17,10 +17,10 @@ interface FieldMapProps {
 }
 
 export default function FieldMap({
-  centerName = 'Unassigned Center',
+  centerName,
   centerCode = '',
-  centerLat = 6.7028,
-  centerLng = -1.6369,
+  centerLat,
+  centerLng,
   radiusMeters = 150,
   isInside = false,
   distanceMeters = null,

@@ -15,7 +15,7 @@ interface FieldHeaderProps {
 
 export function FieldHeader({
   session,
-  zoneName = 'Ashanti Examination Zone',
+  zoneName,
   batteryLevel = null,
   isGpsActive = true,
   onOpenProfile,
@@ -46,7 +46,7 @@ export function FieldHeader({
       <div className="flex lg:hidden items-center justify-between w-full">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-full bg-[#F6D300] flex items-center justify-center font-bold text-black text-base shadow-sm shrink-0">
-            M
+            {initials}
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold text-white tracking-tight leading-snug">
@@ -93,14 +93,14 @@ export function FieldHeader({
       <div className="hidden lg:flex items-center justify-between w-full">
         <div className="flex items-center gap-3">
           <div className="size-10 rounded-full bg-[#F6D300] flex items-center justify-center font-bold text-black text-base shadow-sm shrink-0">
-            M
+            {initials}
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-bold text-white tracking-tight">
               WAEC MOS Field
             </span>
             <span className="text-xs text-slate-400 font-medium">
-              {zoneName}
+              {zoneName || ''}
             </span>
           </div>
         </div>
