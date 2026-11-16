@@ -79,8 +79,10 @@ export function MobileOfficerSheet({
   const stepDown = () =>
     onSnapChange(snap === 'full' ? 'half' : 'peek')
 
+  // Height as a share of the container (never the viewport) — on short
+  // screens the grabber + close buttons must never be clipped off-screen.
   const snapHeight =
-    snap === 'peek' ? 'h-[248px]' : snap === 'half' ? 'h-[54vh]' : 'h-[88vh]'
+    snap === 'peek' ? 'h-[248px] max-h-full' : snap === 'half' ? 'h-[54%] max-h-full' : 'h-[88%] max-h-full'
 
   const statusNode = isSos
     ? { label: 'CRITICAL', cls: 'border-status-sos/40 bg-status-sos/10 text-status-sos', dot: 'bg-status-sos' }

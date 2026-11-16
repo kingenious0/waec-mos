@@ -9,11 +9,12 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      // Vercel Live feedback toolbar (injected on deployments) is allowed; everything else is self.
+      "script-src 'self' 'unsafe-inline' https://vercel.live https://*.vercel.live",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.openstreetmap.org https://*.tile.openstreetmap.org",
+      "connect-src 'self' https://*.openstreetmap.org https://*.tile.openstreetmap.org https://vercel.live https://*.vercel.live wss://*.vercel.live",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

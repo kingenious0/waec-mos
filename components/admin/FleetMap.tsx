@@ -196,6 +196,10 @@ export default function FleetMap({
   const [layersOpen, setLayersOpen] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
   const [zoomLow, setZoomLow] = useState(true)
+  const zoomInFlightRef = useRef(false)
+  const pendingRebuildRef = useRef(false)
+  const rebuildRef = useRef<() => void>(() => {})
+  const checksumRef = useRef('')
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
@@ -294,7 +298,18 @@ export default function FleetMap({
       map.addLayer(officersLayerRef.current)
       trailLayerRef.current = L.layerGroup().addTo(map)
 
-      map.on('zoomend', () => setZoomLow(map.getZoom() < CENTRE_PILLS_MIN_ZOOM))
+      // Never rebuild markers mid-zoom — it crashes Leaflet's zoom transition.
+      map.on('zoomstart', () => {
+        zoomInFlightRef.current = true
+      })
+      map.on('zoomend', () => {
+        zoomInFlightRef.current = false
+        setZoomLow(map.getZoom() < CENTRE_PILLS_MIN_ZOOM)
+        if (pendingRebuildRef.current) {
+          pendingRebuildRef.current = false
+          rebuildRef.current()
+        }
+      })
 
       mapInstanceRef.current = map
       setZoomLow(map.getZoom() < CENTRE_PILLS_MIN_ZOOM)
@@ -350,15 +365,23 @@ export default function FleetMap({
         if (Number.isNaN(center.lat) || Number.isNaN(center.lng)) return
 
         if (!isDesktop) {
-          // Mobile: small yellow pin + dashed yellow geofence, no name pills
+          // Mobile: small pin + dashed yellow geofence. A dark underlay ring
+          // gives the dash contrast on light tiles (roads, parks, water).
+          L.circle([center.lat, center.lng], {
+            radius: center.radius,
+            color: '#0C0F17',
+            weight: 4,
+            opacity: 0.55,
+            fill: false,
+          }).addTo(group)
           L.circle([center.lat, center.lng], {
             radius: center.radius,
             color: '#F6D300',
-            weight: 1.5,
-            opacity: 0.85,
+            weight: 2,
+            opacity: 0.95,
             fillColor: '#F6D300',
-            fillOpacity: 0.08,
-            dashArray: '6, 7',
+            fillOpacity: 0.1,
+            dashArray: '7, 7',
           }).addTo(group)
 
           const pinIcon = L.divIcon({
@@ -505,12 +528,15 @@ export default function FleetMap({
     }
   }, [centers, mapLoaded])
 
-  // Render / update Officer Markers & Active Corridor Trail without touching tile/center layers
+  // Render / update Officer Markers & Active Corridor Trail without touching tile/center layers.
+  // Deferred while a zoom animation is in flight — rebuilding markers mid-zoom
+  // is what crashed Leaflet's `_onZoomTransitionEnd` (`_leaflet_pos`).
   useEffect(() => {
     if (!mapInstanceRef.current || !officersLayerRef.current || !mapLoaded) return
 
-    import('leaflet').then((leafletModule) => {
-      if (!officersLayerRef.current) return
+    const rebuild = () => {
+      import('leaflet').then((leafletModule) => {
+        if (!officersLayerRef.current) return
       const L = leafletModule.default
       const group = officersLayerRef.current
       group.clearLayers()
@@ -625,6 +651,27 @@ export default function FleetMap({
         }
       }
     })
+    }
+
+    // The ref always holds the LATEST closure, even when a rebuild is deferred.
+    rebuildRef.current = rebuild
+
+    if (zoomInFlightRef.current) {
+      pendingRebuildRef.current = true
+      return
+    }
+
+    const checksum =
+      officers
+        .map((o) =>
+          [o.id, o.lat?.toFixed(5), o.lng?.toFixed(5), o.status, o.lastPingAt, o.battery].join(':')
+        )
+        .join('|') +
+      `|${selectedOfficer?.id ?? ''}|${statusFilter}|${centers.length}`
+    if (checksumRef.current === checksum) return
+    checksumRef.current = checksum
+
+    rebuild()
   }, [officers, selectedOfficer, centers, mapLoaded, onSelectOfficer, statusFilter])
 
   // Selecting an officer flies straight to them (zoom 15). Skip the very
@@ -698,20 +745,23 @@ export default function FleetMap({
           [
             { id: 'all', label: `All ${officers.length}` },
             { id: 'onsite', label: `At centre ${officers.filter(isOfficerAtCentre).length}` },
-            { id: 'enroute', label: `On the way ${officers.filter((o) => o.status === 'PENDING').length}` },
+            { id: 'enroute', label: `On the way ${officers.filter((o) => !isOfficerAtCentre(o) && o.status !== 'SOS').length}` },
             { id: 'sos', label: `SOS ${officers.filter((o) => o.status === 'SOS').length}` },
           ] as const
         ).map((chip) => {
           const isActive = statusFilter === chip.id
+          const activeClass =
+            chip.id === 'sos'
+              ? 'border-rose-500/60 bg-rose-600 text-white shadow-md'
+              : 'border-[#3B57F0] bg-[#1E2B7B] text-white shadow-md'
           return (
             <button
               key={chip.id}
               type="button"
               onClick={() => onStatusFilterChange?.(chip.id)}
-              className={`h-9 shrink-0 rounded-full border px-4 text-xs font-semibold transition cursor-pointer whitespace-nowrap backdrop-blur-md ${
-                isActive
-                  ? 'border-indigo-400/70 bg-indigo-500/25 text-indigo-200'
-                  : 'border-[#2A3048] bg-[#0C0F17]/85 text-slate-300'
+              aria-pressed={isActive}
+              className={`h-9 shrink-0 rounded-full border px-4 text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                isActive ? activeClass : 'border-[#2A3048] bg-[#0C0F17]/92 text-slate-300'
               }`}
             >
               {chip.label}
