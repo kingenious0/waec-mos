@@ -13,6 +13,7 @@ import {
   type ExamCenterFormPayload,
 } from '@/components/admin/modals/ExamCenterModal'
 import { LogIncidentModal, type LogIncidentPayload } from '@/components/admin/modals/LogIncidentModal'
+import { ConfirmDialog } from '@/components/admin/modals/ConfirmDialog'
 import {
   Users,
   ShieldCheck,
@@ -39,6 +40,7 @@ import {
   Filter,
   RefreshCw,
   MoreVertical,
+  ChevronDown,
 } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
@@ -215,6 +217,7 @@ export default function AdminPage() {
   const [incidentFilter, setIncidentFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL')
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('attention')
+  const [incidentsExpanded, setIncidentsExpanded] = useState(false)
   const [auditOfficerFilterId, setAuditOfficerFilterId] = useState<string | null>(null)
 
   // Responsive Layout & Feedback
@@ -564,29 +567,51 @@ export default function AdminPage() {
     setFeedback(`Showing ${center.name} on the live map`)
   }
 
-  /** "It was them" / "Block account" for a new-device sign-in row. */
+  const [blockAccountTarget, setBlockAccountTarget] = useState<{
+    actorId: string
+    name: string
+  } | null>(null)
+  const [blockAccountBusy, setBlockAccountBusy] = useState(false)
+
+  const runSecurityReview = async (input: {
+    action: 'it_was_me' | 'block'
+    targetUserId: string
+    name: string
+  }) => {
+    try {
+      const res = await fetch('/api/security/oddities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: input.action, targetUserId: input.targetUserId }),
+      })
+      if (!res.ok) throw new Error()
+      setFeedback(
+        input.action === 'block'
+          ? `${input.name}'s account blocked. Restore anytime from the Officers page.`
+          : 'Marked as expected.'
+      )
+      loadDashboardData(true)
+      return true
+    } catch {
+      setFeedback('Could not update. Try again.')
+      return false
+    }
+  }
+
+  /** The new-device sign-in row action. "It was them" is safe and runs directly;
+   *  blocking goes through the in-app ConfirmDialog (never a native popup). */
   const handleSecurityReview = async (log: LiveAuditLogRecord, action: 'it_was_me' | 'block') => {
     const name = displayName(log.actorName)
     if (!log.actorId) {
       setFeedback('No account is linked to this sign-in.')
       return
     }
-    if (action === 'block' && !window.confirm(`Block ${name}'s account? They will be signed out everywhere and can't sign back in.`)) {
+    if (action === 'block') {
+      setBlockAccountTarget({ actorId: log.actorId, name })
       return
     }
-    try {
-      const res = await fetch('/api/security/oddities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ action, targetUserId: log.actorId }),
-      })
-      if (!res.ok) throw new Error()
-      setFeedback(action === 'block' ? `${name}'s account blocked.` : 'Marked as expected.')
-      loadDashboardData(true)
-    } catch {
-      setFeedback('Could not update. Try again.')
-    }
+    await runSecurityReview({ action: 'it_was_me', targetUserId: log.actorId, name })
   }
 
   const handleMarkAllNotificationsRead = async () => {
@@ -995,14 +1020,73 @@ export default function AdminPage() {
   }, [auditOfficerFilterId, officers, fleetOfficers])
 
 
-  // --- Incident blocks shared by the mobile + desktop layouts (defined once) ---
   // --- Incident list shared by the mobile + desktop layouts (defined once) ---
-  // Open first, then resolved — newest first. Open cards carry actions.
+  // Collapsed by default. A LIVE incident opens the panel automatically and
+  // can never be hidden behind the toggle — resolving it collapses the panel again.
+  const liveCount = unresolvedIncidents.length
+  const resolvedCount = incidents.length - liveCount
+  const incidentsPanelOpen = liveCount > 0 || incidentsExpanded
+
   const recordedIncidentsBlock = (
-    <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3 shadow-md">
+    <div
+      className={`rounded-2xl border bg-[#11131F] shadow-md overflow-hidden transition-colors ${
+        liveCount > 0 ? 'border-rose-500/50' : 'border-[#22263C]'
+      }`}
+    >
+      {/* Collapsed row — one line of state, always visible */}
+      <button
+        type="button"
+        onClick={() => {
+          if (liveCount === 0) setIncidentsExpanded((v) => !v)
+        }}
+        aria-expanded={incidentsPanelOpen}
+        aria-controls="incidents-panel-body"
+        className={`w-full flex items-center gap-3 p-4 sm:p-5 text-left ${
+          liveCount > 0 ? 'cursor-default' : 'cursor-pointer hover:bg-white/[0.03] transition-colors'
+        }`}
+      >
+        {liveCount > 0 ? (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/35">
+            <Siren className="size-4.5 text-rose-400 animate-pulse" aria-hidden />
+          </span>
+        ) : (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+            <ShieldCheck className="size-4 text-emerald-400/80" aria-hidden />
+          </span>
+        )}
+        <span className="min-w-0">
+          <h3 className="font-bold text-xs text-slate-200 tracking-wider">
+            Incidents{' '}
+            <span className="text-slate-500 font-semibold">({incidents.length})</span>
+            {liveCount > 0 && (
+              <span className="ml-2 text-rose-400 font-sans normal-case tracking-normal">
+                · {liveCount} live — needs you
+              </span>
+            )}
+          </h3>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            {liveCount > 0
+              ? 'Showing open incidents — resolve to close them'
+              : incidentsExpanded
+              ? 'All clear — showing resolved history'
+              : `All clear — ${resolvedCount} resolved hidden`}
+          </p>
+        </span>
+        {liveCount === 0 && (
+          <ChevronDown
+            className={`ml-auto size-5 shrink-0 text-slate-400 transition-transform duration-200 ${
+              incidentsPanelOpen ? 'rotate-180' : ''
+            }`}
+            aria-hidden
+          />
+        )}
+      </button>
+
+      {incidentsPanelOpen && (
+        <div id="incidents-panel-body" className="border-t border-[#1E243A] p-4 sm:p-5 space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h3 className="font-bold text-xs text-slate-300 tracking-wider">
-          Incidents <span className="text-slate-500 font-semibold">({filteredIncidents.length})</span>
+          Showing <span className="text-slate-500 font-semibold">({filteredIncidents.length})</span>
         </h3>
 
         <div className="flex items-center gap-1.5 text-[11px]">
@@ -1185,6 +1269,8 @@ export default function AdminPage() {
               </div>
             )
           })}
+        </div>
+      )}
         </div>
       )}
     </div>
@@ -2465,6 +2551,33 @@ export default function AdminPage() {
         examCenters={examCenters}
         officers={officers}
         currentUserId={session?.userId || 'usr-admin-hq'}
+      />
+
+      {/* MODAL: BLOCK NEW-DEVICE ACCOUNT — in-app, never a native popup */}
+      <ConfirmDialog
+        open={blockAccountTarget !== null}
+        title={`Block ${blockAccountTarget?.name ?? ''}?`}
+        description={
+          <>
+            They will be signed out everywhere and will not be able to sign back in.
+            You can restore access at any time from the Officers page.
+          </>
+        }
+        confirmLabel="Block account"
+        tone="danger"
+        busy={blockAccountBusy}
+        onConfirm={async () => {
+          if (!blockAccountTarget) return
+          setBlockAccountBusy(true)
+          const ok = await runSecurityReview({
+            action: 'block',
+            targetUserId: blockAccountTarget.actorId,
+            name: blockAccountTarget.name,
+          })
+          setBlockAccountBusy(false)
+          if (ok) setBlockAccountTarget(null)
+        }}
+        onCancel={() => setBlockAccountTarget(null)}
       />
 
       {/* MODAL: OFFICER DOSSIER (Inspected by Admin) */}

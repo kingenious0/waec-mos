@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { formatRelativeTime } from '@/lib/relative-time'
+import { ConfirmDialog } from '@/components/admin/modals/ConfirmDialog'
 import {
   Inbox,
   Check,
@@ -49,6 +50,7 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([])
   const [pinResetRequests, setPinResetRequests] = useState<PinResetRequest[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [declineTarget, setDeclineTarget] = useState<{ kind: 'access' | 'pin'; id: string } | null>(null)
   const [tempPin, setTempPin] = useState<{ pin: string; name: string; expiresAt: string } | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -75,13 +77,16 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
 
   const decide = async (kind: 'access' | 'pin', id: string, action: 'approve' | 'issue' | 'decline') => {
     if (busyId) return
-    if (kind === 'access' && action === 'decline') {
-      if (!window.confirm('Decline this access request? The person will not be able to sign in.')) return
-    }
-    if (kind === 'pin' && action === 'decline') {
-      if (!window.confirm('Decline this PIN request? The officer will be told to contact you directly.')) return
+    if (action === 'decline') {
+      setDeclineTarget({ kind, id })
+      return
     }
 
+    await runDecision(kind, id, action)
+  }
+
+  const runDecision = async (kind: 'access' | 'pin', id: string, action: 'approve' | 'issue' | 'decline') => {
+    if (busyId) return
     setBusyId(id)
     setError('')
     try {
@@ -230,6 +235,26 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
           ))}
         </div>
       ) : null}
+
+      {/* Decline confirm — in-app, never a native popup */}
+      <ConfirmDialog
+        open={declineTarget !== null}
+        title={declineTarget?.kind === 'access' ? 'Decline this access request?' : 'Decline this PIN reset?'}
+        description={
+          declineTarget?.kind === 'access'
+            ? 'The person will not be able to sign in. You can approve them later if they apply again.'
+            : 'The officer will be told to contact you directly, and they will not get a new PIN.'
+        }
+        confirmLabel="Decline request"
+        tone="danger"
+        onConfirm={() => {
+          if (!declineTarget) return
+          const t = declineTarget
+          setDeclineTarget(null)
+          void runDecision(t.kind, t.id, 'decline')
+        }}
+        onCancel={() => setDeclineTarget(null)}
+      />
 
       {/* One-time temporary PIN modal */}
       {tempPin && (
