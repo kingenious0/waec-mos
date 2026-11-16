@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
 import { Plus, Minus, Crosshair, Users, Layers, Map as MapIcon, Satellite, Check } from 'lucide-react'
 import { formatRelativeTime, formatTooltipTime } from '@/lib/relative-time'
+import { isOfficerAtCentre, effectiveRadius } from '@/lib/presence'
 
 export interface OfficerCheckpoint {
   id: string
@@ -136,14 +137,13 @@ function markerLineName(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
 }
 
-/** "at the centre" when within the geofence radius, otherwise "450 m from the centre". */
+/** "at the centre" when inside the geofence radius, otherwise "450 m from the centre". */
 function lastSeenWhere(o: FleetOfficer): string {
   const hasCentre = Boolean((o.assignedCenter && o.assignedCenter !== 'Unassigned') || o.centerCode)
   if (!hasCentre) return ''
-  const radius = typeof o.centerRadius === 'number' && o.centerRadius > 0 ? o.centerRadius : 150
   const d = typeof o.distanceFromDatum === 'number' && !Number.isNaN(o.distanceFromDatum) ? o.distanceFromDatum : null
   if (d === null) return 'at the centre'
-  if (d <= radius) return 'at the centre'
+  if (d <= effectiveRadius(o.centerRadius)) return 'at the centre'
   return `${Math.max(1, Math.round(d))} m from the centre`
 }
 
@@ -155,7 +155,7 @@ function markerMetaLine(o: FleetOfficer): string {
     const where = lastSeenWhere(o)
     return where ? `Last seen ${where} · ${rel}` : `Last seen ${rel}`
   }
-  const status = o.status === 'ON_SITE' ? 'At the centre' : 'On the way'
+  const status = isOfficerAtCentre(o) ? 'At the centre' : 'On the way'
   const battery = typeof o.battery === 'number' ? `${o.battery}% battery` : 'no battery data'
   const rel = formatRelativeTime(o.lastPingAt)
   return `${status} · ${battery} · Updated ${rel.charAt(0).toLowerCase()}${rel.slice(1)}`
@@ -521,8 +521,8 @@ export default function FleetMap({
       // SOS officers — and never for anyone else while one officer is selected.
       const mapCenterLng = mapInstanceRef.current?.getCenter()?.lng ?? Infinity
       const visibleOfficers = officers.filter((officer) => {
-        if (statusFilter === 'onsite') return officer.status === 'ON_SITE'
-        if (statusFilter === 'enroute') return officer.status === 'PENDING'
+        if (statusFilter === 'onsite') return isOfficerAtCentre(officer)
+        if (statusFilter === 'enroute') return !isOfficerAtCentre(officer) && officer.status !== 'SOS'
         if (statusFilter === 'sos') return officer.status === 'SOS'
         return true
       })
@@ -530,7 +530,7 @@ export default function FleetMap({
       visibleOfficers.forEach((officer) => {
         const isSelected = selectedOfficer?.id === officer.id
         const isSos = officer.status === 'SOS'
-        const isOnSite = officer.status === 'ON_SITE'
+        const atCentre = isOfficerAtCentre(officer)
         const stale = isTelemetryStale(officer)
         const lineName = markerLineName(officer.name || '')
         const meta = markerMetaLine(officer)
@@ -538,9 +538,9 @@ export default function FleetMap({
         const batteryWord = typeof officer.battery === 'number' ? `${officer.battery}% battery` : 'no battery data'
 
         let dotClass = 'waec-officer-dot waec-officer-dot--way'
-        if (stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
-        else if (isOnSite) dotClass = 'waec-officer-dot waec-officer-dot--onsite'
-        else if (isSos) dotClass = 'waec-officer-dot waec-officer-dot--sos'
+        if (isSos) dotClass = 'waec-officer-dot waec-officer-dot--sos'
+        else if (stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
+        else if (atCentre) dotClass = 'waec-officer-dot waec-officer-dot--onsite'
 
         const sosIcon = isSos
           ? `<svg viewBox="0 0 24 24" width="9" height="9" aria-hidden="true" focusable="false">
@@ -697,7 +697,7 @@ export default function FleetMap({
         {(
           [
             { id: 'all', label: `All ${officers.length}` },
-            { id: 'onsite', label: `On site ${officers.filter((o) => o.status === 'ON_SITE').length}` },
+            { id: 'onsite', label: `At centre ${officers.filter(isOfficerAtCentre).length}` },
             { id: 'enroute', label: `On the way ${officers.filter((o) => o.status === 'PENDING').length}` },
             { id: 'sos', label: `SOS ${officers.filter((o) => o.status === 'SOS').length}` },
           ] as const

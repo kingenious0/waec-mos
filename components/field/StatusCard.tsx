@@ -174,7 +174,7 @@ export function StatusCard({
               isInside ? 'text-emerald-400' : 'text-amber-400'
             }`}
           >
-            {isInside ? "You're at the venue" : "You're outside the perimeter"}
+            {isInside ? "You're at the centre" : "You're outside the check-in area"}
           </h2>
           <p className="text-xs text-slate-400 mt-0.5 truncate">
             {isInside

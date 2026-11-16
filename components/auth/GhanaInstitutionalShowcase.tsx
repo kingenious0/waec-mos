@@ -45,7 +45,7 @@ export function GhanaInstitutionalShowcase({
     description ||
     (isRegistry
       ? 'Examination monitor and supervisor rosters are provisioned exclusively through authorized regional and zonal coordination commands across Ghana.'
-      : 'Real-time attendance verification, center telemetry, and coordinated incident response across accredited examination venues nationwide.')
+      : 'Real-time attendance verification, centre telemetry, and coordinated incident response across accredited examination venues nationwide.')
   const topBadge = badgeLabel || (isRegistry ? 'Personnel Deployment Registry' : 'Ghana National Operations Grid')
 
   return (

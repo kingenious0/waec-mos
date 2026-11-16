@@ -177,6 +177,8 @@ export function ExamCenterModal({
   const [searchNotice, setSearchNotice] = useState('')
 
   const [showAdvanced, setShowAdvanced] = useState(false)
+  // Check-in areas above 500 m are saved only after explicit confirmation.
+  const [largeRadiusAck, setLargeRadiusAck] = useState(false)
 
   // Map refs
   const containerRef = useRef<HTMLDivElement>(null)
@@ -228,6 +230,7 @@ export function ExamCenterModal({
 
     setError('')
     setIsSubmitting(false)
+    setLargeRadiusAck(false)
     if (mode === 'edit' && initialCenter) {
       setName(initialCenter.name)
       setCode(initialCenter.code)
@@ -521,11 +524,15 @@ export function ExamCenterModal({
       return
     }
     if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) {
-      setError('Locate the center on the map or enter valid coordinates.')
+      setError('Locate the centre on the map or enter valid coordinates.')
       return
     }
     if (Number.isNaN(parsedRadius) || parsedRadius < 25) {
-      setError('Geofence radius must be at least 25 meters.')
+      setError('Check-in area must be at least 25 m.')
+      return
+    }
+    if (parsedRadius > 500 && !largeRadiusAck) {
+      setError('This is large — tick the confirmation below to save a check-in area above 500 m.')
       return
     }
 
@@ -798,7 +805,7 @@ export function ExamCenterModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Radius (m)
+                  Check-in area (m)
                 </label>
                 <input
                   type="number"
@@ -806,9 +813,38 @@ export function ExamCenterModal({
                   max={2000}
                   required
                   value={radius}
-                  onChange={(e) => setRadius(e.target.value)}
+                  onChange={(e) => {
+                    setRadius(e.target.value)
+                    if (Number(e.target.value) <= 500) setLargeRadiusAck(false)
+                  }}
                   className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-sky-400 font-bold focus:outline-hidden focus:border-sky-400"
                 />
+                <p className="mt-1.5 text-[10px] text-slate-500">
+                  {Number(radius) > 0 && !Number.isNaN(Number(radius))
+                    ? `${Math.round(Number(radius))} m from the centre`
+                    : 'Around the centre, not across it'}
+                </p>
+                {Number(radius) > 200 && Number(radius) <= 500 && (
+                  <p className="mt-1.5 text-[10px] font-semibold text-amber-400">
+                    This is large. Officers passing by might be marked as arrived.
+                  </p>
+                )}
+                {Number(radius) > 500 && (
+                  <div className="mt-1.5 space-y-1.5">
+                    <p className="text-[10px] font-semibold text-rose-400">
+                      This is large. Officers passing by might be marked as arrived.
+                    </p>
+                    <label className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-2.5 py-2 text-[10px] text-rose-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={largeRadiusAck}
+                        onChange={(e) => setLargeRadiusAck(e.target.checked)}
+                        className="mt-0.5 accent-rose-500"
+                      />
+                      <span>I understand — save a check-in area this large anyway.</span>
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div>

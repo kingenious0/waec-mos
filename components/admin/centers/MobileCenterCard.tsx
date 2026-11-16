@@ -7,6 +7,8 @@ import type { ExamCenter } from '@/components/admin/FleetMap'
 interface MobileCenterCardProps {
   index: number
   center: ExamCenter
+  /** Officers with a FRESH update inside the check-in area (shared rule). */
+  atCentreCount?: number
   onFocus: (center: ExamCenter) => void
   onEdit: (center: ExamCenter) => void
   onDelete: (center: ExamCenter) => void
@@ -14,12 +16,14 @@ interface MobileCenterCardProps {
 
 /**
  * Compact examination-centre card for the mobile Centres tab:
- * index tile, name + code/district, active/alert tag, a three-stat
- * row (Officers / Perimeter / Alerts), one primary action and a ⋯ menu.
+ * index tile, name + code/district, status tag, one line of facts
+ * (assigned · at the centre · check-in area), one primary action and a
+ * ⋯ menu.
  */
 export function MobileCenterCard({
   index,
   center,
+  atCentreCount = 0,
   onFocus,
   onEdit,
   onDelete,
@@ -27,6 +31,7 @@ export function MobileCenterCard({
   const [menuOpen, setMenuOpen] = useState(false)
   const openIncidents = center.openIncidentsCount || 0
   const district = center.districtName || ''
+  const assigned = center.totalMonitors || 0
   const radius =
     typeof center.radius === 'number' && Number.isFinite(center.radius)
       ? Math.round(center.radius)
@@ -47,54 +52,34 @@ export function MobileCenterCard({
             <span
               className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold whitespace-nowrap ${
                 openIncidents > 0
-                  ? 'border-status-sos/40 bg-status-sos/10 text-status-sos'
+                  ? 'border-amber-500/35 bg-amber-500/10 text-amber-300'
                   : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400'
               }`}
             >
               <span
                 className={`size-1.5 rounded-full ${
-                  openIncidents > 0 ? 'bg-status-sos' : 'bg-emerald-400'
+                  openIncidents > 0 ? 'bg-amber-400' : 'bg-emerald-400'
                 }`}
               />
-              {openIncidents > 0 ? 'Alert' : 'Active'}
+              {openIncidents > 0 ? 'Needs attention' : 'All clear'}
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1 tabular-nums truncate">
-            {center.code}
-            {district ? ` · ${district}` : ''}
+          <p className="text-[11px] text-slate-400 mt-1">
+            Centre code{' '}
+            <span className="font-semibold text-slate-300 tabular-nums">{center.code}</span>
+            {district ? <> · {district}</> : ''}
           </p>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 divide-x divide-[#1E243A] border-y border-[#1E243A] py-2.5">
-        <div className="px-1 flex flex-col items-center">
-          <span className="text-[9px] font-sans uppercase tracking-wider text-slate-500">
-            Officers
-          </span>
-          <span className="text-sm font-bold text-white tabular-nums mt-0.5">
-            {center.onSiteMonitors || 0}/{center.totalMonitors}
-          </span>
-        </div>
-        <div className="px-1 flex flex-col items-center">
-          <span className="text-[9px] font-sans uppercase tracking-wider text-slate-500">
-            Perimeter
-          </span>
-          <span className="text-sm font-bold text-white tabular-nums mt-0.5">{radius} m</span>
-        </div>
-        <div className="px-1 flex flex-col items-center">
-          <span className="text-[9px] font-sans uppercase tracking-wider text-slate-500">
-            Alerts
-          </span>
-          <span
-            className={`text-sm font-bold tabular-nums mt-0.5 ${
-              openIncidents > 0 ? 'text-status-sos' : 'text-emerald-400'
-            }`}
-          >
-            {openIncidents > 0 ? openIncidents : 'None'}
-          </span>
-        </div>
-      </div>
+      {/* One line of facts — no inner tiles */}
+      <p className="text-xs text-slate-400 border-t border-[#1E243A] pt-3">
+        <span className="font-semibold text-white tabular-nums">{assigned}</span>{' '}
+        {assigned === 1 ? 'officer' : 'officers'} assigned ·{' '}
+        <span className="font-semibold text-white tabular-nums">{atCentreCount}</span> at the
+        centre · <span className="font-semibold text-white tabular-nums">{radius}&nbsp;m</span>{' '}
+        check-in area
+      </p>
 
       {/* Actions */}
       <div className="flex items-stretch gap-2">
@@ -104,7 +89,7 @@ export function MobileCenterCard({
           className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] hover:text-white text-slate-200 text-xs font-bold transition cursor-pointer"
         >
           <MapPin className="size-4 shrink-0" />
-          Focus on map
+          Show on map
         </button>
         <button
           type="button"
@@ -135,7 +120,7 @@ export function MobileCenterCard({
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
             >
               <Pencil className="size-4 shrink-0 text-slate-400" />
-              Edit boundary
+              Edit check-in area
             </button>
             <button
               type="button"

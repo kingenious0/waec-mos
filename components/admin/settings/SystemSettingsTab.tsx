@@ -191,7 +191,7 @@ export function SystemSettingsTab({
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Outside check-in area</div>
                 <div className="text-xs text-zinc-400">
-                  Warn when an officer is beyond the centre perimeter during their shift.
+                  Warn when an officer is outside the check-in area during their shift.
                 </div>
               </div>
               <button
@@ -343,7 +343,7 @@ export function SystemSettingsTab({
         {/* SECTION 3: MAP AND GEOFENCES */}
         <div className="space-y-3">
           <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
-            MAP AND GEOFENCES
+            Map and geofences
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
@@ -351,7 +351,7 @@ export function SystemSettingsTab({
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Check-in radius</div>
                 <div className="text-xs text-zinc-400">
-                  Default perimeter around each exam centre.
+                  Default check-in area around each exam centre.
                 </div>
               </div>
               <div className="relative shrink-0">

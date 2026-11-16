@@ -57,7 +57,7 @@ export function AdminSidebar({
     },
     {
       id: 'centers' as const,
-      label: 'Exam Centres',
+      label: 'Exam centres',
       icon: Building2,
     },
     {
@@ -73,7 +73,7 @@ export function AdminSidebar({
     },
     {
       id: 'safety' as const,
-      label: 'Safety Centre',
+      label: 'Safety centre',
       icon: ShieldCheck,
     },
   ]
@@ -101,8 +101,8 @@ export function AdminSidebar({
               <span className="text-xs font-bold tracking-wider text-foreground truncate">
                 M.O.S ADMIN
               </span>
-              <span className="text-[10px] font-sans tracking-wider text-muted-foreground truncate uppercase">
-                MONITORING SYSTEM
+              <span className="text-[10px] font-sans tracking-wider text-muted-foreground truncate">
+                Monitoring system
               </span>
             </div>
           )}
@@ -112,6 +112,7 @@ export function AdminSidebar({
           type="button"
           onClick={onToggleCollapse}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
         >
           {isCollapsed ? (
@@ -125,8 +126,8 @@ export function AdminSidebar({
       {/* Navigation Section */}
       <div className="flex-1 py-4 px-2.5 space-y-4">
         {!isCollapsed && (
-          <div className="px-2 text-[10px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
-            MAIN NAVIGATION
+          <div className="px-2 text-[10px] font-sans font-semibold tracking-wider text-muted-foreground">
+            Main navigation
           </div>
         )}
 
@@ -140,7 +141,7 @@ export function AdminSidebar({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectTab(item.id)}
-                title={isCollapsed ? item.label : undefined}
+                title={item.label}
                 className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer relative ${
                   isActive
                     ? 'bg-[#1E2B7B]/30 text-white border border-[#1E2B7B] font-semibold'
@@ -169,6 +170,7 @@ export function AdminSidebar({
           <button
             type="button"
             onClick={onOpenProfile}
+            title="Open your profile"
             className="flex items-center gap-2.5 overflow-hidden text-left hover:opacity-90 transition cursor-pointer"
           >
             <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
@@ -196,7 +198,7 @@ export function AdminSidebar({
             <button
               type="button"
               onClick={() => onSelectTab('settings')}
-              title="System Settings"
+              title="Settings"
               aria-label="Settings"
               className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                 activeTab === 'settings'
@@ -213,7 +215,7 @@ export function AdminSidebar({
           <button
             type="button"
             onClick={() => onSelectTab('settings')}
-            title="System Settings"
+            title="Settings"
             aria-label="Settings"
             className={`w-full flex items-center justify-center p-1.5 rounded-md transition-colors cursor-pointer ${
               activeTab === 'settings'

@@ -25,7 +25,6 @@ import {
   Star,
   MapPin,
   Phone,
-  Radio,
   AlertTriangle,
   Battery,
   Compass,
@@ -53,6 +52,7 @@ import { RequestsPanel } from '@/components/admin/directory/RequestsPanel'
 import { MobileOfficerSheet } from '@/components/admin/inspector/MobileOfficerSheet'
 import { MobileCenterCard } from '@/components/admin/centers/MobileCenterCard'
 import { formatGhanaPhone } from '@/lib/phone'
+import { isOfficerAtCentre, effectiveRadius } from '@/lib/presence'
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 import { SafetyCenter } from '@/components/admin/safety/SafetyCenter'
 import { TimetablePanel } from '@/components/admin/timetable/TimetablePanel'
@@ -178,6 +178,7 @@ export default function AdminPage() {
   const [centerToDelete, setCenterToDelete] = useState<ExamCenter | null>(null)
   const [officerToDelete, setOfficerToDelete] = useState<UserAccount | null>(null)
   const [openActionsOfficerId, setOpenActionsOfficerId] = useState<string | null>(null)
+  const [openCentreMenuId, setOpenCentreMenuId] = useState<string | null>(null)
   const [revokingOfficer, setRevokingOfficer] = useState<UserAccount | null>(null)
   const [undoBlock, setUndoBlock] = useState<UserAccount | null>(null)
   const [isDeletingRecord, setIsDeletingRecord] = useState(false)
@@ -395,8 +396,27 @@ export default function AdminPage() {
   // Computed live metrics
   const deployedMonitorsCount = fleetOfficers.length
   const activeSosCount = fleetOfficers.filter((o) => o.status === 'SOS').length
-  const verifiedOnSiteCount = fleetOfficers.filter((o) => o.status === 'ON_SITE').length
-  const onlineUnitsCount = fleetOfficers.filter((o) => o.isOnline).length
+  const centresNeedingAttention = useMemo(
+    () => examCenters.filter((c) => (c.openIncidentsCount || 0) > 0).length,
+    [examCenters]
+  )
+  const assignedOfficerCount = useMemo(
+    () => examCenters.reduce((acc, c) => acc + (c.totalMonitors || 0), 0),
+    [examCenters]
+  )
+  const officersAtCentreByCode = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const o of fleetOfficers) {
+      if (!isOfficerAtCentre(o)) continue
+      const code = o.centerCode || ''
+      if (!code) continue
+      counts[code] = (counts[code] || 0) + 1
+    }
+    return counts
+  }, [fleetOfficers])
+  // "At the centre" counts only officers with a fresh update (<5 min) inside
+  // the check-in area — the same rule the map and Officers page use.
+  const verifiedOnSiteCount = fleetOfficers.filter(isOfficerAtCentre).length
 
   const unresolvedIncidents = useMemo(
     () => incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(i.status)),
@@ -484,7 +504,7 @@ export default function AdminPage() {
   const handleCenterFocus = (center: ExamCenter) => {
     setActiveTab('map')
     setFocusTarget({ lat: center.lat, lng: center.lng, zoom: 16 })
-    setFeedback(`Surveillance grid locked onto ${center.name} (Code: ${center.code})`)
+    setFeedback(`Showing ${center.name} on the live map`)
   }
 
   const handleDispatchPatrol = (incidentId: string) => {
@@ -1049,7 +1069,7 @@ export default function AdminPage() {
                             <div className="font-bold text-white text-sm">{inc.title}</div>
                             <div className="text-slate-300">{inc.description}</div>
                             <div className="text-[11px] text-slate-400">
-                              Center: <span className="text-slate-200">{inc.centerName}</span> ·
+                              Centre: <span className="text-slate-200">{inc.centerName}</span> ·
                               Reported by:{' '}
                               <span className="text-slate-200">{inc.reporterName}</span>
                               {inc.resolutionNotes ? ` · Note: ${inc.resolutionNotes}` : ''}
@@ -1725,27 +1745,32 @@ export default function AdminPage() {
                     type="text"
                     value={centerSearchQuery}
                     onChange={(e) => setCenterSearchQuery(e.target.value)}
-                    placeholder="Search name or code"
+                    placeholder="Search by centre name, code or district"
                     aria-label="Search centres"
                     className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
                   />
                 </div>
 
-                {/* Summary strip */}
+                {/* Summary line + one status chip */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  {unresolvedIncidents.length === 0 ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
-                      <span className="size-2 rounded-full bg-emerald-400" />
-                      {examCenters.length} of {examCenters.length} {examCenters.length === 1 ? 'check-in area' : 'check-in areas'} clear
+                  {centresNeedingAttention > 0 ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-300">
+                      <span className="size-2 rounded-full bg-amber-400" />
+                      {centresNeedingAttention} need{centresNeedingAttention === 1 ? 's' : ''} attention
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-status-sos/30 bg-status-sos/10 px-3.5 py-2 text-xs font-semibold text-status-sos">
-                      <span className="size-2 rounded-full bg-status-sos animate-pulse" />
-                      {unresolvedIncidents.length} open incidents
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
+                      <span className="size-2 rounded-full bg-emerald-400" />
+                      All check-in areas clear
                     </span>
                   )}
-                  <span className="text-xs text-slate-500 tabular-nums">
-                    {incidentSummary.breachCount} breaches logged
+                  <span className="text-xs text-slate-400">
+                    <span className="font-semibold text-white tabular-nums">{examCenters.length}</span>{' '}
+                    {examCenters.length === 1 ? 'centre' : 'centres'} ·{' '}
+                    <span className="font-semibold text-white tabular-nums">{assignedOfficerCount}</span>{' '}
+                    assigned ·{' '}
+                    <span className="font-semibold text-white tabular-nums">{verifiedOnSiteCount}</span>{' '}
+                    at a centre
                   </span>
                 </div>
 
@@ -1769,6 +1794,7 @@ export default function AdminPage() {
                         key={center.id || center.code}
                         index={idx + 1}
                         center={center}
+                        atCentreCount={officersAtCentreByCode[center.code] || 0}
                         onFocus={handleCenterFocus}
                         onEdit={(c) => setCenterModalState({ mode: 'edit', center: c })}
                         onDelete={setCenterToDelete}
@@ -1791,169 +1817,60 @@ export default function AdminPage() {
 
             {/* ===== DESKTOP (lg+) — existing console layout ===== */}
             <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#22263C] pb-3">
-                <div>
-                  <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                    <Building2 className="size-4.5 text-[#F6D300]" />
-                    <span>Exam centres</span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Default {defaultRadiusMeters} m check-in area around each centre
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  <div
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
-                      unresolvedIncidents.length > 0
-                        ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
-                        : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
-                    }`}
-                  >
-                    <span
-                      className={`size-2 rounded-full animate-pulse ${
-                        unresolvedIncidents.length > 0 ? 'bg-rose-400' : 'bg-emerald-400'
-                      }`}
-                    />
-                    <span>
-                      {unresolvedIncidents.length > 0
-                        ? `${unresolvedIncidents.length} Open Incident${unresolvedIncidents.length > 1 ? 's' : ''}`
-                        : `All ${examCenters.length} check-in areas clear`}
-                    </span>
+              <div className="flex flex-col gap-2 border-b border-[#22263C] pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Building2 className="size-4.5 text-[#F6D300] shrink-0" />
+                    <h2 className="text-base font-bold text-slate-100">Exam centres</h2>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setCenterModalState({ mode: 'create' })}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
-                  >
-                    <Plus className="size-3.5 text-white" />
-                    <span>Register centre</span>
-                  </button>
+                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    {centresNeedingAttention > 0 ? (
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/25 bg-amber-500/10 text-xs font-semibold text-amber-300">
+                        <span className="size-2 rounded-full bg-amber-400" />
+                        <span>
+                          {centresNeedingAttention} need
+                          {centresNeedingAttention === 1 ? 's' : ''} attention
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-xs font-semibold text-emerald-400">
+                        <span className="size-2 rounded-full bg-emerald-400" />
+                        <span>All check-in areas clear</span>
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setCenterModalState({ mode: 'create' })}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
+                    >
+                      <Plus className="size-3.5 text-white" />
+                      <span>Register centre</span>
+                    </button>
+                  </div>
                 </div>
+                <p className="text-xs text-slate-400">
+                  <span className="font-semibold text-white tabular-nums">{examCenters.length}</span>{' '}
+                  {examCenters.length === 1 ? 'centre' : 'centres'} ·{' '}
+                  <span className="font-semibold text-white tabular-nums">{assignedOfficerCount}</span>{' '}
+                  {assignedOfficerCount === 1 ? 'officer' : 'officers'} assigned ·{' '}
+                  <span className="font-semibold text-white tabular-nums">{verifiedOnSiteCount}</span>{' '}
+                  at a centre
+                </p>
               </div>
 
-              {/* Live Summary Bento Row */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-                <div className="md:col-span-2 rounded-2xl border border-[#22263C] bg-gradient-to-br from-[#161D3A]/60 via-[#101426] to-[#0B0D17] p-4 sm:p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
-                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400">
-                        {session?.region || 'Ashanti'} Examination Zone
-                      </span>
-                      <h3 className="text-lg font-bold text-white mt-0.5">
-                        Regional Operations Coverage
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1 max-w-md">
-                        Live GPS monitoring {examCenters.length} registered {examCenters.length === 1 ? 'centre' : 'centres'} with check-in area verification.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 bg-[#0C0F17]/80 border border-[#22263C] px-3.5 py-2 rounded-xl text-xs shrink-0">
-                      <ShieldCheck
-                        className={`size-4 ${
-                          incidentSummary.openIncidentsCount === 0
-                            ? 'text-emerald-400'
-                            : 'text-amber-400'
-                        }`}
-                      />
-                      <div>
-                        <div
-                          className={`font-bold ${
-                            incidentSummary.openIncidentsCount === 0
-                              ? 'text-emerald-400'
-                              : 'text-amber-400'
-                          }`}
-                        >
-                          {safeCentersCount} / {examCenters.length} Clear
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {incidentSummary.breachCount} Check-in breaches logged
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 pt-4 mt-4 border-t border-[#22263C]/80 relative z-10">
-                    <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
-                      <span className="text-[10px] text-slate-400 block font-medium">
-                        Monitored centres
-                      </span>
-                      <span className="text-base sm:text-lg font-bold text-white mt-0.5 block">
-                        {examCenters.length} {examCenters.length === 1 ? 'centre' : 'centres'}
-                      </span>
-                    </div>
-                    <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
-                      <span className="text-[10px] text-slate-400 block font-medium">
-                        Deployed Personnel
-                      </span>
-                      <span className="text-base sm:text-lg font-bold text-[#F6D300] mt-0.5 block">
-                        {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0)}{' '}
-                        {examCenters.reduce((acc, c) => acc + c.totalMonitors, 0) === 1 ? 'officer' : 'officers'}
-                      </span>
-                    </div>
-                    <div className="bg-[#0A0D17]/70 rounded-xl p-2.5 border border-[#1E243A]">
-                      <span className="text-[10px] text-slate-400 block font-medium">
-                        Default check-in area
-                      </span>
-                      <span className="text-base sm:text-lg font-bold text-sky-400 mt-0.5 block">
-                        {systemSettings.geofenceRadius}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 shadow-xl flex flex-col justify-between space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Location updates
-                      </span>
-                      <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                    </div>
-                    <h4 className="text-sm font-bold text-white mt-1">Live location feed</h4>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
-                      <span className="text-slate-400">On duty now:</span>
-                      <span className="font-semibold text-emerald-400">
-                        {onlineUnitsCount} of {deployedMonitorsCount} online
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-300 py-1.5 border-b border-[#1E243A]">
-                      <span className="text-slate-400">Officers at centre:</span>
-                      <span className="font-semibold text-white">
-                        {verifiedOnSiteCount} {verifiedOnSiteCount === 1 ? 'officer' : 'officers'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-300 py-1.5">
-                      <span className="text-slate-400">Automatic Poll:</span>
-                      <span className="font-semibold text-sky-400">
-                        {systemSettings.locationRefreshInterval}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setActiveTab('map')}
-                    className="w-full py-2 px-3 rounded-xl bg-[#1E2B7B]/70 hover:bg-[#1E2B7B] border border-white/10 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                  >
-                    <MapPin className="size-3.5 text-indigo-300" />
-                    <span>View All On Map</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Search & Filter Toolbar for Exam Centers */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-[#101423] p-3 rounded-2xl border border-[#22263C]">
+              {/* Search & district filter — sits directly on the page, no card */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
                 <div className="flex-1 relative">
                   <Search className="size-4 absolute left-3 top-3 text-slate-500" />
                   <input
                     type="text"
                     value={centerSearchQuery}
                     onChange={(e) => setCenterSearchQuery(e.target.value)}
-                    placeholder="Search center name, code (e.g. 050102), or district..."
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] py-2.5 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans min-h-[44px]"
+                    placeholder="Search by centre name, code or district"
+                    aria-label="Search centres"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0E111D] py-2.5 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400 font-sans min-h-[44px]"
                   />
                   {centerSearchQuery && (
                     <button
@@ -1967,26 +1884,21 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="relative min-w-[160px]">
-                    <Filter className="size-3.5 absolute left-3 top-3 text-slate-400 pointer-events-none" />
-                    <select
-                      value={centerDistrictFilter}
-                      onChange={(e) => setCenterDistrictFilter(e.target.value)}
-                      className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] py-2.5 pl-8 pr-7 text-xs text-slate-200 focus:outline-hidden focus:border-sky-400 font-sans appearance-none cursor-pointer min-h-[44px]"
-                    >
-                      <option value="ALL">All Districts ({examCenters.length})</option>
-                      {districts.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <span className="text-[11px] font-mono text-slate-400 px-2.5 py-1.5 rounded-xl bg-[#090A0F] border border-[#1E243A] shrink-0 whitespace-nowrap">
-                    {filteredCenters.length} of {examCenters.length}
-                  </span>
+                <div className="relative min-w-[170px]">
+                  <Filter className="size-3.5 absolute left-3 top-3 text-slate-400 pointer-events-none" />
+                  <select
+                    value={centerDistrictFilter}
+                    onChange={(e) => setCenterDistrictFilter(e.target.value)}
+                    aria-label="Filter by district"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0E111D] py-2.5 pl-8 pr-7 text-xs text-slate-200 focus:outline-hidden focus:border-indigo-400 font-sans appearance-none cursor-pointer min-h-[44px]"
+                  >
+                    <option value="ALL">All districts</option>
+                    {districts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1995,7 +1907,7 @@ export default function AdminPage() {
                 <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
                   <Building2 className="size-7 text-slate-500 mx-auto" />
                   <p className="text-sm font-semibold text-slate-300">
-                    No examination centres found in database
+                    No examination centres yet
                   </p>
                   <p className="text-xs text-slate-500">
                     Click &ldquo;Register centre&rdquo; to add a WAEC-approved spot and its check-in area.
@@ -2018,141 +1930,128 @@ export default function AdminPage() {
                     }}
                     className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-semibold text-white transition cursor-pointer"
                   >
-                    <span>Reset Filters</span>
+                    <span>Reset filters</span>
                   </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
                   {filteredCenters.map((center, index) => {
                     const hasOpenInc = (center.openIncidentsCount || 0) > 0
+                    const atCentre = officersAtCentreByCode[center.code] || 0
+                    const assigned = center.totalMonitors || 0
+                    const radius = effectiveRadius(center.radius)
+                    const isCustomRadius = radius !== defaultRadiusMeters
+                    const menuId = center.id || center.code
                     return (
                       <div
                         key={center.code}
-                        className="rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-[#38bdf8]/40 transition-all duration-200 p-4 sm:p-5 space-y-3.5 shadow-md flex flex-col justify-between"
+                        className="relative flex flex-col rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-indigo-500/40 transition-all duration-200 p-4 sm:p-5 shadow-md"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
                             <div className="size-10 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] font-bold text-sm shrink-0">
                               {String(index + 1).padStart(2, '0')}
                             </div>
                             <div className="min-w-0">
-                              <h3 className="font-bold text-sm sm:text-base text-white truncate">
+                              <h3 className="font-bold text-sm sm:text-base text-white leading-snug break-words">
                                 {center.name}
                               </h3>
-                              <div className="flex items-center gap-2 mt-0.5 text-xs">
-                                <span className="text-sky-400 font-mono font-bold">{center.code}</span>
-                                <span className="text-slate-600">•</span>
-                                <span className="text-slate-400 truncate">
-                                  {center.districtName || 'Kumasi Metro'}
+                              <p className="text-[11px] text-slate-400 mt-1">
+                                Centre code{' '}
+                                <span className="font-semibold text-slate-300 tabular-nums">
+                                  {center.code}
                                 </span>
-                              </div>
+                                {center.districtName ? (
+                                  <>
+                                    {' '}
+                                    · {center.districtName}
+                                  </>
+                                ) : null}
+                              </p>
                             </div>
                           </div>
                           <span
                             className={`rounded-full border px-2.5 py-1 text-[10px] font-bold shrink-0 flex items-center gap-1.5 ${
                               hasOpenInc
-                                ? 'bg-rose-500/15 border-rose-500/35 text-rose-400'
-                                : 'bg-emerald-500/15 border-emerald-500/35 text-emerald-400'
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                             }`}
                           >
                             <span
-                              className={`size-1.5 rounded-full animate-pulse ${
-                                hasOpenInc ? 'bg-rose-400' : 'bg-emerald-400'
+                              className={`size-1.5 rounded-full ${
+                                hasOpenInc ? 'bg-amber-400' : 'bg-emerald-400'
                               }`}
                             />
-                            <span>{hasOpenInc ? 'Alert' : 'Active'}</span>
+                            <span>{hasOpenInc ? 'Needs attention' : 'All clear'}</span>
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-[#1E243A]">
-                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                            <span className="text-slate-400 text-[11px] block">
-                              Perimeter Boundary:
-                            </span>
-                            <div className="text-white font-bold text-sm mt-0.5 flex items-center gap-1">
-                              <Radio className="size-3 text-sky-400 shrink-0" />
-                              <span>{center.radius} m area</span>
-                            </div>
-                          </div>
+                        <p className="text-xs text-slate-400 pt-3 mt-3 border-t border-[#1E243A]">
+                          <span className="font-semibold text-white tabular-nums">{assigned}</span>{' '}
+                          {assigned === 1 ? 'officer' : 'officers'} assigned ·{' '}
+                          <span className="font-semibold text-white tabular-nums">{atCentre}</span>{' '}
+                          at the centre ·{' '}
+                          <span className="font-semibold text-white tabular-nums">{radius}&nbsp;m</span>{' '}
+                          check-in area{isCustomRadius ? ' (custom)' : ''}
+                        </p>
 
-                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                            <span className="text-slate-400 text-[11px] block">
-                              Assigned / On-Site:
-                            </span>
-                            <div className="text-[#F6D300] font-bold text-sm mt-0.5 flex items-center gap-1">
-                              <Users className="size-3 text-[#F6D300] shrink-0" />
-                              <span>
-                                {center.onSiteMonitors || 0} / {center.totalMonitors} Officers
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                            <span className="text-slate-400 text-[11px] block">
-                              GPS Datum:
-                            </span>
-                            <div className="text-slate-200 font-mono text-xs mt-0.5 font-medium truncate">
-                              {center.lat.toFixed(4)}° {center.lat >= 0 ? 'N' : 'S'},{' '}
-                              {Math.abs(center.lng).toFixed(4)}° {center.lng >= 0 ? 'E' : 'W'}
-                            </div>
-                          </div>
-
-                          <div className="rounded-xl bg-[#0C0F17]/80 p-2.5 border border-[#1E243A]">
-                            <span className="text-slate-400 text-[11px] block">
-                              Perimeter Security:
-                            </span>
-                            <div
-                              className={`font-bold text-xs mt-0.5 flex items-center gap-1 ${
-                                hasOpenInc ? 'text-rose-400' : 'text-emerald-400'
-                              }`}
-                            >
-                              {hasOpenInc ? (
-                                <AlertTriangle className="size-3 shrink-0" />
-                              ) : (
-                                <ShieldCheck className="size-3 shrink-0" />
-                              )}
-                              <span>
-                                {hasOpenInc
-                                  ? `${center.openIncidentsCount} Open Alert${
-                                      (center.openIncidentsCount || 0) > 1 ? 's' : ''
-                                    }`
-                                  : 'Nominal (0 Alerts)'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Responsive HCI 3-action buttons with >= 44px touch targets */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        {/* Actions: primary "Show on map" + ⋯ overflow menu */}
+                        <div className="mt-auto relative flex items-stretch gap-2 pt-3">
                           <button
                             type="button"
                             onClick={() => handleCenterFocus(center)}
-                            className="py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
-                            title="Focus center on fleet map"
+                            className="flex-1 py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
+                            title="Show this centre on the live map"
                           >
                             <MapPin className="size-3.5 text-white shrink-0" />
-                            <span>Focus Map</span>
+                            <span>Show on map</span>
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => setCenterModalState({ mode: 'edit', center })}
-                            className="py-2.5 px-3 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-xs font-semibold text-slate-200 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
-                            title="Edit center coordinates or boundary"
+                            onClick={() => setOpenCentreMenuId(openCentreMenuId === menuId ? null : menuId)}
+                            className="w-11 flex items-center justify-center rounded-xl border border-[#22263C] bg-[#161B2E] text-slate-300 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
+                            aria-label="More actions"
+                            aria-expanded={openCentreMenuId === menuId}
                           >
-                            <Pencil className="size-3.5 text-sky-400 shrink-0" />
-                            <span>Edit Boundary</span>
+                            <MoreVertical className="size-4" />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setCenterToDelete(center)}
-                            className="py-2.5 px-3 rounded-xl bg-rose-950/20 hover:bg-rose-900/40 border border-rose-500/30 text-xs font-semibold text-rose-400 hover:text-rose-300 transition flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
-                            title="Remove exam centre"
-                          >
-                            <Trash2 className="size-3.5 shrink-0" />
-                            <span>Delete</span>
-                          </button>
+                          {openCentreMenuId === menuId && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label="Close menu"
+                                className="fixed inset-0 z-30 cursor-default"
+                                onClick={() => setOpenCentreMenuId(null)}
+                              />
+                              <div className="absolute right-0 bottom-full z-40 mb-1.5 w-56 overflow-hidden rounded-xl border border-[#22263C] bg-[#121629] shadow-2xl py-1 animate-in fade-in slide-in-from-bottom-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenCentreMenuId(null)
+                                    setCenterModalState({ mode: 'edit', center })
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
+                                >
+                                  <Pencil className="size-4 shrink-0 text-slate-400" />
+                                  <span>Edit check-in area</span>
+                                </button>
+                                <div className="my-1 border-t border-[#22263C]" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenCentreMenuId(null)
+                                    setCenterToDelete(center)
+                                  }}
+                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                                >
+                                  <Trash2 className="size-4 shrink-0" />
+                                  <span>Delete…</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )
@@ -2418,15 +2317,15 @@ export default function AdminPage() {
                     </h3>
                     <div className="mt-3 space-y-2.5 text-xs">
                       <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Station Verification:</span>
+                        <span className="text-slate-400">Check-in areas clear:</span>
                         <span className="text-emerald-400 font-bold">
-                          {safeCentersCount} / {examCenters.length} Centers Clear
+                          {safeCentersCount} / {examCenters.length} centres clear
                         </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
-                        <span className="text-slate-400">Officers On-Site:</span>
+                        <span className="text-slate-400">Officers at centre:</span>
                         <span className="text-sky-400 font-bold">
-                          {verifiedOnSiteCount} / {deployedMonitorsCount} On-Site
+                          {verifiedOnSiteCount} / {deployedMonitorsCount} at the centre
                         </span>
                       </div>
                       <div className="p-2.5 rounded-xl bg-[#0C0F17] border border-[#22263C] flex items-center justify-between">
@@ -2581,10 +2480,10 @@ export default function AdminPage() {
               </div>
               <div>
                 <h3 id="delete-center-title" className="text-base font-bold text-white">
-                  Remove center
+                  Delete {centerToDelete.name}? This can&apos;t be undone
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Permanent removal from central examination registry
+                  Permanently remove this centre and its check-in area
                 </p>
               </div>
             </div>
@@ -2594,7 +2493,7 @@ export default function AdminPage() {
                 {centerToDelete.name} ({centerToDelete.code})
               </p>
               <p className="text-[11px] text-rose-300/90 leading-relaxed">
-                Removing will delete this check-in area ({centerToDelete.radius}m perimeter) and unlink all active officer deployments and incidents from this venue. This action is permanently audited.
+                This deletes the centre, unlinks all officer deployments and incidents from it, and removes the check-in area ({centerToDelete.radius} m). This can&apos;t be undone.
               </p>
             </div>
 
@@ -2621,7 +2520,7 @@ export default function AdminPage() {
                 ) : (
                   <>
                     <Trash2 className="size-3.5" />
-                    <span>Confirm Remove</span>
+                    <span>Delete centre</span>
                   </>
                 )}
               </button>
