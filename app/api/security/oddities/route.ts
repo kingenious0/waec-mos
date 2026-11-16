@@ -4,11 +4,14 @@ import * as schema from '@/lib/db/schema'
 import { requireCommand } from '@/lib/auth/guard'
 import { recordSecurityEvent } from '@/lib/db/audit'
 import { z } from 'zod'
-import { eq, and, gte, desc } from 'drizzle-orm'
+import { eq, and, gte, desc, inArray } from 'drizzle-orm'
+import { displayName } from '@/lib/name-utils'
 
 const reviewSchema = z.object({
   action: z.enum(['it_was_me', 'block']),
   targetUserId: z.string().min(1),
+  /** The security event this oddity came from — marked reviewed so it never reappears. */
+  sourceEventId: z.string().optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -40,11 +43,28 @@ export async function GET(request: NextRequest) {
         id: `lock-${u.id}`,
         kind: 'locked_out',
         title: `${u.failedLoginAttempts} wrong PIN tries`,
-        detail: `${u.name}${u.staffId ? ` (${u.staffId})` : ''} — account is locked and waiting on reset.`,
+        detail: `${displayName(u.name)}${u.staffId ? ` (${u.staffId})` : ''} — account is locked and waiting on reset.`,
         time: u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : null,
         targetUserId: u.id,
         action: 'block',
       })
+    }
+  } catch {
+    // non-fatal
+  }
+
+  // Once a new-device oddity is reviewed ("It was me" / block), the source
+  // security event must not come back. REVIEW_* events carry sourceEventId.
+  const reviewedIds = new Set<string>()
+  try {
+    const reviews = await db
+      .select({ details: schema.securityEvents.details })
+      .from(schema.securityEvents)
+      .where(inArray(schema.securityEvents.action, ['REVIEW_OK', 'REVIEW_BLOCK']))
+      .limit(200)
+    for (const r of reviews) {
+      const d = (r.details as Record<string, any>) || {}
+      if (d.sourceEventId) reviewedIds.add(String(d.sourceEventId))
     }
   } catch {
     // non-fatal
@@ -64,15 +84,16 @@ export async function GET(request: NextRequest) {
       .from(schema.securityEvents)
       .where(eq(schema.securityEvents.action, 'NEW_DEVICE_SIGNIN'))
       .orderBy(desc(schema.securityEvents.createdAt))
-      .limit(5)
+      .limit(10)
 
     for (const e of recent) {
+      if (reviewedIds.has(e.id)) continue
       const details = (e.details as Record<string, any>) || {}
       items.push({
         id: e.id,
         kind: 'new_device',
         title: 'Signed in on a new phone',
-        detail: `${e.actorName || 'Unknown'} — ${details.userAgent ? String(details.userAgent).slice(0, 60) : 'unknown device'}`,
+        detail: `${displayName(e.actorName || 'Unknown')} — ${details.userAgent ? String(details.userAgent).slice(0, 60) : 'unknown device'}`,
         time: e.createdAt ? new Date(e.createdAt).toISOString() : null,
         targetUserId: e.actorId || null,
         action: 'review',
@@ -101,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true })
     }
 
-    const { action, targetUserId } = parsed.data
+    const { action, targetUserId, sourceEventId } = parsed.data
 
     const targetRows = await db
       .select({ id: schema.user.id, name: schema.user.name })
@@ -123,6 +144,7 @@ export async function POST(request: NextRequest) {
         actorRole: gate.user.role,
         targetUserId,
         targetUserName: target?.name,
+        details: sourceEventId ? { sourceEventId } : undefined,
       })
       return NextResponse.json({ success: true, action: 'blocked' })
     }
@@ -134,6 +156,7 @@ export async function POST(request: NextRequest) {
       actorRole: gate.user.role,
       targetUserId,
       targetUserName: target?.name,
+      details: sourceEventId ? { sourceEventId } : undefined,
     })
     return NextResponse.json({ success: true, action: 'dismissed' })
   } catch (error) {

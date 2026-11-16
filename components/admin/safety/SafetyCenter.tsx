@@ -174,7 +174,11 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
       const res = await fetch('/api/security/oddities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, targetUserId: item.targetUserId }),
+        body: JSON.stringify({
+          action,
+          targetUserId: item.targetUserId,
+          sourceEventId: item.kind === 'new_device' ? item.id : undefined,
+        }),
       })
       if (res.ok) {
         setOddities((prev) => prev.filter((o) => o.id !== item.id))
@@ -338,7 +342,7 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
         {/* THINGS THAT LOOKED ODD */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0C0F17] overflow-hidden flex flex-col">
           <div className="px-5 py-4 border-b border-[#1A1F33] flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+            <h3 className="text-xs font-bold tracking-wider text-slate-500">
               Things that looked odd
             </h3>
             <span className="inline-flex items-center rounded-full border border-[#22263C] bg-[#11131F] px-2 py-0.5 text-[10px] font-semibold text-slate-400">
@@ -366,18 +370,18 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
                           {new Date(item.time).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
-                      <div className="flex items-center gap-2 mt-2.5">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-2.5">
                         <button
                           type="button"
                           onClick={() => reviewOddity(item, 'it_was_me')}
-                          className="h-9 px-3.5 rounded-xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] text-[11px] font-semibold text-slate-200 hover:text-white transition cursor-pointer"
+                          className="h-11 sm:h-9 flex-1 px-3.5 rounded-xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] text-xs sm:text-[11px] font-semibold text-slate-200 hover:text-white transition cursor-pointer"
                         >
                           It was me
                         </button>
                         <button
                           type="button"
                           onClick={() => reviewOddity(item, 'block')}
-                          className="h-9 px-3.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-[11px] font-semibold text-rose-300 transition cursor-pointer"
+                          className="h-11 sm:h-9 flex-1 px-3.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-xs sm:text-[11px] font-semibold text-rose-300 transition cursor-pointer"
                         >
                           Block account
                         </button>

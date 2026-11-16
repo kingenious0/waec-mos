@@ -1370,37 +1370,47 @@ export default function AdminPage() {
                   return (
                     <div
                       key={log.id}
-                      className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${
+                      className={`grid grid-cols-[2.5rem_1fr_auto] sm:flex sm:items-center gap-x-3 gap-y-1.5 px-3.5 py-3 sm:py-2.5 ${
                         isSecurity ? 'bg-amber-500/5 border-l-2 border-l-amber-500/60' : ''
                       }`}
                     >
-                      <span className="text-[11px] tabular-nums text-slate-500 w-9 shrink-0">
+                      {/* Time (+ tag pinned right on mobile) */}
+                      <span className="text-[11px] tabular-nums text-slate-500 self-start pt-0.5 sm:pt-0 sm:w-9 sm:shrink-0">
                         {formatTimeOnly(log.createdAt)}
                       </span>
-                      <span className="text-xs text-slate-200 leading-snug min-w-0 flex-1 order-3 sm:order-none w-full sm:w-auto">
+                      <span className="sm:hidden justify-self-end self-start">
+                        <span
+                          className={`inline-block font-semibold text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
+                        >
+                          {reviewed ? 'Reviewed' : meta.label}
+                        </span>
+                      </span>
+                      {/* Message — full width on mobile, flex-1 on desktop */}
+                      <span className="col-span-3 sm:col-span-1 min-w-0 sm:flex-1 text-xs text-slate-200 leading-snug">
                         {auditMessage(log)}
                       </span>
-                      <span className="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+                      {/* Actions */}
+                      <span className="col-span-3 sm:col-span-1 flex items-center gap-2 sm:gap-1.5 sm:shrink-0 sm:ml-auto">
                         {log.action === 'NEW_DEVICE_SIGNIN' && !reviewed && (
                           <>
                             <button
                               type="button"
                               onClick={() => handleSecurityReview(log, 'it_was_me')}
-                              className="h-7 px-2.5 rounded-lg border border-[#22263C] bg-[#121626] text-[10px] font-semibold text-slate-200 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
+                              className="h-9 sm:h-7 flex-1 sm:flex-none px-3 sm:px-2.5 rounded-lg border border-[#22263C] bg-[#121626] text-[11px] sm:text-[10px] font-semibold text-slate-200 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
                             >
                               It was them
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSecurityReview(log, 'block')}
-                              className="h-7 px-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-[10px] font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
+                              className="h-9 sm:h-7 flex-1 sm:flex-none px-3 sm:px-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-[11px] sm:text-[10px] font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
                             >
                               Block account
                             </button>
                           </>
                         )}
                         <span
-                          className={`font-semibold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
+                          className={`hidden sm:inline-block font-semibold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
                         >
                           {reviewed ? 'Reviewed' : meta.label}
                         </span>
