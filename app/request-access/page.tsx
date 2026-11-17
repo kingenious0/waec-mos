@@ -72,11 +72,7 @@ export default function RequestAccessPage() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        if (res.status === 409) {
-          setErrorMsg(data.error || 'This phone number already has an account.')
-        } else {
-          setErrorMsg(data.error || 'Something went wrong on our side. Try again.')
-        }
+        setErrorMsg(data.error || 'Something went wrong on our side. Try again.')
         setLoading(false)
         return
       }
@@ -103,7 +99,7 @@ export default function RequestAccessPage() {
             </div>
             <h1 className="authb-title" style={{ textAlign: 'center' }}>Request sent.</h1>
             <p className="authb-sub" style={{ textAlign: 'center' }}>
-              A controller will check your details. You will get a text when you can sign in.
+              A controller will check your details. If this number is already registered, you will be told to sign in instead. You will get a text when you can sign in.
             </p>
             <button type="button" onClick={() => router.push('/login')} className="authb-btn" style={{ marginTop: 22 }}>
               <span>Back to sign in</span>

@@ -4,6 +4,8 @@ const isProd = process.env.NODE_ENV === 'production'
 const securityHeaders = [
   // Prevent clickjacking
   { key: 'X-Frame-Options', value: 'DENY' },
+  // Stop MIME-type sniffing
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
   // Content Security Policy — self only, inline styles allowed (Next runtime needs them)
   {
     key: 'Content-Security-Policy',

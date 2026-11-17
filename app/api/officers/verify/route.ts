@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { hitRateLimit, requestIp } from '@/lib/auth/rate-limit'
-import { desc, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 async function verifyOfficerByPhone(phone: string) {
   const digits = phone.trim().replace(/\D/g, '')
@@ -12,25 +12,14 @@ async function verifyOfficerByPhone(phone: string) {
   const last9 = digits.length >= 9 ? digits.slice(-9) : digits
 
   if (isLiveDatabase && db) {
+    // Only need what the match needs — never pull names or centre data.
     const rows = await db
       .select({
         id: schema.user.id,
-        name: schema.user.name,
         phone: schema.user.phone,
-        staffId: schema.user.staffId,
-        status: schema.user.status,
-        groupName: schema.user.groupName,
-        isGroupLeader: schema.user.isGroupLeader,
-        regionName: schema.regions.name,
-        centerName: schema.examinationCenters.centerName,
-        centerCode: schema.examinationCenters.centerCode,
       })
       .from(schema.user)
-      .leftJoin(schema.regions, eq(schema.user.regionId, schema.regions.id))
-      .leftJoin(schema.assignments, eq(schema.user.id, schema.assignments.officerId))
-      .leftJoin(schema.examinationCenters, eq(schema.assignments.centerId, schema.examinationCenters.id))
       .where(eq(schema.user.role, 'FIELD_OFFICER'))
-      .orderBy(desc(schema.assignments.updatedAt))
 
     const found = rows.find((u) => {
       if (!u.phone) return false
@@ -46,13 +35,9 @@ async function verifyOfficerByPhone(phone: string) {
       }
     }
 
-    // Minimal payload — never leak staff IDs or centre assignments to callers
-    return {
-      officer: {
-        name: found.name,
-        status: found.status || 'ACTIVE',
-      },
-    }
+    // Deliberately minimal — confirm only that the number appears on the
+    // roster. Never return names, statuses, or centre assignments to callers.
+    return { verified: true }
   }
 
   const foundStore = store.findOfficerByPhone(phone)
@@ -63,12 +48,8 @@ async function verifyOfficerByPhone(phone: string) {
     }
   }
 
-  return {
-    officer: {
-      name: foundStore.name,
-      status: foundStore.status,
-    },
-  }
+  // Deliberately minimal — confirm only that the number appears on the roster.
+  return { verified: true }
 }
 
 export async function POST(request: Request) {
@@ -87,7 +68,7 @@ export async function POST(request: Request) {
     if (result.error) {
       return NextResponse.json({ verified: false, error: result.error }, { status: result.status })
     }
-    return NextResponse.json({ verified: true, officer: result.officer })
+    return NextResponse.json({ verified: true })
   } catch (error) {
     console.error('Roster verification error:', error)
     return NextResponse.json(
@@ -114,7 +95,7 @@ export async function GET(request: Request) {
     if (result.error) {
       return NextResponse.json({ verified: false, error: result.error }, { status: result.status })
     }
-    return NextResponse.json({ verified: true, officer: result.officer })
+    return NextResponse.json({ verified: true })
   } catch (error) {
     console.error('Roster verification error:', error)
     return NextResponse.json(

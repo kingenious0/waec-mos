@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
-import { AlertCircle, CheckCircle2, Loader2, Phone, ShieldCheck } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 
 type Step = 'form' | 'sent'
 
@@ -14,7 +14,6 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [sentAt, setSentAt] = useState<string>('')
-  const [controllerPhone, setControllerPhone] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,7 +36,6 @@ export default function ForgotPasswordPage() {
         return
       }
       setSentAt(data.sentAt ? new Date(data.sentAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT' : new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + ' GMT')
-      setControllerPhone(data.controllerPhone || null)
       setStep('sent')
     } catch {
       setErrorMsg('Could not reach the portal. Check your connection and try again.')
@@ -80,15 +78,9 @@ export default function ForgotPasswordPage() {
               <div>
                 <p style={{ margin: 0, fontWeight: 700, color: '#fff' }}>Sent at {sentAt}</p>
                 <p style={{ margin: '2px 0 0', color: 'rgba(255,255,255,0.72)' }}>Most requests are answered within 30 minutes.</p>
+                <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,0.72)' }}>Your controller will call or text you. If this number is not registered, nothing happens.</p>
               </div>
             </div>
-
-            {controllerPhone && (
-              <a href={`tel:${controllerPhone}`} className="authb-btn" style={{ marginTop: 16, textDecoration: 'none' }} aria-label="Call my controller">
-                <Phone className="size-5" aria-hidden />
-                <span>Call my controller</span>
-              </a>
-            )}
 
             <button type="button" onClick={() => router.push('/login')} className="authb-link" style={{ display: 'block', margin: '16px auto 0', background: 'transparent', border: 0, cursor: 'pointer' }}>
               Back to sign in

@@ -58,21 +58,9 @@ export async function POST(request: Request) {
       }) ||
       officers.find((u) => (u.staffId || '').toUpperCase() === identifier.toUpperCase())
 
-    // If we matched an officer, also find a regional controller's phone for the
-    // "Call my controller" button on the confirmation screen. Otherwise null.
+    // Resolve the officer's region for the controller-SMS path. The controller's
+    // phone is used server-side only and is never put in the response.
     const officerRegionId = officer ? (officer.regionId || null) : null
-    let controllerPhone: string | null = null
-    if (officer && officerRegionId) {
-      const controllers = await db
-        .select({ phone: schema.user.phone, role: schema.user.role })
-        .from(schema.user)
-        .where(eq(schema.user.regionId, officerRegionId))
-      const match = controllers.find((c) => {
-        const r = (c.role || '').toUpperCase()
-        return (r === 'REGIONAL_COORD' || r === 'SUPERVISOR') && c.phone
-      })
-      controllerPhone = match?.phone || null
-    }
 
     // Always burn comparable time — the response must not reveal whether the account exists
     dummyVerify('0000000000')
@@ -140,8 +128,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Identical response whether or not the account exists
-    return NextResponse.json({ ok: true, sentAt: new Date().toISOString(), controllerPhone })
+    // Identical response whether or not the account exists — never leaks
+    // whether the number is registered, and never discloses a controller's
+    // phone to unauthenticated callers.
+    return NextResponse.json({ ok: true, sentAt: new Date().toISOString() })
   } catch (err) {
     console.error('forgot-pin failed:', err)
     return NextResponse.json({ error: 'Something went wrong on our side. Try again.' }, { status: 500 })

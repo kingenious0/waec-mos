@@ -53,6 +53,7 @@ export async function POST(request: Request) {
     const last9 = digits.slice(-9)
 
     // Phone matches an existing account? Compare last-9 digits (same rule as sign-in).
+    // Respond identically to an unknown number — never confirm or deny a match.
     const rows = await db
       .select({ id: schema.user.id, phone: schema.user.phone, status: schema.user.status })
       .from(schema.user)
@@ -62,10 +63,15 @@ export async function POST(request: Request) {
     })
     if (existing) {
       dummyVerify(pin) // burn comparable time
-      return NextResponse.json(
-        { error: 'This phone number already has an account. Sign in instead.' },
-        { status: 409 }
-      )
+      await recordSecurityEvent({
+        action: 'ACCESS_REQUESTED_EXISTING_ACCOUNT',
+        actorId: existing.id,
+        actorRole: 'REQUESTER',
+        details: { staffId: staffId.toUpperCase() },
+        ipAddress: ip,
+      })
+      // Deliberately identical response — do not confirm the match.
+      return NextResponse.json({ ok: true })
     }
 
     // Already pending from this phone? Treat as success to avoid duplicate rows.

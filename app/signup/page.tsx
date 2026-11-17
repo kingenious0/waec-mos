@@ -12,16 +12,13 @@ import {
   AlertCircle,
   Shield,
   Sparkles,
-  MapPin,
-  Building,
-  UserCheck,
 } from 'lucide-react'
 
 export default function SignupPage() {
   const router = useRouter()
   const [phoneQuery, setPhoneQuery] = useState('')
   const [checking, setChecking] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<boolean | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
 
   const handleCheckStatus = async (e: React.FormEvent) => {
@@ -43,8 +40,10 @@ export default function SignupPage() {
       })
       const data = await res.json()
 
-      if (res.ok && data.verified && data.officer) {
-        setResult(data.officer)
+      if (res.ok && data.verified) {
+        // Roster confirmed — respond with a generic verified state. Never
+        // reveal names, statuses, or centre assignments from the registry.
+        setResult(true)
       } else {
         setErrorMsg(
           data.error ||
@@ -152,7 +151,7 @@ export default function SignupPage() {
                 </button>
               </form>
             ) : (
-              /* Verified Officer Card */
+              /* Roster Confirmed Card */
               <div className="rounded-2xl bg-[#0D1224] border border-emerald-500/30 p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200 shadow-xl">
                 <div className="flex items-start gap-3.5">
                   <div className="size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -160,30 +159,17 @@ export default function SignupPage() {
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                      Assignment Verified
+                      Roster confirmed
                     </div>
                     <div className="text-lg font-bold text-white mt-0.5">
-                      {result.name}
+                      Your number is on the roster
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-[#141A2E]/70 border border-white/5 p-3.5 space-y-2.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Status</span>
-                    {result.status === 'REVOKED' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-semibold text-[11px]">
-                        <span className="size-1.5 rounded-full bg-rose-400" />
-                        Access Revoked
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-semibold text-[11px]">
-                        <span className="size-1.5 rounded-full bg-emerald-400" />
-                        Active On Roster
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <p className="text-xs text-zinc-400 leading-relaxed rounded-xl bg-[#141A2E]/70 border border-white/5 p-3.5">
+                  This phone number is registered for examination duty. Sign in with your PIN, or contact your Regional Controller if you have not received your PIN yet.
+                </p>
 
                 <div className="space-y-2 pt-1">
                   <button
