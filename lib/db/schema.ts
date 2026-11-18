@@ -321,6 +321,61 @@ export const securityEvents = pgTable('security_events', {
 
 // --- One-time SMS login codes ---
 
+// --- Field operations V1:1 ---
+
+export const fieldGroups = pgTable('field_groups', {
+  id: text('id').primaryKey(),
+  regionId: text('region_id').notNull().references(() => regions.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  leaderOfficerId: text('leader_officer_id').references(() => user.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// The day's plan: one row per officer per date. Many officers may share a
+// centre; one officer may have different centres on different days.
+export const dailySchoolAssignments = pgTable('daily_school_assignments', {
+  id: text('id').primaryKey(),
+  groupId: text('group_id').references(() => fieldGroups.id, { onDelete: 'set null' }),
+  officerId: text('officer_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  centerId: text('center_id').notNull().references(() => examinationCenters.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(), // YYYY-MM-DD (GMT)
+  assignedBy: text('assigned_by').notNull(),
+  source: text('source').notNull().default('leader'), // leader | officer
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
+// Append-only record of every arrival/departure detection. phone_time is what
+// the device clock claims; server_time is the official record. Never updated.
+export const arrivalEvents = pgTable('arrival_events', {
+  id: text('id').primaryKey(),
+  officerId: text('officer_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  centerId: text('center_id').references(() => examinationCenters.id, { onDelete: 'set null' }),
+  assignmentId: text('assignment_id').references(() => dailySchoolAssignments.id, { onDelete: 'set null' }),
+  kind: text('kind').notNull(), // ARRIVAL | DEPARTURE
+  phoneTime: timestamp('phone_time', { withTimezone: true }),
+  serverTime: timestamp('server_time', { withTimezone: true }).notNull().defaultNow(),
+  lat: decimal('latitude', { precision: 10, scale: 7 }),
+  lng: decimal('longitude', { precision: 10, scale: 7 }),
+  accuracyM: integer('accuracy_m'),
+  source: text('source').notNull().default('auto'), // auto | leader
+  accuracyTier: text('accuracy_tier'), // solid | weak
+  note: text('note'),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// The curated subset of the official timetable that HQ actually monitors.
+// Empty set = monitor everything in the series (backwards compatible).
+export const monitoredPapers = pgTable('monitored_papers', {
+  id: text('id').primaryKey(),
+  operationId: text('operation_id').notNull().references(() => operations.id, { onDelete: 'cascade' }),
+  paperId: text('paper_id').notNull().references(() => examTimetable.id, { onDelete: 'cascade' }),
+  note: text('note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 export const smsCodes = pgTable('sms_codes', {
   id: text('id').primaryKey(),
   userId: text('userId').notNull(),

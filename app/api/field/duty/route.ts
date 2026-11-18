@@ -154,10 +154,26 @@ export async function GET(request: Request) {
 
     // Today's papers for the active deployment(s).
     const operationIds = Array.from(new Set(activeDeployments.map((d) => d.operationId).filter(Boolean)))
+
+    // Curated monitoring: if any monitored papers exist for this series, only
+    // those ride to the field app. Otherwise (fresh series) everything does.
+    let filterToMonitored = false
+    let monitoredIds = new Set<string>()
+    if (operationIds.length > 0) {
+      const monitored = await db
+        .select({ paperId: schema.monitoredPapers.paperId })
+        .from(schema.monitoredPapers)
+        .where(inArray(schema.monitoredPapers.operationId, operationIds))
+      monitoredIds = new Set(monitored.map((m) => m.paperId))
+      filterToMonitored = monitoredIds.size > 0
+    }
+
+    // Today's papers for the active deployment(s).
     let papers: TimetablePaper[] = []
     if (operationIds.length > 0) {
       const rows = await db
         .select({
+          id: schema.examTimetable.id,
           paperName: schema.examTimetable.paperName,
           startTime: schema.examTimetable.startTime,
           endTime: schema.examTimetable.endTime,
@@ -171,13 +187,15 @@ export async function GET(request: Request) {
             sql`, `
           )}) AND ${schema.examTimetable.examDate} = ${todayStr}`
         )
-      papers = rows.map((r) => ({
-        paperName: r.paperName,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        sessionSlot: r.sessionSlot,
-        sortOrder: r.sortOrder,
-      }))
+      papers = rows
+        .filter((r) => !filterToMonitored || monitoredIds.has(r.id))
+        .map((r) => ({
+          paperName: r.paperName,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          sessionSlot: r.sessionSlot,
+          sortOrder: r.sortOrder,
+        }))
       // Sort: parseable starts first, in order; un-timed papers after, by sort order.
       papers.sort((a, b) => {
         const aMin = parseMinutes(a.startTime)
@@ -205,6 +223,7 @@ export async function GET(request: Request) {
     if (operationIds.length > 0) {
       const nextRows = await db
         .select({
+          id: schema.examTimetable.id,
           examDate: schema.examTimetable.examDate,
           paperName: schema.examTimetable.paperName,
           startTime: schema.examTimetable.startTime,
@@ -218,12 +237,14 @@ export async function GET(request: Request) {
           )}) AND ${schema.examTimetable.examDate} >= ${todayStr}`
         )
         .orderBy(asc(schema.examTimetable.examDate), asc(schema.examTimetable.sortOrder))
-        .limit(1)
-      if (nextRows[0]) {
+      const nextRow = filterToMonitored
+        ? nextRows.find((r) => monitoredIds.has(r.id))
+        : nextRows[0]
+      if (nextRow) {
         nextPaper = {
-          date: nextRows[0].examDate,
-          paperName: nextRows[0].paperName,
-          startTime: nextRows[0].startTime,
+          date: nextRow.examDate,
+          paperName: nextRow.paperName,
+          startTime: nextRow.startTime,
         }
       }
     }

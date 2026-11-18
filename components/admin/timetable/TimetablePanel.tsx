@@ -19,6 +19,8 @@ import {
   BookOpen,
   Info,
   UserCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -51,6 +53,7 @@ interface PaperRow {
   needsCouncilTime: boolean
   isNewCurriculum: boolean
   sortOrder: number
+  monitored?: boolean
 }
 
 interface TimetableRowInput {
@@ -174,6 +177,27 @@ export function TimetablePanel() {
       setPapersLoading(false)
     }
   }, [])
+
+  const togglePaperMonitor = useCallback(
+    async (row: PaperRow) => {
+      if (!activeSeriesId) return
+      const next = !row.monitored
+      // Optimistic flip — rolls back on failure
+      setPapers((prev) => prev.map((p) => (p.id === row.id ? { ...p, monitored: next } : p)))
+      try {
+        const res = await fetch('/api/timetable/monitor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ operationId: activeSeriesId, paperId: row.id, monitored: next }),
+        })
+        if (!res.ok) throw new Error()
+      } catch {
+        setPapers((prev) => prev.map((p) => (p.id === row.id ? { ...p, monitored: row.monitored } : p)))
+      }
+    },
+    [activeSeriesId]
+  )
 
   const loadDeployments = useCallback(async (operationId: string) => {
     try {
@@ -605,7 +629,10 @@ export function TimetablePanel() {
               <div>
                 <h3 className="text-sm font-bold text-white">{activeSeries.name}</h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  {papers.length} papers · {pendingCouncil} awaiting times from WAEC
+                  {papers.length} papers ·{' '}
+                  <span className="text-[#F6D300] font-semibold">{papers.filter((p) => p.monitored).length} monitored</span>
+                  {' · '}
+                  {pendingCouncil} awaiting times from WAEC
                 </p>
               </div>
             <div className="flex items-center gap-2">
@@ -668,9 +695,25 @@ export function TimetablePanel() {
                           <span className="text-[10px] sm:text-[11px] font-mono text-slate-400 shrink-0">
                             {p.needsCouncilTime ? <span className="text-amber-400">time TBC</span> : `${p.startTime || '—'}–${p.endTime || '—'}`}
                           </span>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                            <button type="button" onClick={() => startEdit(p)} className="p-1.5 rounded-lg text-slate-500 hover:text-white" aria-label="Edit paper"><Pencil className="size-3.5" /></button>
-                            <button type="button" onClick={() => deletePaper(p)} className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400" aria-label="Delete paper"><Trash2 className="size-3.5" /></button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => togglePaperMonitor(p)}
+                              className={`p-1.5 rounded-lg transition cursor-pointer ${
+                                p.monitored
+                                  ? 'text-[#F6D300] bg-[#F6D300]/10 hover:bg-[#F6D300]/20'
+                                  : 'text-slate-600 hover:text-slate-300'
+                              }`}
+                              title={p.monitored ? 'Monitored — tap to stop monitoring' : 'Not monitored — tap to monitor'}
+                              aria-pressed={p.monitored}
+                              aria-label={p.monitored ? 'Stop monitoring this paper' : 'Monitor this paper'}
+                            >
+                              {p.monitored ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
+                            </button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                              <button type="button" onClick={() => startEdit(p)} className="p-1.5 rounded-lg text-slate-500 hover:text-white" aria-label="Edit paper"><Pencil className="size-3.5" /></button>
+                              <button type="button" onClick={() => deletePaper(p)} className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400" aria-label="Delete paper"><Trash2 className="size-3.5" /></button>
+                            </div>
                           </div>
                         </div>
                       )

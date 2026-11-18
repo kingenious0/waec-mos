@@ -23,7 +23,14 @@ export async function GET(request: Request) {
       .from(schema.examTimetable)
       .where(eq(schema.examTimetable.operationId, operationId))
       .orderBy(schema.examTimetable.examDate, schema.examTimetable.sortOrder)
-    return NextResponse.json({ rows })
+    const monitored = await db
+      .select({ paperId: schema.monitoredPapers.paperId })
+      .from(schema.monitoredPapers)
+      .where(eq(schema.monitoredPapers.operationId, operationId))
+    const monitoredSet = new Set(monitored.map((m) => m.paperId))
+    return NextResponse.json({
+      rows: rows.map((r) => ({ ...r, monitored: monitoredSet.has(r.id) })),
+    })
   } catch (err) {
     console.error('timetable list failed:', err)
     return NextResponse.json({ error: 'Could not load the timetable.', status: 500 }, { status: 500 })
