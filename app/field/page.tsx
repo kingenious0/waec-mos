@@ -53,6 +53,10 @@ interface FieldAssignmentState {
   seriesName: string | null
   isDeployed: boolean
   nextPaper: { date: string; paperName: string; startTime: string | null } | null
+  today: {
+    arrival: { at: string; accuracyTier: string | null; confirmed: boolean } | null
+    departure: { at: string; duringPaper: boolean } | null
+  } | null
 }
 
 const QUEUED_SOS_KEY = 'waec_mos_queued_sos'
@@ -80,6 +84,7 @@ export default function FieldPage() {
     seriesName: null,
     isDeployed: false,
     nextPaper: null,
+    today: null,
   })
   const [isCheckedIn, setIsCheckedIn] = useState<boolean>(false)
   const [checkInTimestamp, setCheckInTimestamp] = useState<string>('')
@@ -272,6 +277,7 @@ export default function FieldPage() {
             seriesName: data.seriesName || null,
             isDeployed: Boolean(data.isDeployed),
             nextPaper: data.nextPaper || null,
+            today: data.today || null,
           })
           setIsCheckedIn(Boolean(data.isCheckedIn))
           setCheckInTimestamp(data.checkInTimeFormatted || '')
@@ -448,6 +454,60 @@ export default function FieldPage() {
     }
   }
 
+  // ---- Auto arrival/departure detection (dwell 2 min inside the geofence) ----
+  const arrivalPostedRef = useRef<string>('')
+  const departurePostedRef = useRef<string>('')
+  const insideSinceRef = useRef<number | null>(null)
+
+  const postArrival = useCallback(
+    async (action: 'detect_arrival' | 'done', venueId?: string) => {
+      try {
+        await fetch('/api/field/arrival', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            action,
+            lat: liveCoords?.lat,
+            lng: liveCoords?.lng,
+            accuracyM: liveCoords?.accuracy,
+            distanceMeters,
+          }),
+        })
+      } catch {
+        // Non-fatal — the "I'm here" button remains the explicit fallback
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveCoords?.lat, liveCoords?.lng, liveCoords?.accuracy, distanceMeters]
+  )
+
+  useEffect(() => {
+    const venueId = activeVenue?.code || 'none'
+    if (!activeVenue || liveCoords === null || distanceMeters === null) {
+      insideSinceRef.current = null
+      return
+    }
+    const inside = distanceMeters <= geofenceRadius
+    if (inside) {
+      if (insideSinceRef.current === null) insideSinceRef.current = Date.now()
+      const dwellMs = Date.now() - insideSinceRef.current
+      const key = `${new Date().toISOString().slice(0, 10)}:${venueId}`
+      if (dwellMs >= 120_000 && arrivalPostedRef.current !== key) {
+        arrivalPostedRef.current = key
+        void postArrival('detect_arrival', venueId)
+      }
+      return
+    }
+    const wasInside = insideSinceRef.current !== null
+    if (wasInside && departurePostedRef.current !== venueId) {
+      departurePostedRef.current = venueId
+      void postArrival('done', venueId)
+    }
+    insideSinceRef.current = null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveCoords, activeVenue, distanceMeters, geofenceRadius, postArrival])
+
   const statusCardState: StatusCardState = isCheckedIn
     ? 'checked-in'
     : !isAssignmentLoading && !activeVenue
@@ -548,6 +608,13 @@ export default function FieldPage() {
       setIsCheckedIn(true)
       setCheckInTimestamp(data.checkInTimeFormatted || 'Just now')
       setShiftSeconds(0)
+      // Mirror the tap into the arrivals ledger so HQ sees the one-tap confirm
+      void fetch('/api/field/arrival', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'confirm' }),
+      }).catch(() => {})
       showToast('success', 'Attendance verified on site and synced with Regional Command.')
       void fetchAssignment(true)
     } catch {
@@ -580,6 +647,12 @@ export default function FieldPage() {
       setIsCheckedIn(false)
       setCheckInTimestamp('')
       setShiftSeconds(0)
+      void fetch('/api/field/arrival', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'done' }),
+      }).catch(() => {})
       showToast('success', 'Shift concluded and recorded in duty log.')
       void fetchAssignment(true)
     } catch {
@@ -856,6 +929,23 @@ export default function FieldPage() {
           regionName={centerRegion}
         />
 
+        {/* Auto-arrival confirmation hint — one tap, no camera */}
+        {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
+          <div role="status" className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 flex items-center gap-2">
+            <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            <span className="flex-1 leading-snug">We detected you at the centre. Tap <strong>I&apos;m here</strong> to confirm for Regional Command.</span>
+          </div>
+        )}
+        {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
+          <button
+            type="button"
+            onClick={handleCheckIn}
+            className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-bold text-white transition cursor-pointer border border-white/10"
+          >
+            Confirm — I&apos;m here
+          </button>
+        )}
+
         {/* Paper / Arrive Tiles */}
         {emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />}
 
@@ -953,6 +1043,21 @@ export default function FieldPage() {
 
           {/* Action Dock (Pinned to panel bottom) */}
           <div className="space-y-2.5 pt-2">
+            {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
+              <>
+                <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  <span className="flex-1 leading-snug">We detected you at the centre. Tap to confirm for Regional Command.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCheckIn}
+                  className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-bold text-white transition cursor-pointer border border-white/10"
+                >
+                  Confirm — I&apos;m here
+                </button>
+              </>
+            )}
             <CheckInButton
               isInside={isInside && Boolean(activeVenue)}
               distanceMeters={distanceMeters}

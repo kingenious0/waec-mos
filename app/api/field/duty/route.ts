@@ -266,6 +266,18 @@ export async function GET(request: Request) {
     const isCheckedIn = latestAssignment[0]?.status === 'ON_SITE'
     const checkInDate = latestAssignment[0]?.checkInTime ? new Date(latestAssignment[0].checkInTime) : null
 
+    // Today's arrival/departure state (for "I'm here" / auto-detection UI).
+    const todayStr0 = todayStr
+    const todayEvents = await db
+      .select()
+      .from(schema.arrivalEvents)
+      .where(
+        sql`${schema.arrivalEvents.officerId} = ${officerId} AND date_trunc('day', ${schema.arrivalEvents.serverTime}) = ${todayStr0}::date`
+      )
+      .orderBy(desc(schema.arrivalEvents.serverTime))
+    const todayArrival = todayEvents.find((e) => e.kind === 'ARRIVAL') || null
+    const todayDeparture = todayEvents.find((e) => e.kind === 'DEPARTURE') || null
+
     // SOS flag from the user row.
     const userRows = await db
       .select({ isSosActive: schema.user.isSosActive })
@@ -292,6 +304,18 @@ export async function GET(request: Request) {
           : null,
       isSosActive: Boolean(userRows[0]?.isSosActive),
       refreshIntervalMs,
+      today: {
+        arrival: todayArrival
+          ? {
+              at: todayArrival.serverTime,
+              accuracyTier: todayArrival.accuracyTier,
+              confirmed: Boolean(todayArrival.confirmedAt),
+            }
+          : null,
+        departure: todayDeparture
+          ? { at: todayDeparture.serverTime, duringPaper: todayDeparture.note === 'during-paper' }
+          : null,
+      },
     })
   } catch (error) {
     console.error('Failed to resolve field duty:', error)
