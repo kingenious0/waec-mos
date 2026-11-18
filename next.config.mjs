@@ -40,6 +40,9 @@ if (isProd) {
 
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    agentUpgrade: 'security',
+  },
   async headers() {
     return [
       {
