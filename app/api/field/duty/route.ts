@@ -3,7 +3,7 @@ import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
-import { desc, eq, or, asc, sql, inArray } from 'drizzle-orm'
+import { desc, eq, or, asc, sql, inArray, and } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,9 +119,22 @@ export async function GET(request: Request) {
     const isDeployed = activeDeployments.length > 0
     const deployment = activeDeployments[0] || null
 
-    // Venue — the winning deployment's centre.
+    // Today's plan (group rotation) — the leader or officer picks today's school.
+    // A plan set for today overrides the deployment anchor for the day.
+    const planRows = await db
+      .select({
+        centerId: schema.dailySchoolAssignments.centerId,
+        source: schema.dailySchoolAssignments.source,
+      })
+      .from(schema.dailySchoolAssignments)
+      .where(and(eq(schema.dailySchoolAssignments.officerId, officerId), eq(schema.dailySchoolAssignments.date, todayStr)))
+      .limit(1)
+    const planCenterId = planRows[0]?.centerId || null
+
+    // Venue — today's plan wins, then the winning deployment's centre.
     let venue: any = null
-    if (deployment?.centerId) {
+    if (planCenterId || deployment?.centerId) {
+      const venueCenterId = planCenterId || deployment?.centerId as string
       const centreRows = await db
         .select({
           id: schema.examinationCenters.id,
@@ -136,7 +149,7 @@ export async function GET(request: Request) {
         .from(schema.examinationCenters)
         .leftJoin(schema.districts, eq(schema.examinationCenters.districtId, schema.districts.id))
         .leftJoin(schema.regions, eq(schema.districts.regionId, schema.regions.id))
-        .where(eq(schema.examinationCenters.id, deployment.centerId))
+        .where(eq(schema.examinationCenters.id, venueCenterId))
         .limit(1)
       const c = centreRows[0]
       if (c) {
