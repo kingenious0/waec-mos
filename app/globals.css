@@ -151,6 +151,7 @@
   transition: width 150ms ease, height 150ms ease, box-shadow 150ms ease, outline-color 150ms ease;
 }
 .waec-officer-dot--onsite { background: #10B981; }
+.waec-officer-dot--arrived { background: #F59E0B; box-shadow: 0 0 0 2px #FFFFFF, 0 0 10px rgba(245, 158, 11, 0.7); }
 .waec-officer-dot--way    { background: #38bdf8; }
 .waec-officer-dot--sos    { background: #EF4444; }
 .waec-officer-dot--stale  {
@@ -251,6 +252,7 @@
   overflow-wrap: break-word;
 }
 .waec-officer-label-meta--stale { color: #FBBF24; }
+.waec-officer-label-meta--arrived { color: #FCD34D; }
 .waec-officer-label-meta--sos { color: #FCA5A5; }
 .waec-officer-marker:hover .waec-officer-label,
 .waec-officer-marker:focus-visible .waec-officer-label,

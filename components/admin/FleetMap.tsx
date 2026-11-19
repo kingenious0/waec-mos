@@ -36,6 +36,15 @@ export interface FleetOfficer {
   lastPingAt?: string | null
   hasLiveTelemetry?: boolean
   isOnline?: boolean
+  todayArrival?: {
+    at: string | null
+    confirmedAt: string | null
+    accuracyTier: string | null
+  } | null
+  todayDeparture?: {
+    at: string | null
+    duringPaper: boolean
+  } | null
   lat: number
   lng: number
   sosDetails?: string
@@ -150,6 +159,13 @@ function lastSeenWhere(o: FleetOfficer): string {
 /** Meta line under the name. SOS always overrides; stale replaces status. */
 function markerMetaLine(o: FleetOfficer): string {
   if (o.status === 'SOS') return 'Needs help now'
+  if (o.todayArrival && !o.todayArrival.confirmedAt) {
+    return `Arrived ${timeOfDay(o.todayArrival.at)} — unconfirmed`
+  }
+  if (o.todayDeparture) {
+    const note = o.todayDeparture.duringPaper ? 'Left early' : 'Finished'
+    return `${note} ${timeOfDay(o.todayDeparture.at)}`
+  }
   if (isTelemetryStale(o)) {
     const rel = formatRelativeTime(o.lastPingAt) // e.g. "16 hours ago"
     const where = lastSeenWhere(o)
@@ -159,6 +175,18 @@ function markerMetaLine(o: FleetOfficer): string {
   const battery = typeof o.battery === 'number' ? `${o.battery}% battery` : 'no battery data'
   const rel = formatRelativeTime(o.lastPingAt)
   return `${status} · ${battery} · Updated ${rel.charAt(0).toLowerCase()}${rel.slice(1)}`
+}
+
+/** "07:58" — Ghana is GMT year-round. */
+function timeOfDay(iso?: string | null): string {
+  if (!iso) return '--:--'
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return '--:--'
+  return new Date(ts).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Accra',
+  })
 }
 
 interface FleetMapProps {
@@ -558,6 +586,8 @@ export default function FleetMap({
         const isSos = officer.status === 'SOS'
         const atCentre = isOfficerAtCentre(officer)
         const stale = isTelemetryStale(officer)
+        const arrivedUnconfirmed = Boolean(officer.todayArrival && !officer.todayArrival.confirmedAt)
+        const departedToday = Boolean(officer.todayDeparture)
         const lineName = markerLineName(officer.name || '')
         const meta = markerMetaLine(officer)
         const labelSide = (officer.lng ?? 0) <= mapCenterLng ? 'label-right' : 'label-left'
@@ -565,7 +595,8 @@ export default function FleetMap({
 
         let dotClass = 'waec-officer-dot waec-officer-dot--way'
         if (isSos) dotClass = 'waec-officer-dot waec-officer-dot--sos'
-        else if (stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
+        else if (arrivedUnconfirmed) dotClass = 'waec-officer-dot waec-officer-dot--arrived'
+        else if (departedToday || stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
         else if (atCentre) dotClass = 'waec-officer-dot waec-officer-dot--onsite'
 
         const sosIcon = isSos
@@ -579,14 +610,18 @@ export default function FleetMap({
         const isStale = isTelemetryStale(officer)
         const metaClass = isSos
           ? 'waec-officer-label-meta waec-officer-label-meta--sos'
-          : isStale
-            ? 'waec-officer-label-meta waec-officer-label-meta--stale'
-            : 'waec-officer-label-meta'
-        const metaIcon = isSos
-          ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;"><path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="currentColor"></path></svg>'
-          : isStale
-            ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
-            : ''
+          : arrivedUnconfirmed
+            ? 'waec-officer-label-meta waec-officer-label-meta--arrived'
+            : isStale
+              ? 'waec-officer-label-meta waec-officer-label-meta--stale'
+              : 'waec-officer-label-meta'
+        const metaIcon = arrivedUnconfirmed && !isSos
+          ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
+          : isSos
+            ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;"><path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="currentColor"></path></svg>'
+            : isStale
+              ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
+              : ''
 
         const markerHtml = `
           <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''}${isStale && !isSos ? ' is-stale' : ''} ${labelSide}" title="Last update ${escapeHtml(formatTooltipTime(officer.lastPingAt))}" aria-label="${escapeHtml(`${lineName}, ${meta}, ${batteryWord}`)}">
@@ -824,6 +859,7 @@ export default function FleetMap({
               Map Legend
             </span>
             <LegendItem color="#10B981" label="Officer on site" />
+            <LegendItem color="#F59E0B" label="Arrived — unconfirmed" />
             <LegendItem color="#38bdf8" label="Officer en route" />
             <LegendSosItem />
             <LegendStaleItem />
@@ -846,6 +882,7 @@ export default function FleetMap({
           <span className="flex items-center gap-1">
             <span className="size-1.5 rounded-full bg-emerald-400" />
             <span className="size-1.5 rounded-full bg-sky-400" />
+            <span className="size-1.5 rounded-full bg-amber-400" />
             <span className="size-1.5 rounded-full bg-rose-500" />
           </span>
           Legend

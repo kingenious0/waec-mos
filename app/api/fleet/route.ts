@@ -3,7 +3,7 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseOfflineTimeoutMs, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { requireCommand } from '@/lib/auth/guard'
-import { and, desc, eq, ne, inArray } from 'drizzle-orm'
+import { and, desc, eq, ne, inArray, sql } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
@@ -108,6 +108,34 @@ export async function GET(request: Request) {
       .from(schema.auditLogs)
       .orderBy(desc(schema.auditLogs.createdAt))
       .limit(100)
+
+    // Today's arrival/departure events per officer (the arrival engine)
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayEvents = await db
+      .select({
+        officerId: schema.arrivalEvents.officerId,
+        kind: schema.arrivalEvents.kind,
+        serverTime: schema.arrivalEvents.serverTime,
+        confirmedAt: schema.arrivalEvents.confirmedAt,
+        accuracyTier: schema.arrivalEvents.accuracyTier,
+        note: schema.arrivalEvents.note,
+      })
+      .from(schema.arrivalEvents)
+      .where(
+        sql`date_trunc('day', ${schema.arrivalEvents.serverTime}) = ${todayStr}::date`
+      )
+      .orderBy(desc(schema.arrivalEvents.serverTime))
+
+    const todayByOfficer = new Map<string, {
+      arrival?: (typeof todayEvents)[number]
+      departure?: (typeof todayEvents)[number]
+    }>()
+    for (const e of todayEvents) {
+      const slot = todayByOfficer.get(e.officerId) || {}
+      if (e.kind === 'ARRIVAL' && !slot.arrival) slot.arrival = e
+      if (e.kind === 'DEPARTURE' && !slot.departure) slot.departure = e
+      todayByOfficer.set(e.officerId, slot)
+    }
 
     const nowMs = Date.now()
     const seen = new Set<string>()
@@ -220,6 +248,24 @@ export async function GET(request: Request) {
         sosIncidentNumber: activeSos?.incidentNumber || undefined,
         sosStatus: activeSos?.status || undefined,
         checkpoints: officerLogs,
+        // The arrival engine's view of today for this officer
+        todayArrival: (() => {
+          const a = todayByOfficer.get(r.userId)?.arrival
+          if (!a) return null as null
+          return {
+            at: a.serverTime ? new Date(a.serverTime).toISOString() : null,
+            confirmedAt: a.confirmedAt ? new Date(a.confirmedAt).toISOString() : null,
+            accuracyTier: a.accuracyTier || null,
+          }
+        })(),
+        todayDeparture: (() => {
+          const d = todayByOfficer.get(r.userId)?.departure
+          if (!d) return null as null
+          return {
+            at: d.serverTime ? new Date(d.serverTime).toISOString() : null,
+            duringPaper: d.note === 'during-paper',
+          }
+        })(),
       })
     }
 

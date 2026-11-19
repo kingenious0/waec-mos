@@ -5,6 +5,18 @@ import { Phone, Flag, ChevronDown, Clock, X } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
+/** "07:58" — Ghana is GMT year-round. */
+function timeOfDay(iso?: string | null): string {
+  if (!iso) return '--:--'
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return '--:--'
+  return new Date(ts).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Accra',
+  })
+}
+
 export type SheetSnap = 'peek' | 'half' | 'full'
 
 interface MobileOfficerSheetProps {
@@ -148,6 +160,31 @@ export function MobileOfficerSheet({
     </div>
   )
 
+  const lifecycleLine = (officer.todayArrival || officer.todayDeparture) ? (
+    <div className="flex flex-wrap items-center gap-1.5 text-[10px] leading-snug text-slate-400 px-0.5 -mt-1">
+      {officer.todayArrival && (
+        <span className={`inline-flex items-center gap-1.5 font-semibold ${
+          officer.todayArrival.confirmedAt ? 'text-emerald-400' : 'text-amber-300'
+        }`}>
+          <span className={`size-1.5 rounded-full ${
+            officer.todayArrival.confirmedAt ? 'bg-emerald-400' : 'bg-amber-400'
+          }`} />
+          Arrived {timeOfDay(officer.todayArrival.at)} · {officer.todayArrival.confirmedAt ? 'confirmed' : 'unconfirmed'}
+        </span>
+      )}
+      {officer.todayDeparture && (
+        <span className={`inline-flex items-center gap-1.5 font-semibold ${
+          officer.todayDeparture.duringPaper ? 'text-rose-400' : 'text-slate-400'
+        }`}>
+          <span className={`size-1.5 rounded-full ${
+            officer.todayDeparture.duringPaper ? 'bg-rose-400' : 'bg-slate-500'
+          }`} />
+          Left {timeOfDay(officer.todayDeparture.at)}{officer.todayDeparture.duringPaper ? ' (early)' : ''}
+        </span>
+      )}
+    </div>
+  ) : null
+
   const telemetryTiles = (
     <>
       <div className="grid grid-cols-2 gap-2">
@@ -278,6 +315,7 @@ export function MobileOfficerSheet({
         <div className="px-4 pb-4 flex flex-col gap-2.5 shrink-0">
           {identityHeader}
           {chipsRow}
+          {lifecycleLine}
           <div className="flex gap-2.5">
             <button
               type="button"
@@ -302,6 +340,7 @@ export function MobileOfficerSheet({
         <div className="px-4 pb-4 flex flex-col gap-2.5 flex-1 overflow-y-auto">
           {identityHeader}
           {chipsRow}
+          {lifecycleLine}
           {telemetryTiles}
         </div>
       )}
@@ -311,6 +350,7 @@ export function MobileOfficerSheet({
           <div className="px-4 pb-3 flex flex-col gap-2.5 flex-1 overflow-y-auto">
             {identityHeader}
             {chipsRow}
+          {lifecycleLine}
             {telemetryTiles}
 
             {/* Recent activity — flat list */}

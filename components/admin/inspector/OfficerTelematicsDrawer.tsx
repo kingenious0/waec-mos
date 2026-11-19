@@ -17,6 +17,18 @@ interface OfficerTelematicsDrawerProps {
 
 import { formatRelativeTime } from '@/lib/relative-time'
 
+/** "07:58" — Ghana is GMT year-round. */
+function timeOfDay(iso?: string | null): string {
+  if (!iso) return '--:--'
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return '--:--'
+  return new Date(ts).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Accra',
+  })
+}
+
 export function OfficerTelematicsDrawer({
   officer,
   onCallOfficer,
@@ -334,6 +346,32 @@ export function OfficerTelematicsDrawer({
             </span>
             <span className="text-foreground tabular-nums">Radius {radiusMeters}m</span>
           </div>
+
+          {/* Today's lifecycle — arrival → confirmed → departure */}
+          {(officer.todayArrival || officer.todayDeparture) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] leading-snug border-t border-border/50 pt-2">
+              {officer.todayArrival && (
+                <span className={`inline-flex items-center gap-1.5 font-semibold ${
+                  officer.todayArrival.confirmedAt ? 'text-emerald-400' : 'text-amber-300'
+                }`}>
+                  <span className={`size-1.5 rounded-full ${
+                    officer.todayArrival.confirmedAt ? 'bg-emerald-400' : 'bg-amber-400'
+                  }`} />
+                  Arrived {timeOfDay(officer.todayArrival.at)} · {officer.todayArrival.confirmedAt ? 'confirmed' : 'unconfirmed'}
+                </span>
+              )}
+              {officer.todayDeparture && (
+                <span className={`inline-flex items-center gap-1.5 font-semibold ${
+                  officer.todayDeparture.duringPaper ? 'text-rose-400' : 'text-slate-400'
+                }`}>
+                  <span className={`size-1.5 rounded-full ${
+                    officer.todayDeparture.duringPaper ? 'bg-rose-400' : 'bg-slate-500'
+                  }`} />
+                  Left {timeOfDay(officer.todayDeparture.at)}{officer.todayDeparture.duringPaper ? ' (early)' : ''}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Live duty checkpoints (audit log) */}
