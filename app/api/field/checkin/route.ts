@@ -5,7 +5,7 @@ import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
 import { checkinSchema } from '@/lib/validation-schemas'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
-import { desc, eq, asc, sql, or } from 'drizzle-orm'
+import { desc, eq, asc, sql, or, and } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
@@ -72,10 +72,89 @@ export async function POST(request: Request) {
         .from(schema.systemSettings)
         .where(eq(schema.systemSettings.id, 'default-ashanti'))
         .limit(1)
-      const effectiveRadius = row.centerRadius || parseGeofenceRadiusMeters(settingsRows[0]?.geofenceRadius)
+
+      // Venue resolution must match /api/field/duty exactly — the centre used
+      // for the geofence is: today's day-plan → today's deployment override →
+      // newest series anchor → legacy assignment row → system default.
+      // (Previously only the legacy assignments join was consulted, so a
+      // deployed-but-never-checked-in officer was measured against the 150m
+      // system default instead of their centre's configured radius.)
+      const todayStr = now.toISOString().slice(0, 10)
+      const [planRows, deploymentRows] = await Promise.all([
+        db
+          .select({ centerId: schema.dailySchoolAssignments.centerId })
+          .from(schema.dailySchoolAssignments)
+          .where(
+            and(
+              eq(schema.dailySchoolAssignments.officerId, officerId),
+              eq(schema.dailySchoolAssignments.date, todayStr)
+            )
+          )
+          .limit(1),
+        db
+          .select()
+          .from(schema.officerDeployments)
+          .where(eq(schema.officerDeployments.officerId, officerId))
+          .orderBy(desc(schema.officerDeployments.updatedAt)),
+      ])
+      const todayOverrides = deploymentRows.filter((d) => d.deploymentDate === todayStr)
+      const seriesAnchors = deploymentRows.filter((d) => !d.deploymentDate)
+      const deployment = todayOverrides[0] || seriesAnchors[0] || null
+      const venueCenterId = planRows[0]?.centerId || deployment?.centerId || null
+
+      let venueName: string | null = null
+      let venueRadius: number | null = null
+      let venueLat: number | null = null
+      let venueLng: number | null = null
+      if (venueCenterId) {
+        const venueRows = await db
+          .select({
+            name: schema.examinationCenters.centerName,
+            radius: schema.examinationCenters.geofenceRadiusMeters,
+            lat: schema.examinationCenters.latitude,
+            lng: schema.examinationCenters.longitude,
+          })
+          .from(schema.examinationCenters)
+          .where(eq(schema.examinationCenters.id, venueCenterId))
+          .limit(1)
+        const v = venueRows[0]
+        if (v) {
+          venueName = v.name
+          venueRadius = Number(v.radius) || null
+          venueLat = Number(v.lat)
+          venueLng = Number(v.lng)
+        }
+      }
+      const effectiveRadius =
+        venueRadius || row.centerRadius || parseGeofenceRadiusMeters(settingsRows[0]?.geofenceRadius)
+      const effectiveVenueName = venueName || row.centerName || 'the assigned centre'
 
       if (action === 'CHECK_IN') {
-        const numericDist = typeof distanceMeters === 'number' ? Math.round(distanceMeters) : 0
+        // Geofence distance is computed server-side from the reported GPS fix —
+        // never trusted from the client. Falls back to the client-reported
+        // distance only when coordinates are missing.
+        const haversineMeters = (aLat: number, aLng: number, bLat: number, bLng: number): number => {
+          const R = 6371000
+          const toRad = (d: number) => (d * Math.PI) / 180
+          const dLat = toRad(bLat - aLat)
+          const dLng = toRad(bLng - aLng)
+          const s =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
+          return 2 * R * Math.asin(Math.sqrt(s))
+        }
+        const serverDistance =
+          venueLat !== null &&
+          venueLng !== null &&
+          typeof lat === 'number' &&
+          !Number.isNaN(lat) &&
+          typeof lng === 'number' &&
+          !Number.isNaN(lng)
+            ? Math.round(haversineMeters(lat, lng, venueLat, venueLng))
+            : null
+        const numericDist =
+          serverDistance ??
+          (typeof distanceMeters === 'number' ? Math.round(distanceMeters) : 0)
         if (!isTestMode && numericDist > effectiveRadius) {
           return NextResponse.json(
             {
@@ -104,18 +183,9 @@ export async function POST(request: Request) {
         } else {
           // No shift row yet — create one on demand from the officer's deployment
           // so check-in works on deployed days with no pre-seeded assignment.
-          const todayStr = now.toISOString().slice(0, 10)
-          const deps = await db
-            .select()
-            .from(schema.officerDeployments)
-            .where(eq(schema.officerDeployments.officerId, officerId))
-          const perDay = deps.find((d) => d.deploymentDate === todayStr)
-          const series = deps.filter((d) => !d.deploymentDate)
-          const activeDep = perDay || series[0]
+          const activeDep = deployment
           if (activeDep) {
-            const opIds = Array.from(
-              new Set((perDay ? [perDay] : series).map((d) => d.operationId))
-            )
+            const opIds = Array.from(new Set([activeDep.operationId]))
             let paper: {
               paperName: string
               startTime: string | null
@@ -185,8 +255,8 @@ export async function POST(request: Request) {
           entityType: 'assignments',
           entityId: row.assignmentId || officerId,
           details: {
-            message: `${row.name} checked in at ${row.centerName || 'the assigned centre'} (${Math.round(numericDist)} m)`,
-            centerName: row.centerName || 'Assigned Center',
+            message: `${row.name} checked in at ${effectiveVenueName} (${Math.round(numericDist)} m)`,
+            centerName: effectiveVenueName,
             distanceMeters: numericDist,
             battery: typeof battery === 'number' ? Math.round(battery) : null,
           },
@@ -226,8 +296,8 @@ export async function POST(request: Request) {
         entityType: 'assignments',
         entityId: row.assignmentId || officerId,
         details: {
-          message: `${row.name} concluded duty shift at ${row.centerName || 'Assigned Center'}`,
-          centerName: row.centerName || 'Assigned Center',
+          message: `${row.name} concluded duty shift at ${effectiveVenueName}`,
+          centerName: effectiveVenueName,
         },
       })
 
