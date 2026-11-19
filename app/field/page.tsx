@@ -578,6 +578,111 @@ export default function FieldPage() {
   }, [session?.userId, refreshIntervalMs, sendTelemetryHeartbeat])
 
   // Handle Duty Check-In (strictly persisted in Neon DB)
+  // ---- Photo evidence: capture → burn watermark → upload ----
+  const evidenceInputRef = useRef<HTMLInputElement>(null)
+  const [evidenceProof, setEvidenceProof] = useState<string | null>(null) // watermark text once stored
+  const [evidenceBusy, setEvidenceBusy] = useState(false)
+
+  const handleEvidencePick = useCallback(
+    async (file: File | undefined) => {
+      if (!file || !session?.userId) return
+      setEvidenceBusy(true)
+      try {
+        const dataUrlIn = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(r.result as string)
+          r.onerror = () => reject(new Error('read failed'))
+          r.readAsDataURL(file)
+        })
+
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const i = new Image()
+          i.onload = () => resolve(i)
+          i.onerror = () => reject(new Error('bad image'))
+          i.src = dataUrlIn
+        })
+
+        // Downscale to a sensible proof size
+        const MAX_W = 1280
+        const scale = Math.min(1, MAX_W / img.width)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('no canvas')
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+        // Watermark block: dark translucent strip with two lines of text
+        const wmHeight = Math.max(54, Math.round(canvas.height * 0.075))
+        const y = canvas.height - wmHeight
+        ctx.fillStyle = 'rgba(8, 11, 19, 0.82)'
+        ctx.fillRect(0, y, canvas.width, wmHeight)
+        ctx.fillStyle = '#FBBF24'
+        ctx.fillRect(0, y, canvas.width, 3)
+
+        const now = new Date()
+        const dateStr = now.toLocaleDateString('en-GB', {
+          weekday: 'short',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'Africa/Accra',
+        })
+        const timeStr =
+          now.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+            timeZone: 'Africa/Accra',
+          }) + ' GMT'
+
+        const schoolLine = `${centerVenue}`
+        const locationLine = `${centerZone ? centerZone.replace(' Examination Zone', '') : ''}${
+          centerRegion ? `, ${centerRegion}` : ''
+        } · ${dateStr} · ${timeStr}`
+        const officerLine = `${officerName}${session.staffId ? ` (${session.staffId})` : ''}${
+          centerCode ? ` · Code ${centerCode}` : ''
+        }`
+
+        const pad = Math.round(canvas.width * 0.03)
+        ctx.textBaseline = 'alphabetic'
+        ctx.fillStyle = '#FFFFFF'
+        ctx.font = `700 ${Math.round(wmHeight * 0.32)}px Inter, system-ui, sans-serif`
+        ctx.fillText(schoolLine, pad, y + Math.round(wmHeight * 0.42), canvas.width - pad * 2)
+        ctx.fillStyle = 'rgba(255,255,255,0.92)'
+        ctx.font = `500 ${Math.round(wmHeight * 0.22)}px Inter, system-ui, sans-serif`
+        ctx.fillText(locationLine, pad, y + Math.round(wmHeight * 0.72), canvas.width - pad * 2)
+        ctx.fillStyle = 'rgba(255,255,255,0.72)'
+        ctx.font = `600 ${Math.round(wmHeight * 0.17)}px Inter, system-ui, sans-serif`
+        ctx.fillText(officerLine, pad, y + Math.round(wmHeight * 0.94), canvas.width - pad * 2)
+
+        const stamped = canvas.toDataURL('image/jpeg', 0.85)
+        const stampText = `${schoolLine} · ${locationLine} · ${officerLine}`
+
+        const res = await fetch('/api/field/evidence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ dataUrl: stamped, watermark: stampText }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          showToast('error', data.error || 'Could not save the photo proof.')
+          return
+        }
+        setEvidenceProof(stampText)
+        showToast('success', 'Photo proof saved with watermark.')
+      } catch {
+        showToast('error', 'Could not process that photo. Try again.')
+      } finally {
+        setEvidenceBusy(false)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, centerVenue, centerZone, centerRegion, centerCode, officerName, showToast]
+  )
+
   const handleCheckIn = async () => {
     if (!isInside || !session?.userId) return
     if (isOffline) {
@@ -793,6 +898,51 @@ export default function FieldPage() {
   const paperAssignment: PaperAssignment | null = assignment.paper
   const todayTimeline: TimelineItem[] = assignment.timeline
 
+  const evidenceDock = (
+    <div className="w-full">
+      <input
+        ref={evidenceInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        aria-hidden="true"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          if (f) void handleEvidencePick(f)
+        }}
+      />
+      <button
+        type="button"
+        disabled={evidenceBusy}
+        onClick={() => evidenceInputRef.current?.click()}
+        className="w-full h-12 flex items-center justify-center gap-2 rounded-2xl bg-[#161B2E] hover:bg-[#20283F] border border-[#22263C] text-slate-200 hover:text-white text-xs sm:text-sm font-semibold transition cursor-pointer disabled:opacity-60"
+        title="Take a photo of the school with the official watermark burned in"
+      >
+        {evidenceBusy ? (
+          <>
+            <span className="size-4 border-2 border-slate-400 border-t-white rounded-full animate-spin" aria-hidden />
+            <span>Saving photo…</span>
+          </>
+        ) : (
+          <>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+            <span>{evidenceProof ? 'Replace photo proof' : 'Take photo proof'}</span>
+          </>
+        )}
+      </button>
+      {evidenceProof && (
+        <p className="mt-1 text-[10px] text-emerald-400 flex items-center gap-1">
+          <span aria-hidden>✓</span> Evidence saved — watermarked with school, time &amp; date
+        </p>
+      )}
+    </div>
+  )
+
   // Honest empty state when nothing is on today — say what's next, in plain words.
   const emptyDutyCard = !isAssignmentLoading && !paperAssignment ? (
     <div className="w-full rounded-2xl border border-[#1C2337] bg-[#0F121E] p-4 text-center select-none">
@@ -963,6 +1113,8 @@ export default function FieldPage() {
             onCheckOut={handleCheckOut}
           />
 
+          {evidenceDock}
+
           {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
             <div className="flex items-center gap-2.5 w-full">
               <SosHoldButton
@@ -1066,6 +1218,8 @@ export default function FieldPage() {
               onCheckIn={handleCheckIn}
               onCheckOut={handleCheckOut}
             />
+
+            {evidenceDock}
 
             {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
               <div className="flex items-center gap-2.5 w-full">

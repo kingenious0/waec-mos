@@ -1,4 +1,10 @@
-import { pgTable, text, timestamp, boolean, uuid, integer, decimal, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, text, timestamp, boolean, uuid, integer, decimal, jsonb, customType } from 'drizzle-orm/pg-core'
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return 'bytea'
+  },
+})
 
 // --- Better Auth Schema Tables ---
 
@@ -368,6 +374,18 @@ export const arrivalEvents = pgTable('arrival_events', {
 
 // The curated subset of the official timetable that HQ actually monitors.
 // Empty set = monitor everything in the series (backwards compatible).
+// Watermarked arrival evidence — photo taken at the school by the officer.
+export const evidencePhotos = pgTable('evidence_photos', {
+  id: text('id').primaryKey(),
+  officerId: text('officer_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  assignmentId: text('assignment_id').references(() => assignments.id, { onDelete: 'set null' }),
+  centerId: text('center_id').references(() => examinationCenters.id, { onDelete: 'set null' }),
+  mimeType: text('mime_type').notNull(),
+  photo: bytea('photo').notNull(),
+  watermark: text('watermark').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const monitoredPapers = pgTable('monitored_papers', {
   id: text('id').primaryKey(),
   operationId: text('operation_id').notNull().references(() => operations.id, { onDelete: 'cascade' }),

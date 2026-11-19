@@ -347,6 +347,28 @@ export function OfficerTelematicsDrawer({
             <span className="text-foreground tabular-nums">Radius {radiusMeters}m</span>
           </div>
 
+          {/* Photo evidence — watermarked school shot, taken by the officer on arrival */}
+          <div className="mt-2 pt-2 border-t border-border/50">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
+              Photo evidence
+            </p>
+            <img
+              src={`/api/field/evidence?officerId=${encodeURIComponent(officer.id)}&latest=1`}
+              alt={`Watermarked evidence from ${officer.name}`}
+              loading="lazy"
+              className="w-full h-28 object-cover rounded-xl border border-[#22263C] bg-[#0A0D17]"
+              onError={(e) => {
+                const el = e.currentTarget as HTMLImageElement
+                el.onerror = null
+                el.src =
+                  'data:image/svg+xml,' +
+                  encodeURIComponent(
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="112" viewBox="0 0 400 112"><rect width="100%" height="100%" fill="#0A0D17"/><text x="200" y="56" fill="#475569" font-family="system-ui,sans-serif" font-size="13" text-anchor="middle" dominant-baseline="middle">No photo evidence yet</text></svg>'
+                  )
+              }}
+            />
+          </div>
+
           {/* Today's lifecycle — arrival → confirmed → departure */}
           {(officer.todayArrival || officer.todayDeparture) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] leading-snug border-t border-border/50 pt-2">
