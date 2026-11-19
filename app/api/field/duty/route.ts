@@ -106,10 +106,13 @@ export async function GET(request: Request) {
     }
 
     // Deployments for this officer — series anchors ('') and per-day overrides win for that day.
+    // Newest wins when several anchors exist (e.g. an officer redeployed mid-operation),
+    // matching the fleet/map payload so both screens agree.
     const deploymentRows = await db
       .select()
       .from(schema.officerDeployments)
       .where(eq(schema.officerDeployments.officerId, officerId))
+      .orderBy(desc(schema.officerDeployments.updatedAt))
 
     const todayOverrides = deploymentRows.filter((d) => d.deploymentDate === todayStr)
     const seriesAnchors = deploymentRows.filter((d) => !d.deploymentDate)

@@ -81,18 +81,16 @@ export async function GET(request: Request) {
   try {
     const caller = await getServerUser(request as any)
     if (!caller) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
-    if (roleKind(caller.role) === 'officer') {
-      // Officers may only fetch their own evidence history, never others'.
-    } else if (!['ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(String(caller.role).toUpperCase())) {
-      return NextResponse.json({ error: 'Not allowed' }, { status: 403 })
-    }
+    const kind = roleKind(caller.role) // 'officer' | 'controller' | 'admin'
+    // Officers fetch only their own; any command role (admin / SUPER_ADMIN /
+    // regional coordinator / supervisor) may view any officer's evidence.
 
     const { searchParams } = new URL(request.url)
     const officerParam = searchParams.get('officerId')
     const latestOnly = searchParams.get('latest') === '1'
 
     let officerId = caller.id
-    if (roleKind(caller.role) !== 'officer' && officerParam) officerId = officerParam
+    if (kind !== 'officer' && officerParam) officerId = officerParam
 
     if (!isLiveDatabase || !db) {
       return NextResponse.json({ photos: [] })

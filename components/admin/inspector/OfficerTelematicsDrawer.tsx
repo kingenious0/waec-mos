@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
-import { Phone, Clock, Flag, X, Siren, Check } from 'lucide-react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Phone, Clock, Flag, X, Siren, Check, Camera, Maximize2, Download } from 'lucide-react'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
 interface OfficerTelematicsDrawerProps {
@@ -29,6 +29,11 @@ function timeOfDay(iso?: string | null): string {
   })
 }
 
+interface PhotoMeta {
+  watermark: string
+  createdAt: string
+}
+
 export function OfficerTelematicsDrawer({
   officer,
   onCallOfficer,
@@ -38,6 +43,46 @@ export function OfficerTelematicsDrawer({
   onAcknowledgeSos,
   onResolveSos,
 }: OfficerTelematicsDrawerProps) {
+  const [photoMeta, setPhotoMeta] = useState<PhotoMeta | null>(null)
+  const [photoFailed, setPhotoFailed] = useState(false)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+
+  const officerId = officer?.id
+
+  // Metadata (watermark + timestamp) for the newest photo — shown as the receipt.
+  useEffect(() => {
+    setPhotoMeta(null)
+    setPhotoFailed(false)
+    setLightboxOpen(false)
+    if (!officerId) return
+    let cancelled = false
+    fetch(`/api/field/evidence?officerId=${encodeURIComponent(officerId)}`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.photos?.length) return
+        const latest = data.photos[0]
+        setPhotoMeta({ watermark: latest.watermark || '', createdAt: latest.createdAt || '' })
+      })
+      .catch(() => {
+        /* caption stays hidden — the thumbnail itself is the primary signal */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [officerId])
+
+  // Escape closes the lightbox
+  useEffect(() => {
+    if (!lightboxOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lightboxOpen])
+
+  const handlePhotoError = useCallback(() => setPhotoFailed(true), [])
+
   if (!officer) return null
 
   const unitCode = getOfficerUnitCode(officer)
@@ -92,8 +137,19 @@ export function OfficerTelematicsDrawer({
   const checkpoints = officer.checkpoints || []
   const sosAcknowledged = (officer.sosStatus || '').toUpperCase() === 'ACKNOWLEDGED'
 
+  const photoUrl = `/api/field/evidence?officerId=${encodeURIComponent(officer.id)}&latest=1`
+  const photoTimeLabel = photoMeta?.createdAt
+    ? new Date(photoMeta.createdAt).toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Africa/Accra',
+      }) + ' GMT'
+    : null
+
   return (
-    <div className="flex flex-col h-full bg-[#0C0F17] select-none text-foreground">
+    <div className="relative flex flex-col h-full bg-[#0C0F17] select-none text-foreground">
       {/* Mobile Drawer Grab Handle */}
       <div
         onClick={onToggleMobileDrawer}
@@ -102,7 +158,7 @@ export function OfficerTelematicsDrawer({
         <div className="w-12 h-1 bg-muted-foreground/30 rounded-full" />
       </div>
 
-      <div className="p-4 flex-1 flex flex-col overflow-y-auto space-y-4">
+      <div className="p-4 flex-1 flex flex-col overflow-y-auto space-y-3">
         {/* Unresolved SOS Banner */}
         {isSos && officer.sosIncidentId && (
           <div className="rounded-xl border border-status-sos/50 bg-status-sos/10 p-3 space-y-2">
@@ -145,19 +201,17 @@ export function OfficerTelematicsDrawer({
           </div>
         )}
 
-        {/* Top Officer Header Card — single status chip */}
+        {/* Top Officer Header — single row, name + status chip */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="shrink-0">
-              <div
-                className={`size-12 rounded-xl flex items-center justify-center font-sans font-bold text-sm border ${
-                  isSos
-                    ? 'bg-status-sos/15 text-status-sos border-status-sos/30'
-                    : 'bg-indigo-500/10 text-indigo-300 border-indigo-400/25'
-                }`}
-              >
-                {unitCode.slice(0, 4)}
-              </div>
+            <div
+              className={`size-11 rounded-xl flex items-center justify-center font-sans font-bold text-[13px] border shrink-0 ${
+                isSos
+                  ? 'bg-status-sos/15 text-status-sos border-status-sos/30'
+                  : 'bg-indigo-500/10 text-indigo-300 border-indigo-400/25'
+              }`}
+            >
+              {unitCode.slice(0, 4)}
             </div>
 
             <div className="flex flex-col min-w-0">
@@ -171,8 +225,9 @@ export function OfficerTelematicsDrawer({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1 min-w-0">
-                <span className="truncate">{officer.assignedCenter}</span>
+              <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                <span className="font-mono text-slate-400">{officer.staffId || 'No ID'}</span>
+                {officer.group && <span> · {officer.group}</span>}
               </div>
             </div>
           </div>
@@ -209,22 +264,9 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* Identity line — Staff ID lives only in this details panel, never on the map */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500 -mt-1">
-          <span>
-            Staff ID:{' '}
-            <span className="font-mono text-slate-300">{officer.staffId || 'Not on file'}</span>
-          </span>
-          {officer.group && (
-            <span>
-              Group: <span className="text-slate-300">{officer.group}</span>
-            </span>
-          )}
-        </div>
-
         {/* Live stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
-          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
             <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
               Speed
             </span>
@@ -234,7 +276,7 @@ export function OfficerTelematicsDrawer({
             <span className="text-[10px] text-muted-foreground font-sans mt-0.5">km/h</span>
           </div>
 
-          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+          <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
             <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
               Range
             </span>
@@ -244,7 +286,7 @@ export function OfficerTelematicsDrawer({
             <span className="text-[10px] text-muted-foreground font-sans mt-0.5">{distUnit}</span>
           </div>
 
-          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+          <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
                 Telemetry
@@ -267,7 +309,7 @@ export function OfficerTelematicsDrawer({
             </span>
           </div>
 
-          <div className="rounded-xl bg-[#111522] border border-border/70 px-2.5 py-2 flex flex-col">
+          <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
             <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
               Battery
             </span>
@@ -298,17 +340,17 @@ export function OfficerTelematicsDrawer({
           </div>
         </div>
 
-        {/* Assigned Venue & Distance Card (distance row, no progress bar) */}
-        <div className="rounded-xl bg-[#111522] border border-border/80 p-3.5">
+        {/* Assigned venue — where he should be, how far, in/out */}
+        <div className="rounded-xl bg-[#111522] border border-[#22263C] p-3.5">
           <div className="flex items-center gap-2 font-medium text-xs text-foreground min-w-0">
             <Flag className="size-3.5 text-sky-400 shrink-0" />
             <span className="truncate">{officer.assignedCenter}</span>
           </div>
 
-          <div className="flex items-end justify-between gap-3 mt-2.5">
+          <div className="flex items-end justify-between gap-3 mt-2">
             <div className="flex flex-col">
               <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
-                Distance from center
+                Distance from centre
               </span>
               <span className="text-2xl font-bold font-sans text-foreground tabular-nums leading-tight">
                 {distLabel}
@@ -334,8 +376,8 @@ export function OfficerTelematicsDrawer({
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] font-sans text-muted-foreground mt-2 pt-2 border-t border-border/50">
-            <span>
+          <div className="flex items-center justify-between text-[10px] font-sans text-muted-foreground mt-2 pt-2 border-t border-white/5">
+            <span className="truncate">
               {isOnSite
                 ? officer.verifiedTime
                   ? `Checked in at ${officer.verifiedTime}`
@@ -344,34 +386,12 @@ export function OfficerTelematicsDrawer({
                 ? 'Live GPS Tracking'
                 : 'Awaiting GPS ping'}
             </span>
-            <span className="text-foreground tabular-nums">Radius {radiusMeters}m</span>
-          </div>
-
-          {/* Photo evidence — watermarked school shot, taken by the officer on arrival */}
-          <div className="mt-2 pt-2 border-t border-border/50">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
-              Photo evidence
-            </p>
-            <img
-              src={`/api/field/evidence?officerId=${encodeURIComponent(officer.id)}&latest=1`}
-              alt={`Watermarked evidence from ${officer.name}`}
-              loading="lazy"
-              className="w-full h-28 object-cover rounded-xl border border-[#22263C] bg-[#0A0D17]"
-              onError={(e) => {
-                const el = e.currentTarget as HTMLImageElement
-                el.onerror = null
-                el.src =
-                  'data:image/svg+xml,' +
-                  encodeURIComponent(
-                    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="112" viewBox="0 0 400 112"><rect width="100%" height="100%" fill="#0A0D17"/><text x="200" y="56" fill="#475569" font-family="system-ui,sans-serif" font-size="13" text-anchor="middle" dominant-baseline="middle">No photo evidence yet</text></svg>'
-                  )
-              }}
-            />
+            <span className="text-slate-400 tabular-nums shrink-0 pl-2">Radius {radiusMeters}m</span>
           </div>
 
           {/* Today's lifecycle — arrival → confirmed → departure */}
           {(officer.todayArrival || officer.todayDeparture) && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] leading-snug border-t border-border/50 pt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] leading-snug border-t border-white/5 pt-2">
               {officer.todayArrival && (
                 <span className={`inline-flex items-center gap-1.5 font-semibold ${
                   officer.todayArrival.confirmedAt ? 'text-emerald-400' : 'text-amber-300'
@@ -396,8 +416,78 @@ export function OfficerTelematicsDrawer({
           )}
         </div>
 
-        {/* Live duty checkpoints (audit log) */}
-        <div className="space-y-2 pt-1 flex-1">
+        {/* Photo proof — the officer's watermarked shot from the school gate */}
+        <div className="rounded-xl bg-[#111522] border border-[#22263C] p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-[9px] font-sans uppercase tracking-wider text-muted-foreground">
+              <Camera className="size-3.5 text-slate-500" />
+              Photo proof
+            </span>
+            {photoTimeLabel && (
+              <span className="text-[10px] text-slate-500 tabular-nums">{photoTimeLabel}</span>
+            )}
+          </div>
+
+          {photoFailed ? (
+            <div className="mt-2 rounded-xl border border-dashed border-[#2A3048] bg-[#0A0D17]/60 px-4 py-5 text-center">
+              <Camera className="size-5 text-slate-600 mx-auto mb-1.5" />
+              <p className="text-[11px] font-medium text-slate-400">No photo proof yet</p>
+              <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                Appears after the officer takes one at the school
+              </p>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="group relative mt-2 block w-full overflow-hidden rounded-xl border border-[#22263C] bg-[#0A0D17] cursor-zoom-in"
+                aria-label="View photo proof full screen"
+                title="View full screen"
+              >
+                <img
+                  src={photoUrl}
+                  alt={`Watermarked evidence from ${officer.name}`}
+                  loading="lazy"
+                  onError={handlePhotoError}
+                  className="h-40 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                />
+                <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/70 backdrop-blur-sm border border-white/10 px-1.5 py-1 text-[9px] font-semibold text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Maximize2 className="size-3" />
+                  Enlarge
+                </span>
+              </button>
+
+              {photoMeta?.watermark && (
+                <p className="mt-1.5 text-[10px] leading-snug text-slate-500 line-clamp-2">
+                  {photoMeta.watermark}
+                </p>
+              )}
+
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold transition cursor-pointer"
+                >
+                  <Maximize2 className="size-3.5" />
+                  Enlarge
+                </button>
+                <a
+                  href={photoUrl}
+                  download={`photo-proof-${officer.staffId || 'officer'}.jpg`}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold transition"
+                >
+                  <Download className="size-3.5" />
+                  Download
+                </a>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Recent activity */}
+        <div className="space-y-2 pt-0.5 flex-1">
           <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground block">
             Recent Activity
           </span>
@@ -442,11 +532,11 @@ export function OfficerTelematicsDrawer({
       </div>
 
       {/* Action Buttons */}
-      <div className="p-4 border-t border-border/80 bg-[#0B0D14] grid grid-cols-2 gap-3">
+      <div className="p-3 border-t border-[#22263C] bg-[#0B0D14] grid grid-cols-2 gap-2">
         <button
           type="button"
           onClick={() => onCallOfficer(officer.phone)}
-          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
         >
           <Phone className="size-4 shrink-0" />
           <span>Call Officer</span>
@@ -455,13 +545,55 @@ export function OfficerTelematicsDrawer({
         <button
           type="button"
           onClick={() => onViewLogs(officer.id)}
-          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-[#111420] hover:bg-[#181D2E] text-foreground border border-border text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#111420] hover:bg-[#181D2E] text-foreground border border-[#22263C] text-xs font-semibold transition-colors cursor-pointer shadow-xs"
         >
           <Clock className="size-4 shrink-0 text-muted-foreground" />
           <span>View Logs</span>
         </button>
       </div>
+
+      {/* Full-screen photo proof lightbox */}
+      {lightboxOpen && !photoFailed && (
+        <div
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-8"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Photo proof full screen"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Close"
+            className="absolute top-4 right-4 size-11 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+          >
+            <X className="size-5" />
+          </button>
+          <img
+            src={photoUrl}
+            alt={`Watermarked evidence from ${officer.name}`}
+            className="max-w-full max-h-[74vh] object-contain rounded-xl border border-white/10 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {photoMeta?.watermark && (
+            <p
+              className="mt-3 max-w-xl text-center text-[11px] leading-snug text-slate-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {photoMeta.watermark}
+            </p>
+          )}
+          <a
+            href={photoUrl}
+            download={`photo-proof-${officer.staffId || 'officer'}.jpg`}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 px-5 h-11 text-xs font-bold text-white transition cursor-pointer"
+          >
+            <Download className="size-4" />
+            Download photo proof
+          </a>
+        </div>
+      )}
     </div>
   )
 }
-

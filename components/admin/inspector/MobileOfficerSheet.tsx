@@ -275,7 +275,7 @@ export function MobileOfficerSheet({
 
   return (
     <div
-      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl border-t border-[#22263C] bg-[#0C0F17] shadow-[0_-10px_40px_rgba(0,0,0,0.55)] transition-[height] duration-300 ${snapHeight}`}
+      className={`absolute inset-x-0 bottom-0 z-30 flex flex-col lg:hidden rounded-t-3xl border-t border-[#22263C] bg-[#0C0F17] shadow-[0_-10px_40px_rgba(0,0,0,0.55)] transition-[height] duration-300 ${snapHeight}`}
       role="dialog"
       aria-label={`Details for ${officer.name}`}
     >
