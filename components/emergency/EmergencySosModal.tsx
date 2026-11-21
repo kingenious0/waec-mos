@@ -1,15 +1,24 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+/**
+ * Officer emergency confirmation screen.
+ *
+ * Redesigned for stress: one clear headline, one primary action (call 191),
+ * plain language, and a PIN-guarded stand-down. No telemetry jargon and no
+ * surprise sounds except the single attention tone played when the alert sends.
+ */
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertOctagon,
-  Radio,
+  BatteryMedium,
+  Check,
+  MapPin,
+  Navigation,
   PhoneCall,
   ShieldCheck,
   X,
-  Volume2,
-  AlertTriangle,
 } from 'lucide-react'
+import { SOS_HOLD_MS, sosCountdownLabel, sosHoldProgress } from '@/lib/field/sos'
 
 interface EmergencySosModalProps {
   isOpen: boolean
@@ -24,6 +33,51 @@ interface EmergencySosModalProps {
   onStandDown?: (pin: string) => Promise<{ ok: boolean; error?: string }>
 }
 
+const HOLD_RING_RADIUS = 58
+const HOLD_RING_CIRCUMFERENCE = 2 * Math.PI * HOLD_RING_RADIUS
+
+function playAttentionTone() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(720, ctx.currentTime)
+    osc.frequency.setValueAtTime(940, ctx.currentTime + 0.18)
+    osc.frequency.setValueAtTime(720, ctx.currentTime + 0.36)
+    gain.gain.setValueAtTime(0.18, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.7)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.7)
+  } catch {
+    // Browsers can block audio; the visual confirmation is authoritative.
+  }
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icon className="mt-0.5 size-4 shrink-0 text-red-300" />
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</p>
+        <p className="truncate text-[13px] font-semibold text-zinc-100">{value}</p>
+      </div>
+    </div>
+  )
+}
+
 export function EmergencySosModal({
   isOpen,
   onClose,
@@ -36,113 +90,106 @@ export function EmergencySosModal({
   onDispatchSos,
   onStandDown,
 }: EmergencySosModalProps) {
-  const [isHolding, setIsHolding] = useState(false)
-  const [progress, setProgress] = useState(initialTriggered ? 100 : 0)
   const [isTriggered, setIsTriggered] = useState(initialTriggered)
-  const [standDownPin, setStandDownPin] = useState('')
+  const [progress, setProgress] = useState(initialTriggered ? 1 : 0)
+  const [isHolding, setIsHolding] = useState(false)
+  const [notes, setNotes] = useState('')
   const [showStandDown, setShowStandDown] = useState(false)
+  const [standDownPin, setStandDownPin] = useState('')
   const [pinError, setPinError] = useState('')
   const [isSubmittingStandDown, setIsSubmittingStandDown] = useState(false)
-  const [notes, setNotes] = useState('')
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
-
-  const HOLD_DURATION = 1500 // 1.5 seconds
-
-  const playSirenAlert = () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-      if (!AudioCtx) return
-      const ctx = new AudioCtx()
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(880, ctx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3)
-      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.6)
-      osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.9)
-
-      gain.gain.setValueAtTime(0.2, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.2)
-
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + 1.2)
-    } catch {
-      // Audio autoplay policy fallback
-    }
-  }
+  const startRef = useRef<number | null>(null)
+  const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
-      setIsTriggered(initialTriggered)
-      setProgress(initialTriggered ? 100 : 0)
-      if (!initialTriggered) {
-        setIsHolding(false)
-        setStandDownPin('')
-        setShowStandDown(false)
-        setPinError('')
-      } else {
-        playSirenAlert()
-      }
-    }
+    if (!isOpen) return
+    setIsTriggered(initialTriggered)
+    setProgress(initialTriggered ? 1 : 0)
+    setIsHolding(false)
+    setShowStandDown(false)
+    setStandDownPin('')
+    setPinError('')
+    if (initialTriggered) playAttentionTone()
   }, [isOpen, initialTriggered])
 
-  const startHold = () => {
-    if (isTriggered) return
-    setIsHolding(true)
-    const startTime = Date.now()
+  useEffect(() => {
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    }
+  }, [])
 
-    timerRef.current = setInterval(async () => {
-      const elapsed = Date.now() - startTime
-      const pct = Math.min((elapsed / HOLD_DURATION) * 100, 100)
-      setProgress(pct)
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isTriggered) onClose()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [isOpen, isTriggered, onClose])
 
-      if (elapsed >= HOLD_DURATION) {
-        clearInterval(timerRef.current!)
+  const step = useCallback(
+    (now: number) => {
+      if (startRef.current === null) return
+      const next = sosHoldProgress(now - startRef.current)
+      setProgress(next)
+      if (next >= 1) {
+        if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+        frameRef.current = null
+        startRef.current = null
         setIsHolding(false)
-        setProgress(100)
         setIsTriggered(true)
-        playSirenAlert()
-        if (onDispatchSos) {
-          await onDispatchSos(notes)
+        playAttentionTone()
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          try {
+            navigator.vibrate([140, 70, 240])
+          } catch {
+            // optional
+          }
         }
+        void onDispatchSos?.(notes)
+        return
       }
-    }, 20)
+      frameRef.current = requestAnimationFrame(step)
+    },
+    [notes, onDispatchSos]
+  )
+
+  const startHold = () => {
+    if (isTriggered || isHolding) return
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    startRef.current = performance.now()
+    setIsHolding(true)
+    frameRef.current = requestAnimationFrame(step)
   }
 
   const cancelHold = () => {
-    if (isTriggered) return
-    if (timerRef.current) clearInterval(timerRef.current)
+    if (isTriggered || !isHolding) return
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    frameRef.current = null
+    startRef.current = null
     setIsHolding(false)
     setProgress(0)
   }
 
   const verifyStandDown = async () => {
-    if (!standDownPin.trim()) {
-      setPinError('Enter your 4-digit security PIN.')
+    const pin = standDownPin.trim()
+    if (pin.length !== 4) {
+      setPinError('Enter your 4-digit PIN to cancel the alert.')
       return
     }
-
     setIsSubmittingStandDown(true)
     setPinError('')
-
     try {
-      if (onStandDown) {
-        const result = await onStandDown(standDownPin.trim())
-        if (!result.ok) {
-          setPinError(result.error || 'Invalid 4-digit security PIN. Emergency alert remains active.')
-          return
-        }
+      const result = (await onStandDown?.(pin)) ?? { ok: true }
+      if (!result.ok) {
+        setPinError(result.error || 'That PIN did not work. The alert is still active.')
+        return
       }
-
       setIsTriggered(false)
-      setShowStandDown(false)
       setProgress(0)
+      setShowStandDown(false)
       setStandDownPin('')
       setNotes('')
-      setPinError('')
       onClose()
     } finally {
       setIsSubmittingStandDown(false)
@@ -151,233 +198,263 @@ export function EmergencySosModal({
 
   if (!isOpen) return null
 
-  const CIRCLE_CIRCUMFERENCE = 390
-  const strokeOffset = CIRCLE_CIRCUMFERENCE - (CIRCLE_CIRCUMFERENCE * progress) / 100
+  const reportedAt = new Date().toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Africa/Accra',
+  })
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#07080D]/90 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 font-sans">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06070C]/95 p-0 backdrop-blur-md sm:items-center sm:p-4">
       <div
-        className={`w-full max-w-md rounded-t-3xl sm:rounded-2xl border p-6 transition-all shadow-2xl ${
+        role="dialog"
+        aria-modal="true"
+        aria-label={isTriggered ? 'Emergency alert sent' : 'Emergency assistance'}
+        className={`w-full max-w-lg rounded-t-3xl border p-5 shadow-2xl sm:rounded-2xl ${
           isTriggered
-            ? 'bg-[#140606] border-red-500/50 shadow-red-950/80'
-            : 'bg-[#0E1220] border-[#1E2540] shadow-black/80'
+            ? 'border-red-500/45 bg-[#140708] shadow-red-950/70'
+            : 'border-[#252C44] bg-[#0E1220] shadow-black/80'
         }`}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div
-              className={`size-3 rounded-full ${
-                isTriggered ? 'bg-red-500 animate-ping' : 'bg-amber-400'
-              }`}
-            />
-            <span className="text-xs font-bold uppercase tracking-wider text-zinc-200">
-              {isTriggered ? 'EMERGENCY TRANSMISSION ACTIVE' : 'EMERGENCY ASSISTANCE'}
-            </span>
-          </div>
+        {isTriggered ? (
+          <>
+            <div className="flex items-center justify-between border-b border-red-500/25 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex size-2.5">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75 motion-reduce:animate-none" />
+                  <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
+                </span>
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-red-200">
+                  Emergency sent
+                </span>
+              </div>
+              <span className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-zinc-300">
+                {reportedAt} GMT
+              </span>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-zinc-400 bg-white/5 px-2.5 py-0.5 rounded-lg border border-white/10">
-              {batteryLevel} Battery
-            </span>
-            {!isTriggered && (
+            <div className="space-y-4 py-5">
+              <div>
+                <h2 className="text-2xl font-extrabold leading-tight text-white sm:text-3xl">
+                  Help is on the way.
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                  Regional Command and the police have your location. Stay where you are if you can,
+                  and keep your phone with you.
+                </p>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-black/30 p-4">
+                <InfoRow
+                  icon={MapPin}
+                  label="Centre"
+                  value={centerCode ? `${venueName} · ${centerCode}` : venueName}
+                />
+                <InfoRow
+                  icon={Navigation}
+                  label="Your location"
+                  value={`${coords.lat}, ${coords.lng} (${coords.acc})`}
+                />
+                <InfoRow icon={BatteryMedium} label="Phone battery" value={batteryLevel} />
+                <InfoRow icon={ShieldCheck} label="Reported by" value={officerName} />
+              </div>
+
+              <a
+                href="tel:191"
+                className="flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white text-base font-extrabold text-[#0B1220] shadow-lg transition active:scale-[0.99] motion-reduce:transition-none"
+              >
+                <PhoneCall className="size-5" />
+                Call police — 191
+              </a>
+
+              {!showStandDown ? (
+                <button
+                  type="button"
+                  onClick={() => setShowStandDown(true)}
+                  className="min-h-[52px] w-full rounded-2xl border border-white/15 bg-white/5 text-sm font-bold text-zinc-200 transition hover:bg-white/10 active:scale-[0.99] motion-reduce:transition-none cursor-pointer"
+                >
+                  I&apos;m safe — stand down
+                </button>
+              ) : (
+                <div className="space-y-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+                  <p className="text-xs font-semibold text-zinc-200">
+                    Enter your 4-digit PIN to cancel the alert:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={4}
+                      value={standDownPin}
+                      onChange={(event) => {
+                        setStandDownPin(event.target.value.replace(/\D/g, '').slice(0, 4))
+                        setPinError('')
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void verifyStandDown()
+                      }}
+                      placeholder="••••"
+                      aria-label="4-digit PIN to stand down"
+                      className="h-12 flex-1 rounded-xl border border-white/15 bg-[#0B101C] text-center text-lg font-bold tracking-[0.4em] text-white outline-none focus:border-emerald-400"
+                    />
+                    <button
+                      type="button"
+                      disabled={isSubmittingStandDown}
+                      onClick={() => void verifyStandDown()}
+                      className="h-12 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60 cursor-pointer"
+                    >
+                      {isSubmittingStandDown ? 'Checking…' : 'Confirm'}
+                    </button>
+                  </div>
+                  {pinError && <p className="text-xs font-semibold text-red-300">{pinError}</p>}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStandDown(false)
+                      setStandDownPin('')
+                      setPinError('')
+                    }}
+                    className="text-xs font-semibold text-zinc-400 underline underline-offset-2 cursor-pointer"
+                  >
+                    Keep the alert on
+                  </button>
+                </div>
+              )}
+
+              <p className="text-center text-[11px] leading-snug text-zinc-500">
+                Only stand down when you are safe. An officer may call you.
+              </p>
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 rounded-full text-zinc-400 hover:text-white transition cursor-pointer"
+                className="w-full text-center text-xs font-semibold text-zinc-400 underline underline-offset-2 cursor-pointer"
+              >
+                Back to field app — alert stays on
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+              <div className="flex items-center gap-2.5">
+                <span className="size-2.5 rounded-full bg-amber-400" />
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-zinc-200">
+                  Emergency assistance
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="rounded-full p-1.5 text-zinc-400 transition hover:bg-white/10 hover:text-white cursor-pointer"
               >
                 <X className="size-5" />
               </button>
-            )}
-          </div>
-        </div>
-
-        {/* STATE 2A: Pre-Activation Hold */}
-        {!isTriggered ? (
-          <div className="py-6 flex flex-col items-center text-center space-y-5">
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold mb-2">
-                <AlertTriangle className="size-3.5" />
-                EMERGENCY ALERT CONFIRMATION
-              </span>
-              <h3 className="text-xl font-bold text-white tracking-tight">
-                Immediate Assistance Request
-              </h3>
-              <p className="text-xs text-zinc-300 max-w-xs mt-1.5 leading-relaxed">
-                Transmits your real-time GPS location and center details directly to the Regional Control Room.
-              </p>
             </div>
 
-            <div className="w-full text-left">
-              <label className="text-[11px] font-semibold text-zinc-400 block mb-1">
-                Optional Incident Summary
+            <div className="flex flex-col items-center gap-5 py-6 text-center">
+              <div>
+                <h2 className="text-xl font-extrabold text-white sm:text-2xl">Need urgent help?</h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-zinc-300">
+                  Hold the button to send your location to Regional Command. Use this only in an
+                  emergency.
+                </p>
+              </div>
+
+              <label className="w-full text-left">
+                <span className="mb-1 block text-[11px] font-semibold text-zinc-400">
+                  What happened? (optional)
+                </span>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="e.g. Unauthorised person at the centre"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-[#090C18] px-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-red-500"
+                />
               </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Unauthorised intrusion or material escort delay"
-                className="w-full rounded-xl bg-[#090C18] border border-white/10 px-3 py-2 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-red-500"
-              />
-            </div>
 
-            <div className="relative flex items-center justify-center size-36 select-none">
-              <svg className="size-36 transform -rotate-90">
-                <circle
-                  cx="72"
-                  cy="72"
-                  r="62"
-                  stroke="#222A42"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <circle
-                  cx="72"
-                  cy="72"
-                  r="62"
-                  stroke="#EF4444"
-                  strokeWidth="8"
-                  fill="transparent"
-                  strokeDasharray={CIRCLE_CIRCUMFERENCE}
-                  strokeDashoffset={strokeOffset}
-                  strokeLinecap="round"
-                  className="transition-all duration-75"
-                />
-              </svg>
+              <div className="relative flex size-40 select-none items-center justify-center">
+                <svg className="absolute size-40 -rotate-90" viewBox="0 0 140 140" aria-hidden="true">
+                  <circle
+                    cx="70"
+                    cy="70"
+                    r={HOLD_RING_RADIUS}
+                    fill="none"
+                    stroke="#242C44"
+                    strokeWidth="8"
+                  />
+                  <circle
+                    cx="70"
+                    cy="70"
+                    r={HOLD_RING_RADIUS}
+                    fill="none"
+                    stroke="#EF4444"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeDasharray={HOLD_RING_CIRCUMFERENCE}
+                    strokeDashoffset={HOLD_RING_CIRCUMFERENCE * (1 - progress)}
+                    className="transition-[stroke-dashoffset] duration-75 ease-linear motion-reduce:transition-none"
+                  />
+                </svg>
+                <button
+                  type="button"
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                    event.currentTarget.focus()
+                    startHold()
+                  }}
+                  onPointerUp={cancelHold}
+                  onPointerCancel={cancelHold}
+                  onPointerLeave={cancelHold}
+                  onContextMenu={(event) => event.preventDefault()}
+                  onKeyDown={(event) => {
+                    if ((event.code === 'Space' || event.code === 'Enter') && !event.repeat) {
+                      event.preventDefault()
+                      startHold()
+                    }
+                  }}
+                  onKeyUp={(event) => {
+                    if (event.code === 'Space' || event.code === 'Enter') {
+                      event.preventDefault()
+                      cancelHold()
+                    }
+                  }}
+                  style={{ touchAction: 'none' }}
+                  aria-label="Hold for one second to send emergency alert"
+                  className={`relative flex size-28 flex-col items-center justify-center rounded-full bg-red-600 text-white shadow-xl transition active:scale-95 motion-reduce:transition-none cursor-pointer ${
+                    isHolding ? 'scale-95 bg-red-700 ring-4 ring-red-400/40' : ''
+                  }`}
+                >
+                  {isTriggered ? (
+                    <Check className="size-8" />
+                  ) : (
+                    <AlertOctagon className="size-8 text-amber-200" />
+                  )}
+                  <span className="mt-1 text-xs font-extrabold tracking-wider">HOLD 1s</span>
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-zinc-100" aria-live="polite">
+                  {isHolding
+                    ? sosCountdownLabel(progress)
+                    : 'Press and hold to send the alert'}
+                </p>
+                <p className="text-xs text-zinc-400">Release early to cancel — nothing is sent.</p>
+              </div>
 
               <button
                 type="button"
-                onMouseDown={startHold}
-                onMouseUp={cancelHold}
-                onMouseLeave={cancelHold}
-                onTouchStart={startHold}
-                onTouchEnd={cancelHold}
-                className={`absolute size-28 rounded-full flex flex-col items-center justify-center font-bold text-white shadow-xl transition-all cursor-pointer select-none ${
-                  isHolding
-                    ? 'scale-95 bg-red-700 shadow-red-900/80 ring-4 ring-red-500/30'
-                    : 'bg-red-600 hover:bg-red-500 shadow-red-900/50'
-                }`}
+                onClick={onClose}
+                className="min-h-[48px] w-full rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-zinc-300 transition hover:bg-white/10 cursor-pointer"
               >
-                <AlertOctagon className="size-8 text-amber-300 animate-pulse" />
-                <span className="text-xs font-extrabold tracking-wider mt-1">HOLD 1.5s</span>
+                Not an emergency — close
               </button>
             </div>
-
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-zinc-200">
-                {isHolding
-                  ? `Broadcasting in ${((1500 - progress * 15) / 1000).toFixed(1)}s...`
-                  : 'Press and maintain contact to dispatch'}
-              </p>
-              <p className="text-xs text-zinc-400">
-                Releasing early cancels the emergency alert
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full py-2.5 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold border border-zinc-700/60 transition cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          /* STATE 2B: Active Distress Transmission Mode */
-          <div className="py-4 space-y-4">
-            <div className="rounded-xl bg-red-950/40 border border-red-500/30 p-4 space-y-2.5">
-              <div className="flex items-center justify-between text-xs text-red-400">
-                <span className="flex items-center gap-1.5 font-bold">
-                  <Radio className="size-4 animate-pulse" /> LIVE INCIDENT TELEMETRY
-                </span>
-                <span className="bg-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold">
-                  TRANSMITTING
-                </span>
-              </div>
-              <div className="text-sm text-zinc-100 font-bold">
-                {venueName} {centerCode ? `(Code: ${centerCode})` : ''}
-              </div>
-              <div className="text-xs text-zinc-300">
-                Officer: <strong className="text-white">{officerName}</strong>
-              </div>
-              <div className="flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-red-500/20">
-                <span>Lat: {coords.lat}</span>
-                <span>Lng: {coords.lng}</span>
-                <span className="text-emerald-400 font-bold">{coords.acc} Accuracy</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3 rounded-xl bg-black/60 border border-red-500/20">
-              <div className="flex items-center gap-2">
-                <Volume2 className="size-4 text-red-400 animate-pulse" />
-                <span className="text-xs text-zinc-200 font-semibold">
-                  Command Alert Active in Regional Hub
-                </span>
-              </div>
-              <div className="flex items-center gap-1 h-5">
-                {[6, 14, 20, 10, 16, 8, 18, 12, 6, 15, 8].map((h, i) => (
-                  <div
-                    key={i}
-                    className="w-1 bg-red-500 rounded-full animate-pulse"
-                    style={{
-                      height: `${h}px`,
-                      animationDelay: `${(i * 120) % 600}ms`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <a
-                href="tel:191"
-                className="py-3 px-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-red-900/40 transition active:scale-[0.98]"
-              >
-                <PhoneCall className="size-3.5" />
-                <span>CALL POLICE (191)</span>
-              </a>
-              <button
-                type="button"
-                onClick={() => setShowStandDown(true)}
-                className="py-3 px-2 rounded-xl bg-[#1C2338] hover:bg-[#252F4A] text-zinc-200 font-semibold text-xs border border-white/10 transition active:scale-[0.98] cursor-pointer"
-              >
-                CANCEL EMERGENCY ALERT
-              </button>
-            </div>
-
-            {showStandDown && (
-              <div className="p-4 rounded-xl bg-[#090D1A] border border-[#232C47] space-y-3 animate-in fade-in duration-150">
-                <div className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="size-4 text-amber-400" />
-                  <span>Enter your 4-digit security PIN to stand down:</span>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    maxLength={4}
-                    value={standDownPin}
-                    onChange={(e) => {
-                      setStandDownPin(e.target.value.replace(/\D/g, '').slice(0, 4))
-                      setPinError('')
-                    }}
-                    placeholder="••••"
-                    className="flex-1 bg-[#12182B] border border-white/15 rounded-lg text-center text-lg text-white tracking-widest focus:outline-none focus:border-red-500 py-1.5 font-bold"
-                  />
-                  <button
-                    type="button"
-                    disabled={isSubmittingStandDown}
-                    onClick={verifyStandDown}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-xs rounded-lg transition cursor-pointer"
-                  >
-                    {isSubmittingStandDown ? 'VERIFYING...' : 'CONFIRM'}
-                  </button>
-                </div>
-                {pinError && (
-                  <p className="text-xs text-red-400 leading-tight">{pinError}</p>
-                )}
-              </div>
-            )}
-          </div>
+          </>
         )}
       </div>
     </div>

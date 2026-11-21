@@ -15,6 +15,7 @@ import { DayTimeline, TimelineItem } from '@/components/field/DayTimeline'
 import { CheckInButton } from '@/components/field/CheckInButton'
 import { SosHoldButton } from '@/components/field/SosHoldButton'
 import { ReportButton } from '@/components/field/ReportButton'
+import { IncidentReportSheet } from '@/components/field/IncidentReportSheet'
 import { OfflineBanner } from '@/components/field/OfflineBanner'
 import {
   TodaySchoolCard,
@@ -115,6 +116,7 @@ export default function FieldPage() {
   // UI States
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false)
   const [sosModalOpen, setSosModalOpen] = useState<boolean>(false)
+  const [reportModalOpen, setReportModalOpen] = useState<boolean>(false)
   const [isOffline, setIsOffline] = useState<boolean>(false)
   const [queuedSosCount, setQueuedSosCount] = useState<number>(0)
   const [queuedArrivalCount, setQueuedArrivalCount] = useState<number>(0)
@@ -1134,6 +1136,43 @@ export default function FieldPage() {
     setSosModalOpen(true)
   }
 
+  // Routine issue report — deliberately separate from the emergency SOS path.
+  const submitIncidentReport = useCallback(
+    async ({ category, description }: { category: string; description: string }) => {
+      const res = await fetch('/api/incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description,
+          category,
+          severity: 'MEDIUM',
+          isSos: false,
+          centerCode,
+          centerName: centerVenue,
+          lat: effectiveUserLat,
+          lng: effectiveUserLng,
+          battery: batteryLevel,
+          distanceMeters,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Could not send report.')
+      }
+      setReportModalOpen(false)
+      showToast('success', 'Report sent to Regional Command.')
+    },
+    [
+      batteryLevel,
+      centerCode,
+      centerVenue,
+      distanceMeters,
+      effectiveUserLat,
+      effectiveUserLng,
+      showToast,
+    ]
+  )
+
   // Strict DB-PIN-verified SOS Stand Down
   const handleStandDownSos = async (pin: string): Promise<{ ok: boolean; error?: string }> => {
     if (!session?.userId) return { ok: false, error: 'Active officer session required.' }
@@ -1372,14 +1411,14 @@ export default function FieldPage() {
         <div className="w-full bg-red-600/20 border-b border-red-500/40 px-4 py-2 flex items-center justify-between text-xs text-red-200">
           <div className="flex items-center gap-2 font-semibold">
             <Radio className="size-4 text-red-400 animate-pulse shrink-0" />
-            <span>EMERGENCY SOS TRANSMISSION ACTIVE — Regional Command alerted</span>
+            <span>Help has been called — Regional Command has your location</span>
           </div>
           <button
             type="button"
             onClick={() => setSosModalOpen(true)}
             className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition cursor-pointer shrink-0"
           >
-            Open SOS Terminal
+            View alert
           </button>
         </div>
       )}
@@ -1425,7 +1464,7 @@ export default function FieldPage() {
       {/* ============================================================ */}
 
       {/* 1. MOBILE VIEWPORT (< 1024px): Single column, centered, max-w-md */}
-      <div className="flex-1 flex lg:hidden flex-col items-center justify-between p-4 w-full max-w-md mx-auto space-y-3 pb-6">
+      <div className="flex-1 flex lg:hidden flex-col items-center justify-between p-4 w-full max-w-md mx-auto space-y-3 pb-28">
         {/* Map Card (~330px tall) */}
         <div className="w-full h-[330px] shrink-0 relative">
           {!isDesktop && activeVenue ? (
@@ -1505,21 +1544,11 @@ export default function FieldPage() {
           {evidenceDock}
 
           {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
-            <div className="flex items-center gap-2.5 w-full">
-              <SosHoldButton
-                onTriggerSos={handleTriggerSos}
-                isOffline={isOffline}
-                className="flex-1"
-              />
-              <ReportButton onOpenReport={() => setSosModalOpen(true)} />
-            </div>
-          ) : (
-            <SosHoldButton
-              onTriggerSos={handleTriggerSos}
-              isOffline={isOffline}
-              className="w-full"
-            />
-          )}
+            <ReportButton onOpenReport={() => setReportModalOpen(true)} />
+          ) : null}
+          <p className="text-center text-[11px] text-slate-500 select-none">
+            In danger? Hold the red SOS button to call for help.
+          </p>
         </div>
       </div>
 
@@ -1609,31 +1638,31 @@ export default function FieldPage() {
 
             {evidenceDock}
 
+            <SosHoldButton
+              onTriggerSos={handleTriggerSos}
+              isOffline={isOffline}
+              variant="dock"
+            />
+
             {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
-              <div className="flex items-center gap-2.5 w-full">
-                <SosHoldButton
-                  onTriggerSos={handleTriggerSos}
-                  isOffline={isOffline}
-                  className="flex-1"
-                />
-                <ReportButton onOpenReport={() => setSosModalOpen(true)} />
-              </div>
-            ) : (
-              <SosHoldButton
-                onTriggerSos={handleTriggerSos}
-                isOffline={isOffline}
-                className="w-full"
-              />
-            )}
+              <ReportButton onOpenReport={() => setReportModalOpen(true)} />
+            ) : null}
 
             <p className="text-[11px] text-slate-500 text-center select-none pt-1">
-              Keyboard: focus SOS and hold Space for 1.5 seconds.
+              Keyboard: focus SOS and hold Space for 1 second.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Emergency SOS Modal (Incident & Distress details) */}
+      {/* Emergency trigger — always reachable in the phone thumb zone */}
+      <SosHoldButton
+        onTriggerSos={handleTriggerSos}
+        isOffline={isOffline}
+        variant="floating"
+      />
+
+      {/* Emergency SOS confirmation / stand-down */}
       <EmergencySosModal
         isOpen={sosModalOpen}
         onClose={() => setSosModalOpen(false)}
@@ -1653,6 +1682,15 @@ export default function FieldPage() {
         batteryLevel={typeof batteryLevel === 'number' ? `${batteryLevel}%` : '--%'}
         onDispatchSos={dispatchSosIncident}
         onStandDown={handleStandDownSos}
+      />
+
+      {/* Routine issues — kept separate from the emergency path */}
+      <IncidentReportSheet
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        onSubmit={submitIncidentReport}
+        centerName={centerVenue}
+        isOffline={isOffline}
       />
 
       {/* Officer Profile Modal */}
