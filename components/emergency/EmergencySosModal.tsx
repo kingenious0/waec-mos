@@ -36,6 +36,15 @@ interface EmergencySosModalProps {
 const HOLD_RING_RADIUS = 58
 const HOLD_RING_CIRCUMFERENCE = 2 * Math.PI * HOLD_RING_RADIUS
 
+function formatGmtTime(date: Date) {
+  return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Africa/Accra',
+  })
+}
+
 function playAttentionTone() {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
@@ -91,6 +100,9 @@ export function EmergencySosModal({
   onStandDown,
 }: EmergencySosModalProps) {
   const [isTriggered, setIsTriggered] = useState(initialTriggered)
+  const [sentAt, setSentAt] = useState<string | null>(
+    initialTriggered ? formatGmtTime(new Date()) : null
+  )
   const [progress, setProgress] = useState(initialTriggered ? 1 : 0)
   const [isHolding, setIsHolding] = useState(false)
   const [notes, setNotes] = useState('')
@@ -109,7 +121,10 @@ export function EmergencySosModal({
     setShowStandDown(false)
     setStandDownPin('')
     setPinError('')
-    if (initialTriggered) playAttentionTone()
+    if (initialTriggered) {
+      setSentAt(formatGmtTime(new Date()))
+      playAttentionTone()
+    }
   }, [isOpen, initialTriggered])
 
   useEffect(() => {
@@ -138,6 +153,7 @@ export function EmergencySosModal({
         startRef.current = null
         setIsHolding(false)
         setIsTriggered(true)
+        setSentAt(formatGmtTime(new Date()))
         playAttentionTone()
         if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
           try {
@@ -186,6 +202,7 @@ export function EmergencySosModal({
         return
       }
       setIsTriggered(false)
+      setSentAt(null)
       setProgress(0)
       setShowStandDown(false)
       setStandDownPin('')
@@ -197,13 +214,6 @@ export function EmergencySosModal({
   }
 
   if (!isOpen) return null
-
-  const reportedAt = new Date().toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Africa/Accra',
-  })
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06070C]/95 p-0 backdrop-blur-md sm:items-center sm:p-4">
@@ -230,7 +240,7 @@ export function EmergencySosModal({
                 </span>
               </div>
               <span className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-zinc-300">
-                {reportedAt} GMT
+                {sentAt ?? '--:--'} GMT
               </span>
             </div>
 
