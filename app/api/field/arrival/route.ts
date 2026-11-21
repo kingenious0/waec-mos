@@ -19,6 +19,8 @@ const actionSchema = z.object({
   /** Leader marking a teammate present — only reachable with officerId. */
   officerId: z.string().min(1).optional(),
   reason: z.string().trim().max(80).optional(),
+  /** Device clock when an offline event actually happened; serverTime is official. */
+  phoneTime: z.string().datetime().optional(),
 })
 
 /** Fixed reasons a leader can record instead of GPS proof. */
@@ -157,13 +159,18 @@ export async function GET(request: Request) {
         arrival: arrival
           ? {
               at: arrival.serverTime,
+              phoneTime: arrival.phoneTime,
               accuracyTier: arrival.accuracyTier,
               confirmed: Boolean(arrival.confirmedAt),
               distanceM: arrival.accuracyM,
             }
           : null,
         departure: departure
-          ? { at: departure.serverTime, duringPaper: Boolean(departure.note === 'during-paper') }
+          ? {
+              at: departure.serverTime,
+              phoneTime: departure.phoneTime,
+              duringPaper: Boolean(departure.note === 'during-paper'),
+            }
           : null,
         paperWindow: window,
       },
@@ -186,11 +193,27 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'action is required' }, { status: 400 })
     }
-    const { action, lat, lng, accuracyM, distanceMeters, officerId: requestedOfficerId, reason } =
-      parsed.data
+    const {
+      action,
+      lat,
+      lng,
+      accuracyM,
+      distanceMeters,
+      officerId: requestedOfficerId,
+      reason,
+      phoneTime,
+    } = parsed.data
 
     const today = todayGmt()
     const now = new Date()
+    // Phone time is evidence of when the device saw the event; never trust it
+    // for ordering or duration without the server's receive time alongside it.
+    const phoneAt = (() => {
+      if (!phoneTime) return now
+      const ts = new Date(phoneTime)
+      if (Number.isNaN(ts.getTime()) || ts.getTime() > now.getTime() + 5 * 60_000) return now
+      return ts
+    })()
 
     // ---------- A group leader records a teammate as present ----------
     // Used when GPS proof is impossible (dead battery, no signal). The reason
@@ -283,7 +306,7 @@ export async function POST(request: Request) {
         centerId: await resolveTodayCenterId(caller.id),
         assignmentId: null,
         kind: 'ARRIVAL',
-        phoneTime: now,
+        phoneTime: phoneAt,
         serverTime: now,
         lat: lat.toFixed(7),
         lng: lng.toFixed(7),
@@ -316,7 +339,7 @@ export async function POST(request: Request) {
           officerId: caller.id,
           centerId: await resolveTodayCenterId(caller.id),
           kind: 'ARRIVAL',
-          phoneTime: now,
+          phoneTime: phoneAt,
           serverTime: now,
           accuracyM: accuracyM != null ? Math.round(accuracyM) : null,
           source: 'officer',
@@ -345,7 +368,7 @@ export async function POST(request: Request) {
         id,
         officerId: caller.id,
         kind: 'DEPARTURE',
-        phoneTime: now,
+        phoneTime: phoneAt,
         serverTime: now,
         lat: lat != null ? lat.toFixed(7) : null,
         lng: lng != null ? lng.toFixed(7) : null,

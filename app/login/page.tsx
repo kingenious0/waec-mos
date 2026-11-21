@@ -22,6 +22,8 @@ export default function LoginPage() {
   const [pin, setPin] = useState('')
   const [showPin, setShowPin] = useState(false)
   const [keepSignedIn, setKeepSignedIn] = useState(true)
+  // Browser sound needs a real gesture. This admin-only checkbox is that gesture.
+  const [sosAlarmArmed, setSosAlarmArmed] = useState(false)
 
   // Administrator credentials (Staff ID / email + password)
   const [identifier, setIdentifier] = useState('')
@@ -35,6 +37,17 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+
+  const rememberSosAlarmChoice = () => {
+    try {
+      window.localStorage.setItem(
+        'waec-sos-alarm',
+        role === 'ADMIN' && sosAlarmArmed ? 'on' : 'off'
+      )
+    } catch {
+      // Sound simply stays off if storage is blocked.
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,6 +107,7 @@ export default function LoginPage() {
       }
 
       if (data.user?.role === 'ADMIN' || data.user?.role === 'SUPER_ADMIN') {
+        rememberSosAlarmChoice()
         router.push(data.user?.mustChangePassword ? '/change-password' : '/admin')
       } else {
         router.push(data.user?.mustChangePassword ? '/choose-pin' : '/field')
@@ -125,6 +139,7 @@ export default function LoginPage() {
         setLoading(false)
         return
       }
+      rememberSosAlarmChoice()
       router.push(data.user?.mustChangePassword ? '/change-password' : '/admin')
     } catch {
       setErrorMsg('Could not reach the portal. Check your connection and try again.')
@@ -365,6 +380,25 @@ export default function LoginPage() {
                     Forgot PIN?
                   </Link>
                 </div>
+
+                {role === 'ADMIN' && (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={sosAlarmArmed}
+                    onClick={() => setSosAlarmArmed(!sosAlarmArmed)}
+                    className="authb-check"
+                    data-checked={sosAlarmArmed}
+                    style={{ marginTop: 10 }}
+                  >
+                    <span className="authb-check-box" aria-hidden>
+                      {sosAlarmArmed && <Check className="size-4" strokeWidth={3.5} color="#101832" />}
+                    </span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
+                      Turn on SOS alarm sound
+                    </span>
+                  </button>
+                )}
 
                 <button
                   type="submit"

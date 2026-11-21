@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
-import { Phone, Flag, ChevronDown, Clock, X, AlertTriangle } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Phone, Flag, ChevronDown, Clock, X, AlertTriangle, Pencil, Camera } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
+import { PROOF_REQUEST_REASONS } from '@/lib/field/proof-reasons'
 
 /** "07:58" — Ghana is GMT year-round. */
 function timeOfDay(iso?: string | null): string {
@@ -26,6 +27,11 @@ interface MobileOfficerSheetProps {
   onCallOfficer: (phone: string) => void
   onViewLogs: (officerId: string) => void
   onClose: () => void
+  /** Centre correction — same rule as the desktop inspector. */
+  schoolOptions?: { id: string; name: string }[]
+  onChangeSchool?: (officer: FleetOfficer, centerId: string) => void | Promise<void>
+  /** Rare on-request proof photo. */
+  onRequestPhoto?: (officer: FleetOfficer, reason: string) => void | Promise<void>
 }
 
 /**
@@ -40,7 +46,22 @@ export function MobileOfficerSheet({
   onCallOfficer,
   onViewLogs,
   onClose,
+  schoolOptions = [],
+  onChangeSchool,
+  onRequestPhoto,
 }: MobileOfficerSheetProps) {
+  const [schoolPickerOpen, setSchoolPickerOpen] = useState(false)
+  const [pickerCenterId, setPickerCenterId] = useState('')
+  const [proofReason, setProofReason] = useState<string>(PROOF_REQUEST_REASONS[0])
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    setSchoolPickerOpen(false)
+    setPickerCenterId('')
+    setProofReason(PROOF_REQUEST_REASONS[0])
+    setBusy(false)
+  }, [officer.id])
+
   const isSos = officer.status === 'SOS'
   const isOnSite = officer.status === 'ON_SITE'
 
@@ -369,6 +390,107 @@ export function MobileOfficerSheet({
             {chipsRow}
           {lifecycleLine}
             {telemetryTiles}
+
+            {/* Centre correction + rare proof request */}
+            {(schoolOptions.length > 0 && onChangeSchool) || onRequestPhoto ? (
+              <div className="rounded-xl border border-[#22263C] bg-[#11131F] p-3 space-y-2.5">
+                <span className="block text-[10px] font-sans uppercase tracking-wider text-slate-500">
+                  Fix today&apos;s duty
+                </span>
+                {schoolOptions.length > 0 && onChangeSchool && (
+                  <>
+                    {!schoolPickerOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const current =
+                            schoolOptions.find((o) => o.id === officer.plannedCenterId) ||
+                            schoolOptions.find((o) => o.name === officer.plannedSchool) ||
+                            schoolOptions[0]
+                          setPickerCenterId(current?.id || '')
+                          setSchoolPickerOpen(true)
+                        }}
+                        className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-[#2A3048] bg-[#0A0D17] text-[11px] font-bold text-slate-200 hover:text-white hover:border-slate-600 transition cursor-pointer"
+                      >
+                        <Pencil className="size-3.5" />
+                        Change today&apos;s school
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={pickerCenterId}
+                          onChange={(e) => setPickerCenterId(e.target.value)}
+                          aria-label="Choose today's school"
+                          className="flex-1 min-w-0 h-11 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2.5 text-xs text-slate-200"
+                        >
+                          {schoolOptions.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={busy || !pickerCenterId}
+                          onClick={async () => {
+                            if (!pickerCenterId || !onChangeSchool) return
+                            setBusy(true)
+                            try {
+                              await onChangeSchool(officer, pickerCenterId)
+                              setSchoolPickerOpen(false)
+                            } finally {
+                              setBusy(false)
+                            }
+                          }}
+                          className="h-11 shrink-0 rounded-lg bg-[#1E2B7B] px-3 text-[11px] font-bold text-white cursor-pointer disabled:opacity-50"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSchoolPickerOpen(false)}
+                          className="h-11 shrink-0 rounded-lg border border-[#2A3048] px-3 text-[11px] font-bold text-slate-400 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {onRequestPhoto && (
+                  <div className="flex items-center gap-2 border-t border-[#1E2438] pt-2.5">
+                    <select
+                      value={proofReason}
+                      onChange={(e) => setProofReason(e.target.value)}
+                      aria-label="Why a photo is needed"
+                      className="flex-1 min-w-0 h-11 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2.5 text-[11px] text-slate-300 cursor-pointer"
+                    >
+                      {PROOF_REQUEST_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true)
+                        try {
+                          await onRequestPhoto(officer, proofReason)
+                        } finally {
+                          setBusy(false)
+                        }
+                      }}
+                      className="h-11 shrink-0 flex items-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-[11px] font-bold text-sky-200 cursor-pointer disabled:opacity-50"
+                    >
+                      <Camera className="size-3.5" />
+                      Ask
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {/* Recent activity — flat list */}
             <div className="space-y-0">

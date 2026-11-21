@@ -41,6 +41,8 @@ import {
   RefreshCw,
   MoreVertical,
   ChevronDown,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
 import type { FleetOfficer, ExamCenter, FleetException, ArrivalsSummary } from '@/components/admin/FleetMap'
@@ -189,6 +191,16 @@ export default function AdminPage() {
   const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>([])
   const [fleetSummary, setFleetSummary] = useState<ArrivalsSummary | null>(null)
   const [fleetExceptions, setFleetExceptions] = useState<FleetException[]>([])
+  const [sosAlarmArmed, setSosAlarmArmed] = useState(false)
+
+  useEffect(() => {
+    // Set by the explicit sign-in checkbox; never auto-armed by default.
+    try {
+      setSosAlarmArmed(window.localStorage.getItem('waec-sos-alarm') === 'on')
+    } catch {
+      // No storage — the in-map toggle still works for this session.
+    }
+  }, [])
   const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(null)
   const [officers, setOfficers] = useState<UserAccount[]>([])
   const [incidents, setIncidents] = useState<LiveIncidentRecord[]>([])
@@ -250,6 +262,7 @@ export default function AdminPage() {
 
 
   const prevSosCountRef = useRef(0)
+  const seenExceptionsRef = useRef<Set<string> | null>(null)
 
   const activeTabTitle = useMemo(() => {
     switch (activeTab) {
@@ -335,7 +348,27 @@ export default function AdminPage() {
           const nextFleet: FleetOfficer[] = fleetData.officers
           setFleetOfficers(nextFleet)
           setFleetSummary(fleetData.summary || null)
-          setFleetExceptions(Array.isArray(fleetData.exceptions) ? fleetData.exceptions : [])
+          const nextExceptions: FleetException[] = Array.isArray(fleetData.exceptions)
+            ? fleetData.exceptions
+            : []
+          const exceptionKeys = new Set(
+            nextExceptions.map(
+              (ex) => `${ex.officerId}|${ex.kind}|${ex.message}`
+            )
+          )
+          const seen = seenExceptionsRef.current
+          if (seen === null) {
+            // First load is the baseline — don't shout about history.
+            seenExceptionsRef.current = exceptionKeys
+          } else {
+            const fresh = nextExceptions.find(
+              (ex) => !seen.has(`${ex.officerId}|${ex.kind}|${ex.message}`)
+            )
+            // Quiet, exception-only notice. No sound here; only SOS uses the alarm.
+            if (fresh) setFeedback(`Needs attention: ${fresh.message}`)
+            seenExceptionsRef.current = exceptionKeys
+          }
+          setFleetExceptions(nextExceptions)
           setSelectedOfficer((prev) => {
             if (prev) {
               return nextFleet.find((o) => o.id === prev.id) || null
@@ -359,10 +392,9 @@ export default function AdminPage() {
         if (incidentsData.summary) {
           setIncidentSummary(incidentsData.summary)
           const nextSos = incidentsData.summary.activeSosCount || 0
-          if (
-            nextSos > prevSosCountRef.current &&
-            (settingsData.settings?.sosAlarmSound ?? true)
-          ) {
+          // Loud alarm only after this controller explicitly turns it on.
+          // Browser autoplay rules require a real gesture anyway.
+          if (nextSos > prevSosCountRef.current && sosAlarmArmed) {
             playCommandSosTone()
           }
           prevSosCountRef.current = nextSos
@@ -382,7 +414,7 @@ export default function AdminPage() {
         if (!silent) setIsLoadingLive(false)
       }
     },
-    [playCommandSosTone]
+    [playCommandSosTone, sosAlarmArmed]
   )
 
   // Check auth session & perform initial fetch
@@ -553,6 +585,30 @@ export default function AdminPage() {
       await loadDashboardData(true)
     } catch {
       setFeedback('Could not change today’s school. Check your connection and try again.')
+    }
+  }
+
+  // Rare on-request proof: HQ asks for one watermarked photo with a fixed reason.
+  const handleRequestPhoto = async (officer: FleetOfficer, reason: string) => {
+    try {
+      const res = await fetch('/api/field/photo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'request', officerId: officer.id, reason }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFeedback(data?.error || 'Could not ask for the photo.')
+        return
+      }
+      setFeedback(
+        data?.alreadyPending
+          ? `${officer.name} already has a photo request waiting.`
+          : `Photo request sent to ${officer.name}.`
+      )
+    } catch {
+      setFeedback('Could not ask for the photo. Check your connection and try again.')
     }
   }
 
@@ -1655,6 +1711,37 @@ export default function AdminPage() {
                   exceptions={fleetExceptions}
                 />
 
+                {/* SOS sound is off until this controller arms it — one clear gesture. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !sosAlarmArmed
+                    setSosAlarmArmed(next)
+                    try {
+                      window.localStorage.setItem('waec-sos-alarm', next ? 'on' : 'off')
+                    } catch {
+                      // Session-only is fine.
+                    }
+                    setFeedback(
+                      next
+                        ? 'SOS alarm on. You will hear a loud tone when an officer calls for help.'
+                        : 'SOS alarm silenced. New SOS alerts stay visual only.'
+                    )
+                  }}
+                  aria-pressed={sosAlarmArmed}
+                  aria-label={sosAlarmArmed ? 'Turn off SOS alarm sound' : 'Turn on SOS alarm sound'}
+                  className={`absolute z-20 flex h-10 items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold shadow-xl backdrop-blur-md transition cursor-pointer right-3 top-[108px] lg:right-4 lg:top-auto lg:bottom-4 ${
+                    sosAlarmArmed
+                      ? 'border-rose-500/60 bg-rose-600/90 text-white'
+                      : 'border-[#2A3048] bg-[#0C0F17]/92 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {sosAlarmArmed ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                  <span className="hidden sm:inline">
+                    {sosAlarmArmed ? 'SOS alarm on' : 'Turn on SOS alarm'}
+                  </span>
+                </button>
+
                 {/* Unresolved SOS banner — mobile only, above the map */}
                 {mapSosOfficer && (
                   <div
@@ -1701,6 +1788,9 @@ export default function AdminPage() {
                       setAuditOfficerFilterId(officerId)
                       setActiveTab('incidents')
                     }}
+                    schoolOptions={schoolOptions}
+                    onChangeSchool={handleChangeOfficerSchool}
+                    onRequestPhoto={handleRequestPhoto}
                   />
                 )}
               </div>
@@ -1722,6 +1812,7 @@ export default function AdminPage() {
                     }
                     schoolOptions={schoolOptions}
                     onChangeSchool={handleChangeOfficerSchool}
+                    onRequestPhoto={handleRequestPhoto}
                     onClose={() => setSelectedOfficer(null)}
                   />
                 </aside>

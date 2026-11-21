@@ -3,7 +3,9 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseOfflineTimeoutMs, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { requireCommand } from '@/lib/auth/guard'
-import { clockToMinutes, evaluateOfficerDay, summarizeArrivals, type FieldException } from '@/lib/field/exceptions'
+import { clockToMinutes, evaluateOfficerDay, summarizeArrivals } from '@/lib/field/exceptions'
+import { resolveEventMs } from '@/lib/field/event-time'
+import { haversineMeters } from '@/lib/field/geo'
 import { and, desc, eq, ne, gte, inArray, sql } from 'drizzle-orm'
 
 export async function GET(request: Request) {
@@ -121,6 +123,7 @@ export async function GET(request: Request) {
         officerId: schema.arrivalEvents.officerId,
         kind: schema.arrivalEvents.kind,
         serverTime: schema.arrivalEvents.serverTime,
+        phoneTime: schema.arrivalEvents.phoneTime,
         confirmedAt: schema.arrivalEvents.confirmedAt,
         accuracyTier: schema.arrivalEvents.accuracyTier,
         note: schema.arrivalEvents.note,
@@ -210,11 +213,20 @@ export async function GET(request: Request) {
       if (Number.isFinite(speed) && speed > 0) jumpByOfficer.set(j.actorId, speed)
     }
 
-    const exceptions: Array<{ officerId: string; officerName: string } & FieldException> = []
+    const exceptions: Array<{
+      officerId: string
+      officerName: string
+      kind: string
+      message: string
+      tone: 'warning' | 'critical'
+    }> = []
     let arrivedCount = 0
     let confirmedCount = 0
 
     const seen = new Set<string>()
+    // Without region polygons, 50 km from the assigned centre is the honest
+    // signal that an officer has left their operating area.
+    const OUT_OF_REGION_METERS = 50_000
     const officers = []
 
     for (const r of rows) {
@@ -316,16 +328,41 @@ export async function GET(request: Request) {
 
       for (const ex of evaluateOfficerDay({
         officerName: r.userName,
-        arrivalAtMs: dayArrival?.serverTime ? new Date(dayArrival.serverTime).getTime() : null,
+        arrivalAtMs: resolveEventMs(dayArrival?.serverTime, dayArrival?.phoneTime),
         arrivalConfirmed: Boolean(dayArrival?.confirmedAt),
-        departureAtMs: dayDeparture?.serverTime ? new Date(dayDeparture.serverTime).getTime() : null,
+        departureAtMs: resolveEventMs(dayDeparture?.serverTime, dayDeparture?.phoneTime),
         plannedSchool,
+        hasPlan: Boolean(plan),
         arrivalSchool,
         nowMs,
         lastPaperEndMinutes,
         impossibleSpeedKmh: jumpByOfficer.get(r.userId) ?? null,
       })) {
         exceptions.push({ officerId: r.userId, officerName: r.userName, ...ex })
+      }
+
+      if (status === 'SOS') {
+        exceptions.push({
+          officerId: r.userId,
+          officerName: r.userName,
+          kind: 'sos',
+          message: `${r.userName} pressed SOS — call them now`,
+          tone: 'critical',
+        })
+      }
+
+      // The last known position is enough to flag a real region exit; web can
+      // only see it while the page is open, so never claim more than we know.
+      const lastKnownDistance =
+        distanceFromDatum ?? haversineMeters(lat, lng, centerLat, centerLng)
+      if (hasLiveTelemetry && lastKnownDistance > OUT_OF_REGION_METERS) {
+        exceptions.push({
+          officerId: r.userId,
+          officerName: r.userName,
+          kind: 'out-of-region',
+          message: `${r.userName} is about ${Math.round(lastKnownDistance / 1000)} km from their centre — outside the operating area`,
+          tone: 'warning',
+        })
       }
 
       officers.push({
@@ -366,6 +403,7 @@ export async function GET(request: Request) {
           if (!a) return null as null
           return {
             at: a.serverTime ? new Date(a.serverTime).toISOString() : null,
+            phoneTime: a.phoneTime ? new Date(a.phoneTime).toISOString() : null,
             confirmedAt: a.confirmedAt ? new Date(a.confirmedAt).toISOString() : null,
             accuracyTier: a.accuracyTier || null,
           }
@@ -375,6 +413,7 @@ export async function GET(request: Request) {
           if (!d) return null as null
           return {
             at: d.serverTime ? new Date(d.serverTime).toISOString() : null,
+            phoneTime: d.phoneTime ? new Date(d.phoneTime).toISOString() : null,
             duringPaper: d.note === 'during-paper',
           }
         })(),

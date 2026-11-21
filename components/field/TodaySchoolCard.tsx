@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { CheckCircle2, Clock3, MapPin, School, TriangleAlert } from 'lucide-react'
 import { PRESENT_REASONS } from '@/lib/field/present-reasons'
+import { PROOF_REQUEST_REASONS } from '@/lib/field/proof-reasons'
 
 export interface TeamMemberPlan {
   id: string
@@ -26,6 +27,8 @@ export interface TodaySchoolCardProps {
   members?: TeamMemberPlan[] | null
   onSetSchool: (officerId: string, centerId: string) => void
   onMarkPresent: (officerId: string, reason: string) => void
+  /** Group leader only — ask one teammate for a single watermarked photo. */
+  onRequestPhoto?: (officerId: string, reason: string) => void
   busy?: boolean
 }
 
@@ -80,9 +83,11 @@ export function TodaySchoolCard({
   members = null,
   onSetSchool,
   onMarkPresent,
+  onRequestPhoto,
   busy = false,
 }: TodaySchoolCardProps) {
   const [reasonByOfficer, setReasonByOfficer] = useState<Record<string, string>>({})
+  const [proofReasonByOfficer, setProofReasonByOfficer] = useState<Record<string, string>>({})
 
   const rows: TeamMemberPlan[] =
     members && members.length > 0
@@ -181,6 +186,35 @@ export function TodaySchoolCard({
                     className="h-9 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2.5 text-[11px] font-bold text-slate-200 hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
                   >
                     Mark present
+                  </button>
+                </div>
+              )}
+
+              {onRequestPhoto && rows.length > 1 && m.isSelf === false && (
+                <div className="flex items-center gap-1.5 pt-0.5 border-t border-[#1E2438] mt-1">
+                  <select
+                    value={proofReasonByOfficer[m.id] || PROOF_REQUEST_REASONS[0]}
+                    onChange={(e) =>
+                      setProofReasonByOfficer((prev) => ({ ...prev, [m.id]: e.target.value }))
+                    }
+                    aria-label={`Why ${m.name} should send a photo`}
+                    className="h-9 flex-1 min-w-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[11px] text-slate-300 focus:outline-hidden focus:border-sky-400 cursor-pointer"
+                  >
+                    {PROOF_REQUEST_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      onRequestPhoto(m.id, proofReasonByOfficer[m.id] || PROOF_REQUEST_REASONS[0])
+                    }
+                    className="h-9 shrink-0 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
+                  >
+                    Ask for photo
                   </button>
                 </div>
               )}

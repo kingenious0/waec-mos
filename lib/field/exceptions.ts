@@ -30,6 +30,8 @@ export interface OfficerDayInput {
   departureAtMs: number | null
   /** Where the officer was supposed to go today (plan, else deployment). */
   plannedSchool: string | null
+  /** Only a real day plan makes a planned-vs-actual difference an exception. */
+  hasPlan?: boolean
   /** Where the arrival event was actually recorded. */
   arrivalSchool: string | null
   nowMs: number
@@ -91,6 +93,7 @@ export function evaluateOfficerDay(input: OfficerDayInput): FieldException[] {
   }
 
   if (
+    input.hasPlan &&
     input.plannedSchool &&
     input.arrivalSchool &&
     input.plannedSchool.trim().toLowerCase() !== input.arrivalSchool.trim().toLowerCase()

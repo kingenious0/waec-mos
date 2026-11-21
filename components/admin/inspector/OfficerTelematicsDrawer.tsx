@@ -17,9 +17,12 @@ interface OfficerTelematicsDrawerProps {
   schoolOptions?: { id: string; name: string }[]
   /** Move this officer to a different school for today. */
   onChangeSchool?: (officer: FleetOfficer, centerId: string) => void | Promise<void>
+  /** Rare on-request proof photo, with a fixed plain-language reason. */
+  onRequestPhoto?: (officer: FleetOfficer, reason: string) => void | Promise<void>
 }
 
 import { formatRelativeTime } from '@/lib/relative-time'
+import { PROOF_REQUEST_REASONS } from '@/lib/field/proof-reasons'
 
 /** "07:58" — Ghana is GMT year-round. */
 function timeOfDay(iso?: string | null): string {
@@ -48,10 +51,12 @@ export function OfficerTelematicsDrawer({
   onResolveSos,
   schoolOptions,
   onChangeSchool,
+  onRequestPhoto,
 }: OfficerTelematicsDrawerProps) {
   const [photoMeta, setPhotoMeta] = useState<PhotoMeta | null>(null)
   const [photoFailed, setPhotoFailed] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [proofReason, setProofReason] = useState<string>(PROOF_REQUEST_REASONS[0])
   const [schoolPickerOpen, setSchoolPickerOpen] = useState(false)
   const [pickerCenterId, setPickerCenterId] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
@@ -167,6 +172,30 @@ export function OfficerTelematicsDrawer({
         timeZone: 'Africa/Accra',
       }) + ' GMT'
     : null
+
+  const proofAskControl = onRequestPhoto ? (
+    <div className="mt-2 flex gap-2 border-t border-[#1E2438] pt-2">
+      <select
+        value={proofReason}
+        onChange={(e) => setProofReason(e.target.value)}
+        aria-label="Why a photo is needed"
+        className="flex-1 min-w-0 h-9 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[11px] text-slate-300 cursor-pointer"
+      >
+        {PROOF_REQUEST_REASONS.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={() => onRequestPhoto(officer, proofReason)}
+        className="h-9 shrink-0 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 transition cursor-pointer"
+      >
+        Ask for photo
+      </button>
+    </div>
+  ) : null
 
   return (
     <div className="relative flex flex-col h-full bg-[#0C0F17] select-none text-foreground">
@@ -523,13 +552,16 @@ export function OfficerTelematicsDrawer({
           </div>
 
           {photoFailed ? (
-            <div className="mt-2 rounded-xl border border-dashed border-[#2A3048] bg-[#0A0D17]/60 px-4 py-5 text-center">
-              <Camera className="size-5 text-slate-600 mx-auto mb-1.5" />
-              <p className="text-[11px] font-medium text-slate-400">No photo proof yet</p>
-              <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
-                Appears after the officer takes one at the school
-              </p>
-            </div>
+            <>
+              <div className="mt-2 rounded-xl border border-dashed border-[#2A3048] bg-[#0A0D17]/60 px-4 py-5 text-center">
+                <Camera className="size-5 text-slate-600 mx-auto mb-1.5" />
+                <p className="text-[11px] font-medium text-slate-400">No photo proof yet</p>
+                <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                  Appears after the officer takes one at the school
+                </p>
+              </div>
+              {proofAskControl}
+            </>
           ) : (
             <>
               <button
@@ -576,6 +608,7 @@ export function OfficerTelematicsDrawer({
                   Download
                 </a>
               </div>
+              {proofAskControl}
             </>
           )}
         </div>

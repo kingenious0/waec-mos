@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { CheckCircle2, AlertTriangle, Radio, Building2, X } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, Radio, Building2, X, Camera } from 'lucide-react'
 import { getClientSession, signOutEverywhere, SessionData } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
 import { EmergencySosModal } from '@/components/emergency/EmergencySosModal'
@@ -21,6 +21,8 @@ import {
   type TeamMemberPlan,
 } from '@/components/field/TodaySchoolCard'
 import { isFeatureEnabled } from '@/lib/features'
+import { UNCONFIRMED_GRACE_MS } from '@/lib/field/exceptions'
+import { resolveEventMs, shouldRetryArrivalDelivery } from '@/lib/field/event-time'
 
 const FieldMap = dynamic(() => import('@/components/field/FieldMap'), {
   ssr: false,
@@ -59,12 +61,21 @@ interface FieldAssignmentState {
   isDeployed: boolean
   nextPaper: { date: string; paperName: string; startTime: string | null } | null
   today: {
-    arrival: { at: string; accuracyTier: string | null; confirmed: boolean } | null
-    departure: { at: string; duringPaper: boolean } | null
+    arrival: { at: string; phoneTime?: string | null; accuracyTier: string | null; confirmed: boolean } | null
+    departure: { at: string; phoneTime?: string | null; duringPaper: boolean } | null
   } | null
 }
 
+interface PhotoRequestState {
+  id: string
+  officerId: string
+  reason: string
+  status: string
+  createdAt: string
+}
+
 const QUEUED_SOS_KEY = 'waec_mos_queued_sos'
+const QUEUED_ARRIVALS_KEY = 'waec_mos_queued_arrivals'
 
 export default function FieldPage() {
   const router = useRouter()
@@ -106,6 +117,9 @@ export default function FieldPage() {
   const [sosModalOpen, setSosModalOpen] = useState<boolean>(false)
   const [isOffline, setIsOffline] = useState<boolean>(false)
   const [queuedSosCount, setQueuedSosCount] = useState<number>(0)
+  const [queuedArrivalCount, setQueuedArrivalCount] = useState<number>(0)
+  const [photoRequest, setPhotoRequest] = useState<PhotoRequestState | null>(null)
+  const [nowTick, setNowTick] = useState<number>(() => Date.now())
   const [isDesktop, setIsDesktop] = useState<boolean>(true)
   const [deviceGpsActive, setDeviceGpsActive] = useState<boolean>(false)
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null)
@@ -379,6 +393,29 @@ export default function FieldPage() {
     void fetchTeam()
   }, [fetchCenters, fetchTeam])
 
+  // Rare on-request proof: HQ/leaders ask, the officer answers with one photo.
+  const fetchPhotoRequest = useCallback(async () => {
+    if (!session?.userId) return
+    try {
+      const res = await fetch('/api/field/photo-request', { credentials: 'include' })
+      if (!res.ok) return
+      const data = await res.json()
+      const pending = (Array.isArray(data.requests) ? data.requests : []).find(
+        (r: PhotoRequestState) => r.status === 'PENDING' && r.officerId === session.userId
+      )
+      setPhotoRequest(pending || null)
+    } catch {
+      // Non-fatal — the normal evidence button still works.
+    }
+  }, [session?.userId])
+
+  useEffect(() => {
+    if (!session?.userId) return
+    void fetchPhotoRequest()
+    const timer = setInterval(() => void fetchPhotoRequest(), Math.max(refreshIntervalMs, 15000))
+    return () => clearInterval(timer)
+  }, [fetchPhotoRequest, refreshIntervalMs, session?.userId])
+
   // Set today's school for yourself — or, as a group leader, for a teammate.
   const handleSetSchool = useCallback(
     async (officerId: string, centerId: string) => {
@@ -438,7 +475,105 @@ export default function FieldPage() {
     [teamBusy, fetchTeam, fetchAssignment, showToast]
   )
 
-  // Monitor network status and flush queued offline SOS payloads on reconnect
+  // Group leader's rare exception tool: ask one teammate for one photo.
+  const handleRequestPhoto = useCallback(
+    async (officerId: string, reason: string) => {
+      if (teamBusy) return
+      setTeamBusy(true)
+      try {
+        const res = await fetch('/api/field/photo-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'request', officerId, reason }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          showToast('error', data.error || 'Could not ask for the photo.')
+          return
+        }
+        showToast(
+          'success',
+          data.alreadyPending
+            ? 'That officer already has a photo request waiting.'
+            : 'Photo request sent. The officer will see it in their app.'
+        )
+      } catch {
+        showToast('error', 'Connection error while asking for the photo.')
+      } finally {
+        setTeamBusy(false)
+      }
+    },
+    [teamBusy, showToast]
+  )
+
+  // ---- Offline arrival queue -------------------------------------------------
+  // The device keeps the time it saw the event (phoneTime); the server adds
+  // serverTime when it finally receives it. HQ always gets both timestamps.
+  const readQueuedArrivals = useCallback((): any[] => {
+    if (typeof window === 'undefined') return []
+    try {
+      const queued = JSON.parse(localStorage.getItem(QUEUED_ARRIVALS_KEY) || '[]')
+      return Array.isArray(queued) ? queued : []
+    } catch {
+      return []
+    }
+  }, [])
+
+  const queueArrival = useCallback(
+    (payload: Record<string, unknown>) => {
+      if (typeof window === 'undefined') return
+      try {
+        const next = [...readQueuedArrivals(), payload]
+        localStorage.setItem(QUEUED_ARRIVALS_KEY, JSON.stringify(next))
+        setQueuedArrivalCount(next.length)
+      } catch {
+        setQueuedArrivalCount((prev) => prev + 1)
+      }
+    },
+    [readQueuedArrivals]
+  )
+
+  const flushQueuedArrivals = useCallback(async () => {
+    const queue = readQueuedArrivals()
+    if (queue.length === 0) {
+      setQueuedArrivalCount(0)
+      return
+    }
+    let delivered = 0
+    const remaining: any[] = []
+    for (const payload of queue) {
+      try {
+        const res = await fetch('/api/field/arrival', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload),
+        })
+        // Bad payloads would loop forever; drop them. Keep auth/server failures.
+        if (!shouldRetryArrivalDelivery(res.status)) {
+          delivered += 1
+        } else {
+          remaining.push(payload)
+        }
+      } catch {
+        remaining.push(payload)
+      }
+    }
+    try {
+      if (remaining.length === 0) localStorage.removeItem(QUEUED_ARRIVALS_KEY)
+      else localStorage.setItem(QUEUED_ARRIVALS_KEY, JSON.stringify(remaining))
+    } catch {
+      // Storage may be unavailable; the in-memory count still reflects reality.
+    }
+    setQueuedArrivalCount(remaining.length)
+    if (delivered > 0) {
+      showToast('success', `${delivered} offline check-in update${delivered > 1 ? 's' : ''} sent to Regional Command.`)
+      void fetchAssignment(true)
+    }
+  }, [fetchAssignment, readQueuedArrivals, showToast])
+
+  // Monitor network status and flush queued offline payloads on reconnect
   const flushQueuedSos = useCallback(async () => {
     if (typeof window === 'undefined') return
     try {
@@ -484,26 +619,35 @@ export default function FieldPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
-        const existing = JSON.parse(localStorage.getItem(QUEUED_SOS_KEY) || '[]')
-        if (Array.isArray(existing)) setQueuedSosCount(existing.length)
+        const sos = JSON.parse(localStorage.getItem(QUEUED_SOS_KEY) || '[]')
+        if (Array.isArray(sos)) setQueuedSosCount(sos.length)
       } catch {
         setQueuedSosCount(0)
       }
+      setQueuedArrivalCount(readQueuedArrivals().length)
     }
 
     const handleOnline = () => {
       setIsOffline(false)
-      flushQueuedSos()
+      void flushQueuedSos()
+      void flushQueuedArrivals()
     }
     const handleOffline = () => setIsOffline(true)
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     setIsOffline(!navigator.onLine)
+    if (navigator.onLine) void flushQueuedArrivals()
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [flushQueuedSos])
+  }, [flushQueuedArrivals, flushQueuedSos, readQueuedArrivals])
+
+  // Keeps the "please confirm now" reminder honest without extra API calls.
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 15_000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Shift Timer when checked in
   useEffect(() => {
@@ -580,25 +724,29 @@ export default function FieldPage() {
 
   const postArrival = useCallback(
     async (action: 'detect_arrival' | 'done', venueId?: string) => {
+      const payload = {
+        action,
+        lat: liveCoords?.lat,
+        lng: liveCoords?.lng,
+        accuracyM: liveCoords?.accuracy,
+        distanceMeters,
+        phoneTime: new Date().toISOString(),
+      }
       try {
-        await fetch('/api/field/arrival', {
+        const res = await fetch('/api/field/arrival', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({
-            action,
-            lat: liveCoords?.lat,
-            lng: liveCoords?.lng,
-            accuracyM: liveCoords?.accuracy,
-            distanceMeters,
-          }),
+          body: JSON.stringify(payload),
         })
+        if (!res.ok && (isOffline || res.status >= 500)) queueArrival(payload)
       } catch {
-        // Non-fatal — the "I'm here" button remains the explicit fallback
+        // Offline or a dead gateway — keep the device timestamp for the flush.
+        queueArrival(payload)
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [liveCoords?.lat, liveCoords?.lng, liveCoords?.accuracy, distanceMeters]
+    [isOffline, liveCoords?.lat, liveCoords?.lng, liveCoords?.accuracy, distanceMeters, queueArrival]
   )
 
   useEffect(() => {
@@ -701,6 +849,26 @@ export default function FieldPage() {
   const evidenceInputRef = useRef<HTMLInputElement>(null)
   const [evidenceProof, setEvidenceProof] = useState<string | null>(null) // watermark text once stored
   const [evidenceBusy, setEvidenceBusy] = useState(false)
+  const fulfillAfterUploadRef = useRef<string | null>(null)
+
+  const fulfillPhotoRequest = useCallback(
+    async (requestId: string) => {
+      try {
+        const res = await fetch('/api/field/photo-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'fulfill', requestId }),
+        })
+        if (!res.ok) return false
+        setPhotoRequest(null)
+        return true
+      } catch {
+        return false
+      }
+    },
+    []
+  )
 
   const handleEvidencePick = useCallback(
     async (file: File | undefined) => {
@@ -791,7 +959,19 @@ export default function FieldPage() {
           return
         }
         setEvidenceProof(stampText)
-        showToast('success', 'Photo proof saved with watermark.')
+        const requestToFulfill = fulfillAfterUploadRef.current
+        fulfillAfterUploadRef.current = null
+        if (requestToFulfill) {
+          const sent = await fulfillPhotoRequest(requestToFulfill)
+          showToast(
+            sent ? 'success' : 'error',
+            sent
+              ? 'Photo proof sent to Regional Command.'
+              : 'Photo saved. Could not mark the request as answered — try again.'
+          )
+        } else {
+          showToast('success', 'Photo proof saved with watermark.')
+        }
       } catch {
         showToast('error', 'Could not process that photo. Try again.')
       } finally {
@@ -799,7 +979,7 @@ export default function FieldPage() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session, centerVenue, centerZone, centerRegion, centerCode, officerName, showToast]
+    [session, centerVenue, centerZone, centerRegion, centerCode, officerName, showToast, fulfillPhotoRequest]
   )
 
   const handleCheckIn = async () => {
@@ -1101,14 +1281,91 @@ export default function FieldPage() {
       members={teamMembers}
       onSetSchool={handleSetSchool}
       onMarkPresent={handleMarkPresent}
+      onRequestPhoto={handleRequestPhoto}
       busy={teamBusy}
     />
   )
 
+  const pendingArrival = assignment.today?.arrival
+  const pendingArrivalMs = resolveEventMs(pendingArrival?.at, pendingArrival?.phoneTime) ?? Number.NaN
+  const unconfirmedMinutes =
+    pendingArrival && !Number.isNaN(pendingArrivalMs)
+      ? Math.max(0, Math.floor((nowTick - pendingArrivalMs) / 60_000))
+      : 0
+  const isConfirmationOverdue =
+    Boolean(pendingArrival && !pendingArrival.confirmed && !isCheckedIn) &&
+    unconfirmedMinutes >= UNCONFIRMED_GRACE_MS / 60_000
+
+  const confirmationNotice =
+    pendingArrival && !pendingArrival.confirmed && !isCheckedIn ? (
+      <div
+        role="status"
+        className={`w-full rounded-xl border px-3.5 py-2.5 flex items-center gap-2 ${
+          isConfirmationOverdue
+            ? 'border-amber-500/60 bg-amber-500/15'
+            : 'border-amber-500/40 bg-amber-500/10'
+        }`}
+      >
+        <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+        <span className="flex-1 leading-snug text-xs text-amber-200">
+          {isConfirmationOverdue ? (
+            <>
+              <strong>Please confirm now.</strong> We detected you at the centre{' '}
+              {unconfirmedMinutes} minutes ago and Regional Command has not seen your
+              confirmation.
+            </>
+          ) : (
+            <>
+              We detected you at the centre. Tap <strong>I&apos;m here</strong> to confirm for
+              Regional Command.
+            </>
+          )}
+        </span>
+      </div>
+    ) : null
+
+  const webDetectionNote = (
+    <p className="text-[10px] leading-snug text-slate-500 font-sans">
+      On the web, location is checked only while this page is open. It cannot see you when the
+      page is closed.
+    </p>
+  )
+
+  const photoRequestBanner = photoRequest ? (
+    <div
+      role="status"
+      className="w-full rounded-xl border border-sky-500/40 bg-sky-500/10 px-3.5 py-2.5 flex flex-col gap-2"
+    >
+      <div className="flex items-start gap-2">
+        <Camera className="size-4 text-sky-300 shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-sky-200">One photo requested</p>
+          <p className="text-[11px] leading-snug text-sky-100/85 mt-0.5">
+            {photoRequest.reason}. The photo will carry the school, date, time and your name.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={evidenceBusy}
+        onClick={() => {
+          fulfillAfterUploadRef.current = photoRequest.id
+          evidenceInputRef.current?.click()
+        }}
+        className="h-11 w-full rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition cursor-pointer disabled:opacity-60"
+      >
+        {evidenceBusy ? 'Saving photo…' : 'Take the requested photo'}
+      </button>
+    </div>
+  ) : null
+
   return (
     <div className="min-h-screen w-full bg-[#070913] text-zinc-100 flex flex-col font-sans select-none antialiased">
       {/* Offline Alert Banner */}
-      <OfflineBanner isOffline={isOffline} queuedCount={queuedSosCount} />
+      <OfflineBanner
+        isOffline={isOffline}
+        queuedCount={queuedSosCount + queuedArrivalCount}
+      />
 
       {/* Active SOS Beacon Banner (persisted across reloads until stood down or resolved) */}
       {isSosActive && (
@@ -1202,6 +1459,7 @@ export default function FieldPage() {
           elapsedFormatted={formatTimer(shiftSeconds)}
           onRetryGps={handleRetryGps}
         />
+        {webDetectionNote}
 
         {/* Venue Card */}
         <VenueCard
@@ -1214,12 +1472,9 @@ export default function FieldPage() {
         {todaySchoolCard}
 
         {/* Auto-arrival confirmation hint — one tap, no camera */}
-        {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
-          <div role="status" className="w-full rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 flex items-center gap-2">
-            <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-            <span className="flex-1 leading-snug">We detected you at the centre. Tap <strong>I&apos;m here</strong> to confirm for Regional Command.</span>
-          </div>
-        )}
+        {confirmationNotice}
+
+        {photoRequestBanner}
         {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
           <button
             type="button"
@@ -1311,6 +1566,7 @@ export default function FieldPage() {
               elapsedFormatted={formatTimer(shiftSeconds)}
               onRetryGps={handleRetryGps}
             />
+            {webDetectionNote}
 
             {/* Venue Card */}
             <VenueCard
@@ -1331,20 +1587,16 @@ export default function FieldPage() {
 
           {/* Action Dock (Pinned to panel bottom) */}
           <div className="space-y-2.5 pt-2">
-            {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
-              <>
-                <div role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-200 flex items-center gap-2">
-                  <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-                  <span className="flex-1 leading-snug">We detected you at the centre. Tap to confirm for Regional Command.</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCheckIn}
-                  className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-bold text-white transition cursor-pointer border border-white/10"
-                >
-                  Confirm — I&apos;m here
-                </button>
-              </>
+            {confirmationNotice}
+            {photoRequestBanner}
+            {pendingArrival && !pendingArrival.confirmed && !isCheckedIn && (
+              <button
+                type="button"
+                onClick={handleCheckIn}
+                className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-bold text-white transition cursor-pointer border border-white/10"
+              >
+                Confirm — I&apos;m here
+              </button>
             )}
             <CheckInButton
               isInside={isInside && Boolean(activeVenue)}

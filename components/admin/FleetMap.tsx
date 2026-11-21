@@ -38,11 +38,14 @@ export interface FleetOfficer {
   isOnline?: boolean
   todayArrival?: {
     at: string | null
+    /** Device clock, when different from the server receive time. */
+    phoneTime?: string | null
     confirmedAt: string | null
     accuracyTier: string | null
   } | null
   todayDeparture?: {
     at: string | null
+    phoneTime?: string | null
     duringPaper: boolean
   } | null
   /** Where the officer was supposed to go today (day plan, else deployment). */
@@ -324,27 +327,34 @@ export default function FleetMap({
         maxClusterRadius: 45,
         disableClusteringAtZoom: 15,
         iconCreateFunction: (cluster: any) => {
-          const containsSos = cluster
-            .getAllChildMarkers()
-            .some((m: any) => Boolean(m.options && m.options.sos))
+          const children = cluster.getAllChildMarkers() as any[]
+          const containsSos = children.some((m) => Boolean(m.options && m.options.sos))
           const count = cluster.getChildCount()
-          const html = containsSos
-            ? `<div style="
-                width:42px;height:42px;border-radius:9999px;
-                background:#B91C1C;border:2px solid #FCA5A5;
-                color:#FFF;display:flex;align-items:center;justify-content:center;
-                font:800 13px/1 var(--font-sans), system-ui, sans-serif;
-                box-shadow:0 4px 14px rgba(0,0,0,0.5), 0 0 0 3px rgba(239,68,68,0.35);
-                font-variant-numeric: tabular-nums;
-              ">${count}</div>`
-            : `<div style="
-                width:42px;height:42px;border-radius:9999px;
-                background:rgba(12,15,23,0.92);border:2px solid rgba(148,163,184,0.45);
-                color:#E2E8F0;display:flex;align-items:center;justify-content:center;
-                font:800 13px/1 var(--font-sans), system-ui, sans-serif;
-                box-shadow:0 4px 14px rgba(0,0,0,0.55), 0 0 0 2px rgba(0,0,0,0.35);
-                font-variant-numeric: tabular-nums;
-              ">${count}</div>`
+          // Co-location badge: one shared venue is named, otherwise say how
+          // many venues are mixed into this group. Tap the bubble to spread them.
+          const centreNames = Array.from(
+            new Set(
+              children
+                .map((m) => String(m?.options?.centerName || '').trim())
+                .filter(Boolean)
+            )
+          ) as string[]
+          const venue =
+            centreNames.length === 1
+              ? centreNames[0]
+              : centreNames.length > 1
+              ? `${centreNames.length} centres`
+              : 'Officers'
+          const badge = escapeHtml(
+            `${venue} · ${count} officer${count === 1 ? '' : 's'}`
+          )
+          const bubble = containsSos
+            ? `width:42px;height:42px;border-radius:9999px;background:#B91C1C;border:2px solid #FCA5A5;color:#FFF;box-shadow:0 4px 14px rgba(0,0,0,0.5), 0 0 0 3px rgba(239,68,68,0.35);`
+            : `width:42px;height:42px;border-radius:9999px;background:rgba(12,15,23,0.92);border:2px solid rgba(148,163,184,0.45);color:#E2E8F0;box-shadow:0 4px 14px rgba(0,0,0,0.55), 0 0 0 2px rgba(0,0,0,0.35);`
+          const html = `<div style="position:relative;width:42px;height:42px;">
+            <div title="Tap to see these officers" style="${bubble}display:flex;align-items:center;justify-content:center;font:800 13px/1 var(--font-sans), system-ui, sans-serif;font-variant-numeric:tabular-nums;">${count}</div>
+            <span style="position:absolute;top:44px;left:50%;transform:translateX(-50%);pointer-events:none;white-space:nowrap;border-radius:9999px;border:1px solid rgba(148,163,184,0.35);background:rgba(12,15,23,0.92);padding:2px 7px;font:700 9px/1.25 var(--font-sans), system-ui, sans-serif;color:#CBD5E1;box-shadow:0 2px 8px rgba(0,0,0,0.45);">${badge}</span>
+          </div>`
           return L.divIcon({
             html,
             className: 'waec-cluster-icon',
@@ -671,7 +681,13 @@ export default function FleetMap({
           iconAnchor: [12, 12],
         })
 
-        const marker = L.marker([officer.lat, officer.lng], { icon, keyboard: false, sos: isSos } as any)
+        const marker = L.marker([officer.lat, officer.lng], {
+          icon,
+          keyboard: false,
+          sos: isSos,
+          // Used by the co-location cluster badge ("Prempeh College · 3 officers").
+          centerName: officer.plannedSchool || officer.assignedCenter || '',
+        } as any)
         marker.on('click', () => onSelectOfficer(officer))
         marker.on('add', () => {
           const el = marker.getElement()

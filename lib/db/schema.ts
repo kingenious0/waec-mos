@@ -386,6 +386,22 @@ export const evidencePhotos = pgTable('evidence_photos', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+/**
+ * Rare, on-request proof photos. HQ/ leaders ask; the officer uploads one
+ * watermarked photo through /api/field/evidence and marks the request done.
+ */
+export const photoRequests = pgTable('photo_requests', {
+  id: text('id').primaryKey(),
+  officerId: text('officer_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  requesterId: text('requester_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  requesterName: text('requester_name').notNull(),
+  reason: text('reason').notNull(),
+  status: text('status').notNull().default('PENDING'), // PENDING | FULFILLED | CANCELLED
+  evidenceId: text('evidence_id').references(() => evidencePhotos.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
+})
+
 export const monitoredPapers = pgTable('monitored_papers', {
   id: text('id').primaryKey(),
   operationId: text('operation_id').notNull().references(() => operations.id, { onDelete: 'cascade' }),

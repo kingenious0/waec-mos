@@ -22,6 +22,9 @@ import {
   type OfficerDayInput,
 } from '@/lib/field/exceptions'
 import { PRESENT_REASONS, isPresentReason } from '@/lib/field/present-reasons'
+import { PROOF_REQUEST_REASONS, isProofRequestReason } from '@/lib/field/proof-reasons'
+import { resolveEventMs, shouldRetryArrivalDelivery } from '@/lib/field/event-time'
+import { roleKind } from '@/lib/auth/guard'
 
 const baseDay = (overrides: Partial<OfficerDayInput> = {}): OfficerDayInput => ({
   officerName: 'Elliot',
@@ -110,10 +113,22 @@ describe('HQ day exceptions', () => {
 
   it('flags a planned-versus-actual school mismatch', () => {
     const result = evaluateOfficerDay(
-      baseDay({ arrivalSchool: 'University of Skills Training', arrivalAtMs: Date.parse('2026-11-21T07:50:00Z'), arrivalConfirmed: true })
+      baseDay({ hasPlan: true, arrivalSchool: 'University of Skills Training', arrivalAtMs: Date.parse('2026-11-21T07:50:00Z'), arrivalConfirmed: true })
     )
     expect(result.map((e) => e.kind)).toEqual(['planned_vs_actual'])
     expect(result[0].message).toContain('planned Prempeh College')
+  })
+
+  it('does not call a wrong centre an exception when HQ never made a plan', () => {
+    const result = evaluateOfficerDay(
+      baseDay({
+        hasPlan: false,
+        arrivalSchool: 'University of Skills Training',
+        arrivalAtMs: Date.parse('2026-11-21T07:50:00Z'),
+        arrivalConfirmed: true,
+      })
+    )
+    expect(result).toEqual([])
   })
 
   it('flags a missing departure only after the papers and grace period are over', () => {
@@ -130,6 +145,58 @@ describe('HQ day exceptions', () => {
     const result = evaluateOfficerDay(baseDay({ impossibleSpeedKmh: 412 }))
     expect(result[0]).toMatchObject({ kind: 'impossible_movement', tone: 'critical' })
     expect(result[0].message).toContain('412 km/h')
+  })
+})
+
+describe('role classification', () => {
+  it('lets every command role see evidence and ask for proof', () => {
+    expect(roleKind('SUPER_ADMIN')).toBe('admin')
+    expect(roleKind('ADMIN')).toBe('admin')
+    expect(roleKind('REGIONAL_COORD')).toBe('controller')
+    expect(roleKind('SUPERVISOR')).toBe('controller')
+  })
+
+  it('keeps field officers in their own lane', () => {
+    expect(roleKind('FIELD_OFFICER')).toBe('officer')
+    expect(roleKind('')).toBe('officer')
+  })
+})
+
+describe('rare proof requests', () => {
+  it('keeps the reason list short and fixed', () => {
+    expect(PROOF_REQUEST_REASONS).toHaveLength(3)
+    expect(isProofRequestReason(PROOF_REQUEST_REASONS[0])).toBe(true)
+    expect(isProofRequestReason('send me anything')).toBe(false)
+  })
+})
+
+describe('dual event clocks', () => {
+  const server = '2026-11-21T07:58:00.000Z'
+  const phone = '2026-11-21T07:50:00.000Z'
+
+  it('uses server time for ordering when both clocks exist', () => {
+    expect(resolveEventMs(server, phone)).toBe(Date.parse(server))
+  })
+
+  it('falls back to the device time when the connection delayed the event', () => {
+    expect(resolveEventMs(null, phone)).toBe(Date.parse(phone))
+    expect(resolveEventMs('', phone)).toBe(Date.parse(phone))
+  })
+
+  it('survives an empty or corrupt pair', () => {
+    expect(resolveEventMs(null, null)).toBeNull()
+    expect(resolveEventMs('not-a-date', 'also-bad')).toBeNull()
+  })
+})
+
+describe('offline arrival queue', () => {
+  it('drops bad payloads but keeps auth, timeout and server failures', () => {
+    expect(shouldRetryArrivalDelivery(400)).toBe(false)
+    expect(shouldRetryArrivalDelivery(422)).toBe(false)
+    expect(shouldRetryArrivalDelivery(401)).toBe(true)
+    expect(shouldRetryArrivalDelivery(408)).toBe(true)
+    expect(shouldRetryArrivalDelivery(429)).toBe(true)
+    expect(shouldRetryArrivalDelivery(500)).toBe(true)
   })
 })
 
