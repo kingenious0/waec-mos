@@ -16,6 +16,10 @@ import { CheckInButton } from '@/components/field/CheckInButton'
 import { SosHoldButton } from '@/components/field/SosHoldButton'
 import { ReportButton } from '@/components/field/ReportButton'
 import { OfflineBanner } from '@/components/field/OfflineBanner'
+import {
+  TodaySchoolCard,
+  type TeamMemberPlan,
+} from '@/components/field/TodaySchoolCard'
 import { isFeatureEnabled } from '@/lib/features'
 
 const FieldMap = dynamic(() => import('@/components/field/FieldMap'), {
@@ -47,6 +51,7 @@ interface FieldDutyPaper {
 
 interface FieldAssignmentState {
   venue: FieldVenue | null
+  plan: { centerId: string; centerName: string | null; source: string } | null
   paper: PaperAssignment | null
   papers: FieldDutyPaper[]
   timeline: TimelineItem[]
@@ -78,6 +83,7 @@ export default function FieldPage() {
   const [isAssignmentLoading, setIsAssignmentLoading] = useState<boolean>(true)
   const [assignment, setAssignment] = useState<FieldAssignmentState>({
     venue: null,
+    plan: null,
     paper: null,
     papers: [],
     timeline: [],
@@ -91,6 +97,9 @@ export default function FieldPage() {
   const [shiftSeconds, setShiftSeconds] = useState<number>(0)
   const [isSosActive, setIsSosActive] = useState<boolean>(false)
   const [refreshIntervalMs, setRefreshIntervalMs] = useState<number>(10000)
+  const [centerOptions, setCenterOptions] = useState<{ id: string; name: string }[]>([])
+  const [teamMembers, setTeamMembers] = useState<TeamMemberPlan[] | null>(null)
+  const [teamBusy, setTeamBusy] = useState<boolean>(false)
 
   // UI States
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false)
@@ -271,6 +280,13 @@ export default function FieldPage() {
             : null
           setAssignment({
             venue: data.venue || null,
+            plan: data.plan
+              ? {
+                  centerId: data.plan.centerId,
+                  centerName: data.venue?.name || null,
+                  source: data.plan.source || 'deployment',
+                }
+              : null,
             paper: paperAssignment,
             papers,
             timeline: Array.isArray(data.timeline) ? data.timeline : [],
@@ -318,6 +334,109 @@ export default function FieldPage() {
     }, pollMs)
     return () => clearInterval(timer)
   }, [session?.userId, refreshIntervalMs, fetchAssignment])
+
+  // Today's school picker — centres come from the database, never a local list.
+  const fetchCenters = useCallback(async () => {
+    try {
+      const res = await fetch('/api/centers')
+      if (!res.ok) return
+      const data = await res.json()
+      const all: { id: string; name: string; region?: string | null }[] = Array.isArray(
+        data.centers
+      )
+        ? data.centers.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            region: c.regionName || null,
+          }))
+        : []
+      // Keep the picker to this officer's region when we know it. If the region
+      // is unknown (or has no centres yet), show every registered centre so a
+      // newly deployed officer is never locked out.
+      const region = session?.region
+      const scoped = region ? all.filter((c) => c.region === region) : all
+      setCenterOptions((scoped.length > 0 ? scoped : all).map(({ id, name }) => ({ id, name })))
+    } catch {
+      // Leave the picker hidden — the venue card still shows the assigned school.
+    }
+  }, [session?.region])
+
+  // Group board — a leader sees the whole group; an officer sees just themself.
+  const fetchTeam = useCallback(async () => {
+    if (!session?.userId) return
+    try {
+      const res = await fetch('/api/field/team', { credentials: 'include' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (Array.isArray(data.members)) setTeamMembers(data.members as TeamMemberPlan[])
+    } catch {
+      // Non-fatal — the card falls back to the officer's own plan.
+    }
+  }, [session?.userId])
+
+  useEffect(() => {
+    void fetchCenters()
+    void fetchTeam()
+  }, [fetchCenters, fetchTeam])
+
+  // Set today's school for yourself — or, as a group leader, for a teammate.
+  const handleSetSchool = useCallback(
+    async (officerId: string, centerId: string) => {
+      if (!centerId || teamBusy) return
+      setTeamBusy(true)
+      try {
+        const res = await fetch('/api/field/plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ officerId, centerId }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          showToast('error', data.error || 'Could not save today’s school.')
+          return
+        }
+        showToast('success', 'Today’s school saved. Check-in now uses this centre.')
+        void fetchAssignment(true)
+        void fetchTeam()
+      } catch {
+        showToast('error', 'Connection error while saving today’s school.')
+      } finally {
+        setTeamBusy(false)
+      }
+    },
+    [teamBusy, fetchAssignment, fetchTeam, showToast]
+  )
+
+  // A leader can record why a teammate has no GPS proof. HQ still sees it as
+  // unconfirmed until the officer taps "I'm here" or sends a photo.
+  const handleMarkPresent = useCallback(
+    async (officerId: string, reason: string) => {
+      if (teamBusy) return
+      setTeamBusy(true)
+      try {
+        const res = await fetch('/api/field/arrival', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ action: 'mark_present', officerId, reason }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          showToast('error', data.error || 'Could not mark present.')
+          return
+        }
+        showToast('success', 'Recorded with your name and reason. HQ will see it as unconfirmed.')
+        void fetchTeam()
+        void fetchAssignment(true)
+      } catch {
+        showToast('error', 'Connection error while recording attendance.')
+      } finally {
+        setTeamBusy(false)
+      }
+    },
+    [teamBusy, fetchTeam, fetchAssignment, showToast]
+  )
 
   // Monitor network status and flush queued offline SOS payloads on reconnect
   const flushQueuedSos = useCallback(async () => {
@@ -973,6 +1092,19 @@ export default function FieldPage() {
     </div>
   ) : null
 
+  const todaySchoolCard = (
+    <TodaySchoolCard
+      selfOfficerId={session?.userId}
+      selfName={session?.name}
+      selfPlan={assignment.plan}
+      centerOptions={centerOptions}
+      members={teamMembers}
+      onSetSchool={handleSetSchool}
+      onMarkPresent={handleMarkPresent}
+      busy={teamBusy}
+    />
+  )
+
   return (
     <div className="min-h-screen w-full bg-[#070913] text-zinc-100 flex flex-col font-sans select-none antialiased">
       {/* Offline Alert Banner */}
@@ -1078,6 +1210,8 @@ export default function FieldPage() {
           zoneName={centerZone}
           regionName={centerRegion}
         />
+
+        {todaySchoolCard}
 
         {/* Auto-arrival confirmation hint — one tap, no camera */}
         {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
@@ -1185,6 +1319,8 @@ export default function FieldPage() {
               zoneName={centerZone}
               regionName={centerRegion}
             />
+
+            {todaySchoolCard}
 
             {/* Paper / Arrive Tiles */}
             {emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />}

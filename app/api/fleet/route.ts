@@ -3,14 +3,19 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseOfflineTimeoutMs, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { requireCommand } from '@/lib/auth/guard'
-import { and, desc, eq, ne, inArray, sql } from 'drizzle-orm'
+import { clockToMinutes, evaluateOfficerDay, summarizeArrivals, type FieldException } from '@/lib/field/exceptions'
+import { and, desc, eq, ne, gte, inArray, sql } from 'drizzle-orm'
 
 export async function GET(request: Request) {
   try {
     const gate = await requireCommand(request as any)
     if (gate.error) return gate.error
     if (!isLiveDatabase || !db) {
-      return NextResponse.json({ officers: [] })
+      return NextResponse.json({
+        officers: [],
+        summary: summarizeArrivals({ assigned: 0, arrived: 0, confirmed: 0 }),
+        exceptions: [],
+      })
     }
 
     const settingsRows = await db
@@ -119,6 +124,7 @@ export async function GET(request: Request) {
         confirmedAt: schema.arrivalEvents.confirmedAt,
         accuracyTier: schema.arrivalEvents.accuracyTier,
         note: schema.arrivalEvents.note,
+        centerId: schema.arrivalEvents.centerId,
       })
       .from(schema.arrivalEvents)
       .where(
@@ -138,6 +144,76 @@ export async function GET(request: Request) {
     }
 
     const nowMs = Date.now()
+
+    // --- Day plan: where each officer was supposed to go today -------------
+    const planRows = await db
+      .select({
+        officerId: schema.dailySchoolAssignments.officerId,
+        centerId: schema.dailySchoolAssignments.centerId,
+        centerName: schema.examinationCenters.centerName,
+      })
+      .from(schema.dailySchoolAssignments)
+      .leftJoin(
+        schema.examinationCenters,
+        eq(schema.dailySchoolAssignments.centerId, schema.examinationCenters.id)
+      )
+      .where(eq(schema.dailySchoolAssignments.date, todayStr))
+    const plannedByOfficer = new Map(
+      planRows.map((p) => [p.officerId, { id: p.centerId, name: p.centerName || null }])
+    )
+
+    // --- Where arrivals were actually recorded ------------------------------
+    const arrivalCenterIds = Array.from(
+      new Set(
+        todayEvents
+          .filter((e) => e.kind === 'ARRIVAL' && e.centerId)
+          .map((e) => e.centerId as string)
+      )
+    )
+    const arrivalCenters =
+      arrivalCenterIds.length > 0
+        ? await db
+            .select({
+              id: schema.examinationCenters.id,
+              name: schema.examinationCenters.centerName,
+            })
+            .from(schema.examinationCenters)
+            .where(inArray(schema.examinationCenters.id, arrivalCenterIds))
+        : []
+    const arrivalCenterById = new Map(arrivalCenters.map((c) => [c.id, c.name]))
+
+    // --- End of today's last paper (drives the "departure not recorded" flag)
+    const paperRows = await db
+      .select({ endTime: schema.examTimetable.endTime })
+      .from(schema.examTimetable)
+      .where(eq(schema.examTimetable.examDate, todayStr))
+      .limit(500)
+    const lastPaperEndMinutes =
+      paperRows
+        .map((p) => clockToMinutes(p.endTime))
+        .filter((n): n is number => n !== null)
+        .sort((a, b) => b - a)[0] ?? null
+
+    // --- Location jumps flagged in the last 30 minutes ---------------------
+    const jumpCutoff = new Date(nowMs - 30 * 60 * 1000)
+    const jumpRows = await db
+      .select({
+        actorId: schema.auditLogs.actorId,
+        details: schema.auditLogs.details,
+      })
+      .from(schema.auditLogs)
+      .where(and(eq(schema.auditLogs.action, 'IMPOSSIBLE_MOVEMENT'), gte(schema.auditLogs.createdAt, jumpCutoff)))
+      .limit(50)
+    const jumpByOfficer = new Map<string, number>()
+    for (const j of jumpRows) {
+      const speed = Number((j.details as Record<string, any> | null)?.speedKmh)
+      if (Number.isFinite(speed) && speed > 0) jumpByOfficer.set(j.actorId, speed)
+    }
+
+    const exceptions: Array<{ officerId: string; officerName: string } & FieldException> = []
+    let arrivedCount = 0
+    let confirmedCount = 0
+
     const seen = new Set<string>()
     const officers = []
 
@@ -219,6 +295,39 @@ export async function GET(request: Request) {
           }
         })
 
+      const slot = todayByOfficer.get(r.userId)
+      const dayArrival = slot?.arrival
+      const dayDeparture = slot?.departure
+      const deploymentCenterId = depCenterByOfficer.get(r.userId) || null
+      const deploymentName = deploymentCenterId
+        ? depCenterMap.get(deploymentCenterId)?.centerName || null
+        : null
+      const plan = plannedByOfficer.get(r.userId)
+      const plannedSchool = plan?.name || deploymentName
+      const plannedCenterId = plan?.id || deploymentCenterId
+      const arrivalSchool = dayArrival?.centerId
+        ? arrivalCenterById.get(dayArrival.centerId) || null
+        : null
+
+      if (dayArrival) {
+        arrivedCount += 1
+        if (dayArrival.confirmedAt) confirmedCount += 1
+      }
+
+      for (const ex of evaluateOfficerDay({
+        officerName: r.userName,
+        arrivalAtMs: dayArrival?.serverTime ? new Date(dayArrival.serverTime).getTime() : null,
+        arrivalConfirmed: Boolean(dayArrival?.confirmedAt),
+        departureAtMs: dayDeparture?.serverTime ? new Date(dayDeparture.serverTime).getTime() : null,
+        plannedSchool,
+        arrivalSchool,
+        nowMs,
+        lastPaperEndMinutes,
+        impossibleSpeedKmh: jumpByOfficer.get(r.userId) ?? null,
+      })) {
+        exceptions.push({ officerId: r.userId, officerName: r.userName, ...ex })
+      }
+
       officers.push({
         id: r.userId,
         name: r.userName,
@@ -230,6 +339,9 @@ export async function GET(request: Request) {
         assignedCenter: venueName,
         centerCode: venueCode,
         centerRadius: effectiveRadius,
+        plannedSchool,
+        plannedCenterId,
+        arrivalSchool,
         status,
         assignmentStatus: r.assignmentStatus || 'UNASSIGNED',
         verifiedTime,
@@ -269,7 +381,15 @@ export async function GET(request: Request) {
       })
     }
 
-    return NextResponse.json({ officers })
+    return NextResponse.json({
+      officers,
+      summary: summarizeArrivals({
+        assigned: officers.length,
+        arrived: arrivedCount,
+        confirmed: confirmedCount,
+      }),
+      exceptions,
+    })
   } catch (error) {
     console.error('Failed to fetch fleet officers:', error)
     return NextResponse.json({ error: 'Failed to fetch fleet officers' }, { status: 500 })

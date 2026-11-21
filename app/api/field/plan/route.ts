@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
+import { recordAuditLog } from '@/lib/db/audit'
+import { canActOnOfficer } from '@/lib/field/team-access'
 import { desc, eq, and, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -15,6 +17,7 @@ const planSchema = z.object({
 })
 
 async function resolveOfficerId(caller: any, requested?: string | null): Promise<string | null> {
+  // Strict: an officer can never inspect anybody else's plan.
   if (roleKind(caller.role) === 'officer') return caller.id
   return requested || caller.id
 }
@@ -97,8 +100,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'centerId is required' }, { status: 400 })
     }
     const { centerId } = parsed.data
-    const officerId = await resolveOfficerId(caller, parsed.data.officerId)
-    if (!officerId) return NextResponse.json({ error: 'Missing officerId.' }, { status: 400 })
+    const requestedId = parsed.data.officerId || caller.id
+
+    // Who is being moved. An officer moves themselves — unless they are a
+    // group leader setting a teammate's school for today.
+    if (!(await canActOnOfficer(caller, requestedId))) {
+      return NextResponse.json(
+        { error: 'Only a group leader can set a teammate’s school.' },
+        { status: 403 }
+      )
+    }
+    const officerId = requestedId
 
     // Validate centre exists
     const centreRows = await db
@@ -130,6 +142,34 @@ export async function POST(request: Request) {
         source,
       })
       .returning()
+
+    // Duty changes must be traceable — who moved whom, and to which school.
+    if (parsed.data.officerId && parsed.data.officerId !== caller.id) {
+      const target = await db
+        .select({ name: schema.user.name })
+        .from(schema.user)
+        .where(eq(schema.user.id, officerId))
+        .limit(1)
+      const centre = await db
+        .select({ name: schema.examinationCenters.centerName })
+        .from(schema.examinationCenters)
+        .where(eq(schema.examinationCenters.id, centerId))
+        .limit(1)
+      await recordAuditLog({
+        actorId: caller.id,
+        actorName: caller.name,
+        actorRole: caller.role,
+        action: 'DUTY_SCHOOL_CHANGED',
+        entityType: 'daily_school_assignments',
+        entityId: inserted[0].id,
+        details: {
+          message: `${caller.name} moved ${target[0]?.name || 'officer'} to ${centre[0]?.name || 'centre'} for ${today}`,
+          officerId,
+          centerId,
+          date: today,
+        },
+      })
+    }
 
     return NextResponse.json({ success: true, plan: inserted[0] })
   } catch (err) {

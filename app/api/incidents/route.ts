@@ -5,6 +5,7 @@ import { recordAuditLog } from '@/lib/db/audit'
 import { verifyPin } from '@/lib/auth/pin'
 import { requireCommand, requireUser, getServerUser, roleKind } from '@/lib/auth/guard'
 import { incidentCreateSchema } from '@/lib/validation-schemas'
+import { notifyRegionControllers } from '@/lib/field/alerts'
 import { and, desc, eq, ne, or } from 'drizzle-orm'
 
 export async function GET(request: Request) {
@@ -308,7 +309,21 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ success: true, incident: created }, { status: 201 })
+    let smsNotified = 0
+    if (isEmergencySos) {
+      // The console may be unattended — the region's controllers get a text.
+      smsNotified = await notifyRegionControllers({
+        regionId: gate.user.regionId ?? null,
+        officerName: reporter.name,
+        centerName: resolvedCenterName,
+        incidentNumber,
+      })
+    }
+
+    return NextResponse.json(
+      { success: true, incident: created, smsNotified },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Failed to create incident:', error)
     return NextResponse.json({ error: 'Failed to create incident report' }, { status: 500 })

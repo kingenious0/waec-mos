@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { Phone, Clock, Flag, X, Siren, Check, Camera, Maximize2, Download } from 'lucide-react'
+import { Phone, Clock, Flag, X, Siren, Check, Camera, Maximize2, Download, AlertTriangle, Pencil } from 'lucide-react'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
 interface OfficerTelematicsDrawerProps {
@@ -13,6 +13,10 @@ interface OfficerTelematicsDrawerProps {
   onClose?: () => void
   onAcknowledgeSos?: (officer: FleetOfficer) => void
   onResolveSos?: (officer: FleetOfficer) => void
+  /** Every centre HQ may move this officer to. Omit to hide the correction tool. */
+  schoolOptions?: { id: string; name: string }[]
+  /** Move this officer to a different school for today. */
+  onChangeSchool?: (officer: FleetOfficer, centerId: string) => void | Promise<void>
 }
 
 import { formatRelativeTime } from '@/lib/relative-time'
@@ -42,10 +46,15 @@ export function OfficerTelematicsDrawer({
   onClose,
   onAcknowledgeSos,
   onResolveSos,
+  schoolOptions,
+  onChangeSchool,
 }: OfficerTelematicsDrawerProps) {
   const [photoMeta, setPhotoMeta] = useState<PhotoMeta | null>(null)
   const [photoFailed, setPhotoFailed] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [schoolPickerOpen, setSchoolPickerOpen] = useState(false)
+  const [pickerCenterId, setPickerCenterId] = useState('')
+  const [savingSchool, setSavingSchool] = useState(false)
 
   const officerId = officer?.id
 
@@ -54,6 +63,8 @@ export function OfficerTelematicsDrawer({
     setPhotoMeta(null)
     setPhotoFailed(false)
     setLightboxOpen(false)
+    setSchoolPickerOpen(false)
+    setSavingSchool(false)
     if (!officerId) return
     let cancelled = false
     fetch(`/api/field/evidence?officerId=${encodeURIComponent(officerId)}`, { credentials: 'include' })
@@ -134,6 +145,15 @@ export function OfficerTelematicsDrawer({
     : 'Never pinged'
 
   const withinPerimeter = typeof dist === 'number' && dist <= radiusMeters
+
+  // Planned vs actual — an officer who turned up at the wrong school is an
+  // exception HQ must see, not a rendering detail.
+  const normSchool = (v?: string | null) => (v || '').trim().toLowerCase()
+  const plannedMismatch = Boolean(
+    officer.plannedSchool &&
+      officer.arrivalSchool &&
+      normSchool(officer.plannedSchool) !== normSchool(officer.arrivalSchool)
+  )
   const checkpoints = officer.checkpoints || []
   const sosAcknowledged = (officer.sosStatus || '').toUpperCase() === 'ACKNOWLEDGED'
 
@@ -342,10 +362,82 @@ export function OfficerTelematicsDrawer({
 
         {/* Assigned venue — where he should be, how far, in/out */}
         <div className="rounded-xl bg-[#111522] border border-[#22263C] p-3.5">
-          <div className="flex items-center gap-2 font-medium text-xs text-foreground min-w-0">
-            <Flag className="size-3.5 text-sky-400 shrink-0" />
-            <span className="truncate">{officer.assignedCenter}</span>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 font-medium text-xs text-foreground min-w-0">
+              <Flag className="size-3.5 text-sky-400 shrink-0" />
+              <span className="truncate">
+                Planned: {officer.plannedSchool || officer.assignedCenter}
+              </span>
+            </div>
+            {schoolOptions && schoolOptions.length > 0 && onChangeSchool && !schoolPickerOpen && (
+              <button
+                type="button"
+                onClick={() => {
+                  const current =
+                    schoolOptions.find((o) => o.id === officer.plannedCenterId) ||
+                    schoolOptions.find((o) => o.name === officer.plannedSchool) ||
+                    schoolOptions[0]
+                  setPickerCenterId(current?.id || '')
+                  setSchoolPickerOpen(true)
+                }}
+                className="shrink-0 inline-flex items-center gap-1 h-7 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[10px] font-bold text-slate-300 hover:text-white hover:border-slate-600 transition cursor-pointer"
+                title="Move this officer to another school today"
+              >
+                <Pencil className="size-3" />
+                Change
+              </button>
+            )}
           </div>
+
+          {schoolPickerOpen && (
+            <div className="mt-2 flex items-center gap-2">
+              <select
+                value={pickerCenterId}
+                onChange={(e) => setPickerCenterId(e.target.value)}
+                aria-label="Choose today's school"
+                className="flex-1 min-w-0 h-11 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2.5 text-xs text-slate-200 focus:outline-hidden focus:border-indigo-400"
+              >
+                {schoolOptions!.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={savingSchool || !pickerCenterId}
+                onClick={async () => {
+                  if (!pickerCenterId || !onChangeSchool) return
+                  setSavingSchool(true)
+                  try {
+                    await onChangeSchool(officer, pickerCenterId)
+                    setSchoolPickerOpen(false)
+                  } finally {
+                    setSavingSchool(false)
+                  }
+                }}
+                className="h-11 shrink-0 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 px-3.5 text-[11px] font-bold text-white transition cursor-pointer disabled:opacity-50"
+              >
+                {savingSchool ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSchoolPickerOpen(false)}
+                className="h-11 shrink-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-3 text-[11px] font-bold text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {plannedMismatch && (
+            <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2 text-[10px] font-semibold leading-snug text-amber-300">
+              <AlertTriangle className="size-3.5 shrink-0 mt-px" />
+              <span>
+                Arrived at {officer.arrivalSchool} instead of {officer.plannedSchool}
+              </span>
+            </p>
+          )}
 
           <div className="flex items-end justify-between gap-3 mt-2">
             <div className="flex flex-col">
@@ -399,7 +491,9 @@ export function OfficerTelematicsDrawer({
                   <span className={`size-1.5 rounded-full ${
                     officer.todayArrival.confirmedAt ? 'bg-emerald-400' : 'bg-amber-400'
                   }`} />
-                  Arrived {timeOfDay(officer.todayArrival.at)} · {officer.todayArrival.confirmedAt ? 'confirmed' : 'unconfirmed'}
+                  {officer.todayArrival.confirmedAt
+                    ? `Arrived ${timeOfDay(officer.todayArrival.at)} · confirmed`
+                    : `Arrived ${timeOfDay(officer.todayArrival.at)} (app opened)`}
                 </span>
               )}
               {officer.todayDeparture && (

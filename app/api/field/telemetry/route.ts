@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { parseBatteryThresholdPct, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
+import { isImpossibleMovement } from '@/lib/field/geo'
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { telemetrySchema } from '@/lib/validation-schemas'
 
@@ -44,6 +45,10 @@ export async function POST(request: Request) {
         assignmentStatus: schema.assignments.status,
         centerName: schema.examinationCenters.centerName,
         centerRadius: schema.examinationCenters.geofenceRadiusMeters,
+        // Previous fix — read before the update below so movement can be judged
+        prevLat: schema.user.lastLatitude,
+        prevLng: schema.user.lastLongitude,
+        prevPingAt: schema.user.lastPingAt,
       })
       .from(schema.user)
       .leftJoin(schema.assignments, eq(schema.user.id, schema.assignments.officerId))
@@ -148,6 +153,56 @@ export async function POST(request: Request) {
             centerName: officer.centerName || 'Unassigned',
           },
         })
+      }
+    }
+
+    // Impossible movement: the phone teleported faster than any vehicle can
+    // drive. Never blocks the ping — it flags the position as untrustworthy.
+    if (
+      !isSimulated &&
+      typeof lat === 'number' &&
+      typeof lng === 'number' &&
+      officer.prevLat &&
+      officer.prevLng &&
+      officer.prevPingAt
+    ) {
+      const prevLat = Number(officer.prevLat)
+      const prevLng = Number(officer.prevLng)
+      const prevAtMs = new Date(officer.prevPingAt).getTime()
+      if (Number.isFinite(prevLat) && Number.isFinite(prevLng) && Number.isFinite(prevAtMs)) {
+        const jump = isImpossibleMovement(
+          { lat: prevLat, lng: prevLng, atMs: prevAtMs },
+          { lat, lng, atMs: now.getTime() }
+        )
+        if (jump) {
+          const recentJumpLogs = await db
+            .select({ id: schema.auditLogs.id })
+            .from(schema.auditLogs)
+            .where(
+              and(
+                eq(schema.auditLogs.actorId, officerId),
+                eq(schema.auditLogs.action, 'IMPOSSIBLE_MOVEMENT'),
+                gte(schema.auditLogs.createdAt, tenMinsAgo)
+              )
+            )
+            .limit(1)
+
+          if (recentJumpLogs.length === 0) {
+            await recordAuditLog({
+              actorId: officer.id,
+              actorName: officer.name,
+              actorRole: officer.role,
+              action: 'IMPOSSIBLE_MOVEMENT',
+              entityType: 'users',
+              entityId: officer.id,
+              details: {
+                message: `${officer.name} location jumped ${jump.speedKmh} km/h — position treated as unreliable`,
+                speedKmh: jump.speedKmh,
+                centerName: officer.centerName || 'Unassigned',
+              },
+            })
+          }
+        }
       }
     }
 

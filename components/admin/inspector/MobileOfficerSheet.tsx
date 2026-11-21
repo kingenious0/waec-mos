@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Phone, Flag, ChevronDown, Clock, X } from 'lucide-react'
+import { Phone, Flag, ChevronDown, Clock, X, AlertTriangle } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
 
@@ -70,6 +70,13 @@ export function MobileOfficerSheet({
       ? `${(dist / 1000).toFixed(1)} km away`
       : `${dist} m away`
   const withinPerimeter = typeof dist === 'number' && dist <= radiusMeters
+
+  const normSchool = (v?: string | null) => (v || '').trim().toLowerCase()
+  const plannedMismatch = Boolean(
+    officer.plannedSchool &&
+      officer.arrivalSchool &&
+      normSchool(officer.plannedSchool) !== normSchool(officer.arrivalSchool)
+  )
 
   const lastPingIso = officer.lastPingAt
   const isStale = (() => {
@@ -169,7 +176,9 @@ export function MobileOfficerSheet({
           <span className={`size-1.5 rounded-full ${
             officer.todayArrival.confirmedAt ? 'bg-emerald-400' : 'bg-amber-400'
           }`} />
-          Arrived {timeOfDay(officer.todayArrival.at)} · {officer.todayArrival.confirmedAt ? 'confirmed' : 'unconfirmed'}
+          {officer.todayArrival.confirmedAt
+            ? `Arrived ${timeOfDay(officer.todayArrival.at)} · confirmed`
+            : `Arrived ${timeOfDay(officer.todayArrival.at)} (app opened)`}
         </span>
       )}
       {officer.todayDeparture && (
@@ -242,8 +251,16 @@ export function MobileOfficerSheet({
       <div className="rounded-xl bg-[#11131F] border border-[#22263C] p-3">
         <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300 min-w-0">
           <Flag className="size-3.5 text-sky-400 shrink-0" />
-          <span className="truncate">{officer.assignedCenter}</span>
+          <span className="truncate">Planned: {officer.plannedSchool || officer.assignedCenter}</span>
         </div>
+        {plannedMismatch && (
+          <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2 text-[10px] font-semibold leading-snug text-amber-300">
+            <AlertTriangle className="size-3.5 shrink-0 mt-px" />
+            <span>
+              Arrived at {officer.arrivalSchool} instead of {officer.plannedSchool}
+            </span>
+          </p>
+        )}
         <div className="flex items-end justify-between gap-3 mt-2">
           <div className="flex flex-col">
             <span className="text-[9px] font-sans text-slate-500 tracking-wider uppercase">

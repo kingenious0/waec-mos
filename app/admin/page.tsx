@@ -43,7 +43,7 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
-import type { FleetOfficer, ExamCenter } from '@/components/admin/FleetMap'
+import type { FleetOfficer, ExamCenter, FleetException, ArrivalsSummary } from '@/components/admin/FleetMap'
 import { AdminSidebar } from '@/components/admin/sidebar/AdminSidebar'
 import { AdminTopNav } from '@/components/admin/header/AdminTopNav'
 import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTelematicsDrawer'
@@ -187,6 +187,8 @@ export default function AdminPage() {
   const [examCenters, setExamCenters] = useState<ExamCenter[]>([])
   const [districts, setDistricts] = useState<DistrictOption[]>([])
   const [fleetOfficers, setFleetOfficers] = useState<FleetOfficer[]>([])
+  const [fleetSummary, setFleetSummary] = useState<ArrivalsSummary | null>(null)
+  const [fleetExceptions, setFleetExceptions] = useState<FleetException[]>([])
   const [selectedOfficer, setSelectedOfficer] = useState<FleetOfficer | null>(null)
   const [officers, setOfficers] = useState<UserAccount[]>([])
   const [incidents, setIncidents] = useState<LiveIncidentRecord[]>([])
@@ -332,6 +334,8 @@ export default function AdminPage() {
         if (fleetData.officers) {
           const nextFleet: FleetOfficer[] = fleetData.officers
           setFleetOfficers(nextFleet)
+          setFleetSummary(fleetData.summary || null)
+          setFleetExceptions(Array.isArray(fleetData.exceptions) ? fleetData.exceptions : [])
           setSelectedOfficer((prev) => {
             if (prev) {
               return nextFleet.find((o) => o.id === prev.id) || null
@@ -528,6 +532,28 @@ export default function AdminPage() {
   const handleNavigate = (lat: number, lng: number) => {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')
     setFeedback(`Opened tactical route navigation to ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+  }
+
+  // Centre correction: move an officer to a different school for today.
+  const handleChangeOfficerSchool = async (officer: FleetOfficer, centerId: string) => {
+    try {
+      const res = await fetch('/api/field/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ centerId, officerId: officer.id }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) {
+        setFeedback(data?.error || 'Could not change today’s school.')
+        return
+      }
+      const schoolName = examCenters.find((c) => c.id === centerId)?.name || 'the new school'
+      setFeedback(`${officer.name} moved to ${schoolName} for today.`)
+      await loadDashboardData(true)
+    } catch {
+      setFeedback('Could not change today’s school. Check your connection and try again.')
+    }
   }
 
   const handleFocusOfficer = (officerId?: string) => {
@@ -922,6 +948,16 @@ export default function AdminPage() {
   const mapSosOfficer = useMemo(
     () => fleetOfficers.find((o) => o.status === 'SOS' && o.sosIncidentId) ?? null,
     [fleetOfficers]
+  )
+
+  // Centres the correction tool may move an officer to, in display order.
+  const schoolOptions = useMemo(
+    () =>
+      examCenters
+        .filter((c): c is ExamCenter & { id: string } => Boolean(c.id))
+        .map((c) => ({ id: c.id, name: c.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [examCenters]
   )
 
   // Reset the mobile officer sheet to peek whenever a different officer is selected
@@ -1615,6 +1651,8 @@ export default function AdminPage() {
                   activeSectorName={`${session?.region || 'Ashanti'} Regional Hub`}
                   statusFilter={mapStatusFilter}
                   onStatusFilterChange={setMapStatusFilter}
+                  summary={fleetSummary}
+                  exceptions={fleetExceptions}
                 />
 
                 {/* Unresolved SOS banner — mobile only, above the map */}
@@ -1682,6 +1720,8 @@ export default function AdminPage() {
                     onResolveSos={(off) =>
                       off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'RESOLVED')
                     }
+                    schoolOptions={schoolOptions}
+                    onChangeSchool={handleChangeOfficerSchool}
                     onClose={() => setSelectedOfficer(null)}
                   />
                 </aside>

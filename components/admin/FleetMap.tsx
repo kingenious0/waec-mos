@@ -45,6 +45,12 @@ export interface FleetOfficer {
     at: string | null
     duringPaper: boolean
   } | null
+  /** Where the officer was supposed to go today (day plan, else deployment). */
+  plannedSchool?: string | null
+  /** Centre id behind plannedSchool, so HQ can correct the assignment. */
+  plannedCenterId?: string | null
+  /** Where today's arrival was actually recorded. */
+  arrivalSchool?: string | null
   lat: number
   lng: number
   sosDetails?: string
@@ -52,6 +58,23 @@ export interface FleetOfficer {
   sosIncidentNumber?: string
   sosStatus?: string
   checkpoints?: OfficerCheckpoint[]
+}
+
+/** An exception-only line for HQ — see lib/field/exceptions.ts. */
+export interface FleetException {
+  officerId: string
+  officerName: string
+  kind: string
+  message: string
+  tone: 'warning' | 'critical'
+}
+
+export interface ArrivalsSummary {
+  assigned: number
+  arrived: number
+  confirmed: number
+  unconfirmed: number
+  enRoute: number
 }
 
 export interface ExamCenter {
@@ -200,6 +223,10 @@ interface FleetMapProps {
   activeSectorName?: string
   statusFilter?: 'all' | 'onsite' | 'enroute' | 'sos'
   onStatusFilterChange?: (filter: 'all' | 'onsite' | 'enroute' | 'sos') => void
+  /** Whole-fleet arrivals totals for today (never filtered by the map chips). */
+  summary?: ArrivalsSummary | null
+  /** Exception-only lines — what deserves a controller's attention. */
+  exceptions?: FleetException[]
 }
 
 export default function FleetMap({
@@ -211,6 +238,8 @@ export default function FleetMap({
   activeSectorName = 'Ashanti Regional Zone',
   statusFilter = 'all',
   onStatusFilterChange,
+  summary = null,
+  exceptions = [],
 }: FleetMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -221,6 +250,7 @@ export default function FleetMap({
   const [mapLoaded, setMapLoaded] = useState(false)
   const [mapMode, setMapMode] = useState<'map' | 'satellite'>('map')
   const [legendOpen, setLegendOpen] = useState(false)
+  const [dayPanelOpen, setDayPanelOpen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(false)
   const [isDesktop, setIsDesktop] = useState(false)
   const [zoomLow, setZoomLow] = useState(true)
@@ -770,6 +800,82 @@ export default function FleetMap({
     })
   }
 
+  // Whole-fleet arrivals line. The server's numbers win (they cover every
+  // officer); the fallback counts what is on screen if no summary arrived.
+  const daySummary: ArrivalsSummary = summary ?? {
+    assigned: officers.length,
+    arrived: officers.filter((o) => Boolean(o.todayArrival)).length,
+    confirmed: officers.filter((o) => Boolean(o.todayArrival?.confirmedAt)).length,
+    unconfirmed: 0,
+    enRoute: 0,
+  }
+  const arrivedPct =
+    daySummary.assigned > 0 ? Math.round((daySummary.arrived / daySummary.assigned) * 100) : 0
+  const hasActiveSos = officers.some((o) => o.status === 'SOS')
+
+  const dayPill = (
+    <button
+      type="button"
+      onClick={() => setDayPanelOpen((v) => !v)}
+      aria-expanded={dayPanelOpen}
+      aria-label={`${daySummary.arrived} of ${daySummary.assigned} officers arrived — open today's list`}
+      className="flex w-full flex-wrap items-center justify-center gap-x-2.5 gap-y-1 px-3.5 py-2 rounded-full bg-[#0C0F17]/92 border border-[#22263C] backdrop-blur-md shadow-2xl font-sans cursor-pointer hover:border-slate-600 transition"
+    >
+      <span className="text-[11px] font-bold text-white whitespace-nowrap">
+        {daySummary.arrived} of {daySummary.assigned} arrived
+      </span>
+      <span className="h-1.5 w-16 sm:w-24 rounded-full bg-white/10 overflow-hidden shrink-0">
+        <span
+          className="block h-full rounded-full bg-emerald-400 transition-all"
+          style={{ width: `${arrivedPct}%` }}
+        />
+      </span>
+      <span className="text-[10px] font-semibold text-slate-400 whitespace-nowrap">
+        {daySummary.confirmed} confirmed
+      </span>
+      {exceptions.length > 0 && (
+        <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-200 whitespace-nowrap">
+          {exceptions.length} to check
+        </span>
+      )}
+    </button>
+  )
+
+  const dayPanel = dayPanelOpen ? (
+    <div className="absolute top-full mt-2 left-0 lg:left-1/2 lg:-translate-x-1/2 z-30 w-[min(360px,calc(100vw-24px))] max-h-64 overflow-y-auto rounded-xl bg-[#0C0F17]/97 border border-[#22263C] backdrop-blur-md shadow-2xl p-2 space-y-1.5">
+      <span className="block px-1.5 pb-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">
+        Needs attention today
+      </span>
+      {exceptions.length === 0 ? (
+        <p className="px-1.5 py-2 text-[11px] font-medium text-slate-400">
+          Nothing needs attention right now.
+        </p>
+      ) : (
+        exceptions.map((ex, i) => (
+          <button
+            key={`${ex.officerId}-${ex.kind}-${i}`}
+            type="button"
+            onClick={() => {
+              const target = officers.find((o) => o.id === ex.officerId)
+              if (target) onSelectOfficer(target)
+              setDayPanelOpen(false)
+            }}
+            className="w-full text-left rounded-lg border border-transparent px-2.5 py-2 hover:bg-white/5 hover:border-[#22263C] transition cursor-pointer"
+          >
+            <span className="flex items-start gap-2">
+              <span
+                className={`mt-1 size-1.5 shrink-0 rounded-full ${
+                  ex.tone === 'critical' ? 'bg-rose-500' : 'bg-amber-400'
+                }`}
+              />
+              <span className="text-[11px] leading-snug font-medium text-slate-200">{ex.message}</span>
+            </span>
+          </button>
+        ))
+      )}
+    </div>
+  ) : null
+
   return (
     <div className={`relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans ${selectedOfficer ? 'map-has-selection' : ''} ${zoomLow ? 'map-zoom-low' : 'map-zoom-high'}`}>
       <div ref={mapContainerRef} className="size-full z-0" />
@@ -804,6 +910,37 @@ export default function FleetMap({
           )
         })}
       </div>
+
+      {/* Day arrivals line — desktop, centred between the zone pill and the map switch */}
+      <div className="hidden lg:flex absolute top-3.5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex-col items-center">
+        {dayPanelOpen && (
+          <button
+            type="button"
+            aria-label="Close today's list"
+            className="fixed inset-0 z-10 cursor-default"
+            onClick={() => setDayPanelOpen(false)}
+          />
+        )}
+        <div className="relative z-20 w-[min(430px,42vw)]">{dayPill}</div>
+        {dayPanel}
+      </div>
+
+      {/* Day arrivals line — mobile, under the filter chips. Steps aside for an
+          active SOS banner, which owns that space when an emergency is live. */}
+      {!hasActiveSos && (
+        <div className="lg:hidden absolute top-[60px] left-3 right-3 z-20 pointer-events-auto flex flex-col">
+          {dayPanelOpen && (
+            <button
+              type="button"
+              aria-label="Close today's list"
+              className="fixed inset-0 z-10 cursor-default"
+              onClick={() => setDayPanelOpen(false)}
+            />
+          )}
+          <div className="relative z-20">{dayPill}</div>
+          {dayPanel}
+        </div>
+      )}
 
       {/* Top-Left Floating Zone Status Pill — desktop only */}
       <div className="hidden lg:block absolute top-3.5 left-3.5 sm:top-4 sm:left-4 z-10 pointer-events-auto">

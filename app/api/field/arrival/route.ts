@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { recordAuditLog } from '@/lib/db/audit'
+import { canActOnOfficer } from '@/lib/field/team-access'
+import { isPresentReason } from '@/lib/field/present-reasons'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { desc, eq, and, sql } from 'drizzle-orm'
 import { z } from 'zod'
@@ -9,12 +11,17 @@ import { z } from 'zod'
 export const dynamic = 'force-dynamic'
 
 const actionSchema = z.object({
-  action: z.enum(['detect_arrival', 'detect_departure', 'confirm', 'done']),
+  action: z.enum(['detect_arrival', 'detect_departure', 'confirm', 'done', 'mark_present']),
   lat: z.number().finite().optional(),
   lng: z.number().finite().optional(),
   accuracyM: z.number().finite().nonnegative().optional(),
   distanceMeters: z.number().finite().nonnegative().nullable().optional(),
+  /** Leader marking a teammate present — only reachable with officerId. */
+  officerId: z.string().min(1).optional(),
+  reason: z.string().trim().max(80).optional(),
 })
+
+/** Fixed reasons a leader can record instead of GPS proof. */
 
 const ARRIVAL_DWELL_MINUTES = 2
 const ACCURACY_SOLID_M = 30
@@ -89,6 +96,36 @@ async function monitoredWindow(officerId: string) {
   }
 }
 
+/**
+ * The school an officer was supposed to be at today — the day plan wins,
+ * otherwise the latest deployment. Recorded on every arrival so HQ can compare
+ * where an officer was meant to be with where they actually turned up.
+ */
+async function resolveTodayCenterId(officerId: string): Promise<string | null> {
+  if (!db) return null
+  const today = todayGmt()
+
+  const plan = await db
+    .select({ centerId: schema.dailySchoolAssignments.centerId })
+    .from(schema.dailySchoolAssignments)
+    .where(
+      and(
+        eq(schema.dailySchoolAssignments.officerId, officerId),
+        eq(schema.dailySchoolAssignments.date, today)
+      )
+    )
+    .limit(1)
+  if (plan[0]?.centerId) return plan[0].centerId
+
+  const deployment = await db
+    .select({ centerId: schema.officerDeployments.centerId })
+    .from(schema.officerDeployments)
+    .where(eq(schema.officerDeployments.officerId, officerId))
+    .orderBy(desc(schema.officerDeployments.updatedAt))
+    .limit(1)
+  return deployment[0]?.centerId || null
+}
+
 export async function GET(request: Request) {
   try {
     const caller = await getServerUser(request as any)
@@ -149,10 +186,84 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'action is required' }, { status: 400 })
     }
-    const { action, lat, lng, accuracyM, distanceMeters } = parsed.data
+    const { action, lat, lng, accuracyM, distanceMeters, officerId: requestedOfficerId, reason } =
+      parsed.data
 
     const today = todayGmt()
     const now = new Date()
+
+    // ---------- A group leader records a teammate as present ----------
+    // Used when GPS proof is impossible (dead battery, no signal). The reason
+    // is mandatory so HQ always knows this arrival was not device-confirmed.
+    if (action === 'mark_present') {
+      if (!requestedOfficerId) {
+        return NextResponse.json({ error: 'officerId is required' }, { status: 400 })
+      }
+      if (!(await canActOnOfficer(caller, requestedOfficerId))) {
+        return NextResponse.json(
+          { error: 'Only a group leader can mark a teammate present.' },
+          { status: 403 }
+        )
+      }
+      if (roleKind(caller.role) === 'officer' && (!reason || !isPresentReason(reason))) {
+        return NextResponse.json(
+          { error: 'Choose a reason — HQ needs to know why there is no GPS proof.' },
+          { status: 422 }
+        )
+      }
+
+      const latest = await db
+        .select({ id: schema.arrivalEvents.id, confirmedAt: schema.arrivalEvents.confirmedAt })
+        .from(schema.arrivalEvents)
+        .where(
+          and(
+            eq(schema.arrivalEvents.officerId, requestedOfficerId),
+            eq(schema.arrivalEvents.kind, 'ARRIVAL')
+          )
+        )
+        .orderBy(desc(schema.arrivalEvents.serverTime))
+        .limit(1)
+
+      const note = `leader-marked:${reason || 'command'}`
+      if (latest[0]?.confirmedAt) {
+        return NextResponse.json({ ok: true, alreadyPresent: true })
+      }
+
+      if (latest[0]) {
+        await db
+          .update(schema.arrivalEvents)
+          .set({ confirmedAt: now, source: 'leader', note })
+          .where(eq(schema.arrivalEvents.id, latest[0].id))
+      } else {
+        await db.insert(schema.arrivalEvents).values({
+          id: `evt-${now.getTime()}-${Math.random().toString(36).slice(2, 6)}`,
+          officerId: requestedOfficerId,
+          centerId: await resolveTodayCenterId(requestedOfficerId),
+          kind: 'ARRIVAL',
+          phoneTime: now,
+          serverTime: now,
+          source: 'leader',
+          accuracyTier: null,
+          note,
+          confirmedAt: now,
+        })
+      }
+
+      await recordAuditLog({
+        actorId: caller.id,
+        actorName: caller.name || 'Group leader',
+        actorRole: caller.role,
+        action: 'ARRIVAL_MARKED_PRESENT',
+        entityType: 'arrival_events',
+        entityId: requestedOfficerId,
+        details: {
+          message: `${caller.name} marked ${requestedOfficerId} present (${reason || 'command decision'})`,
+          reason: reason || null,
+        },
+      })
+      return NextResponse.json({ ok: true, markedPresent: true })
+    }
+
     const window = await monitoredWindow(caller.id)
 
     // ---------- Detect an arrival (dwell already satisfied client-side) ----------
@@ -169,7 +280,7 @@ export async function POST(request: Request) {
       await db.insert(schema.arrivalEvents).values({
         id,
         officerId: caller.id,
-        centerId: null, // resolved by the client via today's deployment; server validated by radius below
+        centerId: await resolveTodayCenterId(caller.id),
         assignmentId: null,
         kind: 'ARRIVAL',
         phoneTime: now,
@@ -203,6 +314,7 @@ export async function POST(request: Request) {
         await db.insert(schema.arrivalEvents).values({
           id,
           officerId: caller.id,
+          centerId: await resolveTodayCenterId(caller.id),
           kind: 'ARRIVAL',
           phoneTime: now,
           serverTime: now,

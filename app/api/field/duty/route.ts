@@ -92,6 +92,7 @@ export async function GET(request: Request) {
         isDeployed: false,
         seriesName: null,
         venue: null,
+        plan: null,
         papers: [],
         timeline: [],
         arriveBy: null,
@@ -128,11 +129,14 @@ export async function GET(request: Request) {
       .select({
         centerId: schema.dailySchoolAssignments.centerId,
         source: schema.dailySchoolAssignments.source,
+        assignedBy: schema.dailySchoolAssignments.assignedBy,
       })
       .from(schema.dailySchoolAssignments)
       .where(and(eq(schema.dailySchoolAssignments.officerId, officerId), eq(schema.dailySchoolAssignments.date, todayStr)))
       .limit(1)
-    const planCenterId = planRows[0]?.centerId || null
+    const planRow = planRows[0]
+    const planCenterId = planRow?.centerId || null
+    const planSource = planRow?.source || null
 
     // Venue — today's plan wins, then the winning deployment's centre.
     let venue: any = null
@@ -307,6 +311,7 @@ export async function GET(request: Request) {
       isDeployed,
       seriesName,
       venue,
+      plan: planCenterId ? { centerId: planCenterId, source: planSource } : null,
       papers,
       timeline: buildTimeline(papers),
       arriveBy,
