@@ -19,3 +19,6 @@ node_modules
 *.tsbuildinfo
 # WAEC official timetable source files (kept local, never commit)
 timetable-sources/
+
+# Built APK distribution copies (build outputs are ignored under android/)
+artifacts/*.apk

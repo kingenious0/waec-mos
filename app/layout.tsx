@@ -13,6 +13,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'WAEC MOS | National Operations Suite',
   description: 'Field verification and security dispatch platform for WAEC operations.',
+  applicationName: 'WAEC Field',
+  appleWebApp: {
+    capable: true,
+    title: 'WAEC Field',
+    statusBarStyle: 'black-translucent',
+  },
   icons: {
     icon: [
       {

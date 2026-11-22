@@ -23,7 +23,20 @@ import {
 } from '@/components/field/TodaySchoolCard'
 import { isFeatureEnabled } from '@/lib/features'
 import { UNCONFIRMED_GRACE_MS } from '@/lib/field/exceptions'
+import { impliedSpeedKmh } from '@/lib/field/geo'
 import { resolveEventMs, shouldRetryArrivalDelivery } from '@/lib/field/event-time'
+import {
+  detectionMode,
+  getDeviceIntegrity,
+  getLastNativePosition,
+  integrityWarnings,
+  isNativeFieldApp,
+  onNativePosition,
+  startNativeTracking,
+  stopNativeTracking,
+  type DetectionMode,
+  type NativePosition,
+} from '@/lib/field/native'
 
 const FieldMap = dynamic(() => import('@/components/field/FieldMap'), {
   ssr: false,
@@ -90,6 +103,8 @@ export default function FieldPage() {
     speedKmh: number
   } | null>(null)
   const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'denied'>('searching')
+  const [activeDetection, setActiveDetection] = useState<DetectionMode>(() => detectionMode())
+  const [deviceWarnings, setDeviceWarnings] = useState<string[]>([])
 
   // Live DB Operational States
   const [isAssignmentLoading, setIsAssignmentLoading] = useState<boolean>(true)
@@ -132,6 +147,7 @@ export default function FieldPage() {
 
   const initialSosPromptShownRef = useRef<boolean>(false)
   const initialTelemetrySentRef = useRef<string>('')
+  const lastNativeFixRef = useRef<{ lat: number; lng: number; atMs: number } | null>(null)
 
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setFieldFeedback({ type, message })
@@ -177,31 +193,86 @@ export default function FieldPage() {
     }
   }, [])
 
-  // Real GPS Geofence Watcher
+  // Real GPS watcher. Web = foreground only. APK = native foreground service
+  // that keeps streaming fixes while the officer walks between exam halls.
+  const applyFix = useCallback((lat: number, lng: number, accuracy: number, speedKmh: number) => {
+    setDeviceGpsActive(true)
+    setGpsStatus('active')
+    setLiveCoords({ lat, lng, accuracy, speedKmh })
+  }, [])
+
   const startGpsWatch = useCallback(() => {
+    setGpsStatus('searching')
+
+    if (isNativeFieldApp()) {
+      setActiveDetection('native-background')
+      let cancelled = false
+      let listener: Awaited<ReturnType<typeof onNativePosition>> = null
+
+      void (async () => {
+        try {
+          const last = await getLastNativePosition()
+          if (last && !cancelled) {
+            lastNativeFixRef.current = {
+              lat: last.latitude,
+              lng: last.longitude,
+              atMs: last.timestamp,
+            }
+            applyFix(last.latitude, last.longitude, last.accuracy, 0)
+          }
+          listener = await onNativePosition((fix: NativePosition) => {
+            if (cancelled) return
+            const previous = lastNativeFixRef.current
+            const speedKmh = previous
+              ? Math.round(
+                  impliedSpeedKmh(
+                    { lat: previous.lat, lng: previous.lng, atMs: previous.atMs },
+                    { lat: fix.latitude, lng: fix.longitude, atMs: fix.timestamp }
+                  ) ?? 0
+                )
+              : 0
+            lastNativeFixRef.current = {
+              lat: fix.latitude,
+              lng: fix.longitude,
+              atMs: fix.timestamp,
+            }
+            applyFix(fix.latitude, fix.longitude, fix.accuracy, speedKmh)
+          })
+          await startNativeTracking()
+        } catch {
+          if (!cancelled) {
+            setDeviceGpsActive(false)
+            setGpsStatus('denied')
+          }
+        }
+      })()
+
+      void getDeviceIntegrity()
+        .then((signal) => setDeviceWarnings(integrityWarnings(signal)))
+        .catch(() => setDeviceWarnings([]))
+
+      return () => {
+        cancelled = true
+        void listener?.remove()
+        void stopNativeTracking()
+      }
+    }
+
+    setActiveDetection('web-foreground')
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
       setDeviceGpsActive(false)
       setGpsStatus('denied')
       return undefined
     }
 
-    setGpsStatus('searching')
-
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        setDeviceGpsActive(true)
-        setGpsStatus('active')
         const rawSpeed = pos.coords.speed
         const speedKmh =
           typeof rawSpeed === 'number' && !Number.isNaN(rawSpeed) && rawSpeed > 0
             ? Math.round(rawSpeed * 3.6)
             : 0
-        setLiveCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: Math.round(pos.coords.accuracy),
-          speedKmh,
-        })
+        applyFix(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy), speedKmh)
       },
       (err) => {
         console.warn('Geolocation access error:', err.message)
@@ -212,7 +283,7 @@ export default function FieldPage() {
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
-  }, [])
+  }, [applyFix])
 
   useEffect(() => {
     const cleanup = startGpsWatch()
@@ -222,6 +293,15 @@ export default function FieldPage() {
   }, [startGpsWatch])
 
   const handleRetryGps = () => {
+    if (isNativeFieldApp()) {
+      setGpsStatus('searching')
+      void startNativeTracking()
+        .then((ok) => {
+          if (!ok) setGpsStatus('denied')
+        })
+        .catch(() => setGpsStatus('denied'))
+      return
+    }
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return
     setGpsStatus('searching')
     navigator.geolocation.getCurrentPosition(
@@ -1363,12 +1443,18 @@ export default function FieldPage() {
       </div>
     ) : null
 
-  const webDetectionNote = (
-    <p className="text-[10px] leading-snug text-slate-500 font-sans">
-      On the web, location is checked only while this page is open. It cannot see you when the
-      page is closed.
-    </p>
-  )
+  const detectionNote =
+    activeDetection === 'native-background' ? (
+      <p className="text-[10px] leading-snug text-slate-500 font-sans">
+        Your phone records location even while the app is in the background. Keep the
+        &ldquo;WAEC field tracking&rdquo; notification on.
+      </p>
+    ) : (
+      <p className="text-[10px] leading-snug text-slate-500 font-sans">
+        On the web, location is checked only while this page is open. It cannot see you when the
+        page is closed.
+      </p>
+    )
 
   const photoRequestBanner = photoRequest ? (
     <div
@@ -1405,6 +1491,15 @@ export default function FieldPage() {
         isOffline={isOffline}
         queuedCount={queuedSosCount + queuedArrivalCount}
       />
+
+      {deviceWarnings.length > 0 ? (
+        <div
+          role="status"
+          className="w-full border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-[11px] leading-snug text-amber-200 font-sans"
+        >
+          <strong>Phone check:</strong> {deviceWarnings.join(' ')}
+        </div>
+      ) : null}
 
       {/* Active SOS Beacon Banner (persisted across reloads until stood down or resolved) */}
       {isSosActive && (
@@ -1498,7 +1593,7 @@ export default function FieldPage() {
           elapsedFormatted={formatTimer(shiftSeconds)}
           onRetryGps={handleRetryGps}
         />
-        {webDetectionNote}
+        {detectionNote}
 
         {/* Venue Card */}
         <VenueCard
@@ -1595,7 +1690,7 @@ export default function FieldPage() {
               elapsedFormatted={formatTimer(shiftSeconds)}
               onRetryGps={handleRetryGps}
             />
-            {webDetectionNote}
+            {detectionNote}
 
             {/* Venue Card */}
             <VenueCard
