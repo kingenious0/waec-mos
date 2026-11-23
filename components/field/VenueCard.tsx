@@ -28,11 +28,11 @@ export function VenueCard({
         )}
       </div>
 
-      <h3 className="text-sm font-bold text-white mt-1 leading-snug">
+      <h3 className="text-base font-bold text-white mt-1 leading-snug">
         {venueName}
       </h3>
 
-      <p className="text-xs text-slate-400 mt-0.5 leading-normal">
+      <p className="text-[13px] text-slate-400 mt-1 leading-normal">
         {zoneName} · {regionName}
       </p>
     </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { LogOut } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import type { SessionData } from '@/lib/auth/session'
 
 interface FieldHeaderProps {
@@ -76,14 +76,14 @@ export function FieldHeader({
             type="button"
             onClick={onOpenProfile}
             title={`View profile for ${officerName}`}
-            aria-label="Officer Profile"
-            className="size-10 rounded-full bg-[#1E294B] text-sky-300 font-bold text-xs flex items-center justify-center border border-sky-400/25 hover:border-sky-400 transition cursor-pointer overflow-hidden"
+            aria-label={`Open profile for ${officerName}`}
+            className="size-10 rounded-full bg-[#1E294B] text-sky-300 flex items-center justify-center border border-sky-400/25 hover:border-sky-400 transition cursor-pointer overflow-hidden shrink-0"
           >
             {session?.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={session.photo} alt={officerName} className="size-full object-cover" />
             ) : (
-              initials || 'FO'
+              <User className="size-5" aria-hidden="true" />
             )}
           </button>
         </div>

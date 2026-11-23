@@ -48,6 +48,21 @@ const FieldMap = dynamic(() => import('@/components/field/FieldMap'), {
   ),
 })
 
+/**
+ * Mobile section heading: a small caps label with a hairline rule.
+ * Gives the single-column phone layout rhythm instead of a flat pile of cards.
+ */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 px-0.5">
+      <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+        {children}
+      </span>
+      <span className="h-px flex-1 bg-[#161B2B]" aria-hidden="true" />
+    </div>
+  )
+}
+
 interface FieldVenue {
   name: string
   code: string
@@ -1445,12 +1460,12 @@ export default function FieldPage() {
 
   const detectionNote =
     activeDetection === 'native-background' ? (
-      <p className="text-[10px] leading-snug text-slate-500 font-sans">
+      <p className="text-[11px] leading-snug text-slate-400 font-sans">
         Your phone records location even while the app is in the background. Keep the
         &ldquo;WAEC field tracking&rdquo; notification on.
       </p>
     ) : (
-      <p className="text-[10px] leading-snug text-slate-500 font-sans">
+      <p className="text-[11px] leading-snug text-slate-400 font-sans">
         On the web, location is checked only while this page is open. It cannot see you when the
         page is closed.
       </p>
@@ -1486,37 +1501,50 @@ export default function FieldPage() {
 
   return (
     <div className="min-h-screen w-full bg-[#070913] text-zinc-100 flex flex-col font-sans select-none antialiased">
-      {/* Offline Alert Banner */}
-      <OfflineBanner
-        isOffline={isOffline}
-        queuedCount={queuedSosCount + queuedArrivalCount}
-      />
+      {/* App chrome — banners and header stay pinned while the officer scrolls */}
+      <div className="sticky top-0 z-30 shrink-0">
+        {/* Offline Alert Banner */}
+        <OfflineBanner
+          isOffline={isOffline}
+          queuedCount={queuedSosCount + queuedArrivalCount}
+        />
 
-      {deviceWarnings.length > 0 ? (
-        <div
-          role="status"
-          className="w-full border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-[11px] leading-snug text-amber-200 font-sans"
-        >
-          <strong>Phone check:</strong> {deviceWarnings.join(' ')}
-        </div>
-      ) : null}
-
-      {/* Active SOS Beacon Banner (persisted across reloads until stood down or resolved) */}
-      {isSosActive && (
-        <div className="w-full bg-red-600/20 border-b border-red-500/40 px-4 py-2 flex items-center justify-between text-xs text-red-200">
-          <div className="flex items-center gap-2 font-semibold">
-            <Radio className="size-4 text-red-400 animate-pulse shrink-0" />
-            <span>Help has been called — Regional Command has your location</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSosModalOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition cursor-pointer shrink-0"
+        {deviceWarnings.length > 0 ? (
+          <div
+            role="status"
+            className="w-full border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-[11px] leading-snug text-amber-200 font-sans"
           >
-            View alert
-          </button>
-        </div>
-      )}
+            <strong>Phone check:</strong> {deviceWarnings.join(' ')}
+          </div>
+        ) : null}
+
+        {/* Active SOS Beacon Banner (persisted across reloads until stood down or resolved) */}
+        {isSosActive && (
+          <div className="w-full bg-red-600/20 border-b border-red-500/40 px-4 py-2 flex items-center justify-between text-xs text-red-200">
+            <div className="flex items-center gap-2 font-semibold">
+              <Radio className="size-4 text-red-400 animate-pulse shrink-0" />
+              <span>Help has been called — Regional Command has your location</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSosModalOpen(true)}
+              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition cursor-pointer shrink-0"
+            >
+              View alert
+            </button>
+          </div>
+        )}
+
+        {/* Main Field Header */}
+        <FieldHeader
+          session={session}
+          zoneName={centerZone}
+          batteryLevel={batteryLevel}
+          isGpsActive={deviceGpsActive}
+          onOpenProfile={() => setShowProfileModal(true)}
+          onLogout={handleLogout}
+        />
+      </div>
 
       {/* Floating Feedback Toast */}
       {fieldFeedback && (
@@ -1544,106 +1572,121 @@ export default function FieldPage() {
         </div>
       )}
 
-      {/* Main Field Header */}
-      <FieldHeader
-        session={session}
-        zoneName={centerZone}
-        batteryLevel={batteryLevel}
-        isGpsActive={deviceGpsActive}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onLogout={handleLogout}
-      />
-
       {/* ============================================================ */}
       {/* --- RESPONSIVE LAYOUT CONTAINER --- */}
       {/* ============================================================ */}
 
-      {/* 1. MOBILE VIEWPORT (< 1024px): Single column, centered, max-w-md */}
-      <div className="flex-1 flex lg:hidden flex-col items-center justify-between p-4 w-full max-w-md mx-auto space-y-3 pb-28">
-        {/* Map Card (~330px tall) */}
-        <div className="w-full h-[330px] shrink-0 relative">
-          {!isDesktop && activeVenue ? (
-            <FieldMap
-              centerName={centerVenue}
-              centerCode={centerCode}
-              centerLat={activeVenue.lat}
-              centerLng={activeVenue.lng}
-              radiusMeters={geofenceRadius}
-              isInside={isInside}
-              distanceMeters={distanceMeters}
-              userLat={effectiveUserLat}
-              userLng={effectiveUserLng}
-            />
-          ) : !isDesktop ? (
-            <div className="size-full rounded-2xl border border-[#1A2035] bg-[#0C101A] flex flex-col items-center justify-center p-6 text-center gap-2">
-              <Building2 className="size-7 text-slate-500" />
-              <div className="text-xs font-semibold text-slate-300">
-                {isAssignmentLoading ? 'Loading assigned venue from database...' : 'No examination center assigned yet'}
+      {/* 1. MOBILE VIEWPORT (< 1024px): single column with native-app rhythm */}
+      <div className="flex-1 lg:hidden w-full">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-4 pt-4 pb-[calc(11rem_+_env(safe-area-inset-bottom))]">
+          {/* Hero map */}
+          <div className="relative h-[300px] w-full shrink-0">
+            {!isDesktop && activeVenue ? (
+              <FieldMap
+                centerName={centerVenue}
+                centerCode={centerCode}
+                centerLat={activeVenue.lat}
+                centerLng={activeVenue.lng}
+                radiusMeters={geofenceRadius}
+                isInside={isInside}
+                distanceMeters={distanceMeters}
+                userLat={effectiveUserLat}
+                userLng={effectiveUserLng}
+              />
+            ) : (
+              <div className="flex size-full flex-col items-center justify-center gap-2 rounded-2xl border border-[#1A2035] bg-[#0C101A] p-6 text-center">
+                <Building2 className="size-7 text-slate-500" />
+                <div className="text-xs font-semibold text-slate-300">
+                  {isAssignmentLoading
+                    ? 'Loading assigned venue…'
+                    : 'No examination centre assigned yet'}
+                </div>
               </div>
+            )}
+          </div>
+
+          {/* Check-in status */}
+          <section className="flex flex-col gap-2.5">
+            <SectionLabel>Check-in status</SectionLabel>
+            <StatusCard
+              state={statusCardState}
+              distanceMeters={distanceMeters ?? 0}
+              geofenceRadius={geofenceRadius}
+              checkInTime={checkInTimestamp || 'Just now'}
+              elapsedFormatted={formatTimer(shiftSeconds)}
+              onRetryGps={handleRetryGps}
+            />
+            <div className="rounded-xl border border-[#161B2B] bg-[#0B0E18] px-3.5 py-2.5">
+              {detectionNote}
             </div>
-          ) : null}
-        </div>
+          </section>
 
-        {/* Status Card */}
-        <StatusCard
-          state={statusCardState}
-          distanceMeters={distanceMeters ?? 0}
-          geofenceRadius={geofenceRadius}
-          checkInTime={checkInTimestamp || 'Just now'}
-          elapsedFormatted={formatTimer(shiftSeconds)}
-          onRetryGps={handleRetryGps}
-        />
-        {detectionNote}
+          {/* Your centre */}
+          <section className="flex flex-col gap-2.5">
+            <SectionLabel>Your centre</SectionLabel>
+            <VenueCard
+              venueName={centerVenue}
+              venueCode={centerCode}
+              zoneName={centerZone}
+              regionName={centerRegion}
+            />
+            {todaySchoolCard}
+          </section>
 
-        {/* Venue Card */}
-        <VenueCard
-          venueName={centerVenue}
-          venueCode={centerCode}
-          zoneName={centerZone}
-          regionName={centerRegion}
-        />
+          {/* Today's duty */}
+          <section className="flex flex-col gap-2.5">
+            <SectionLabel>Today&apos;s duty</SectionLabel>
+            {isAssignmentLoading ? (
+              <div className="h-[88px] animate-pulse rounded-2xl border border-[#1C2337] bg-[#0F121E]" />
+            ) : (
+              emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />
+            )}
+            {confirmationNotice}
+            {photoRequestBanner}
+            {pendingArrival && !pendingArrival.confirmed && !isCheckedIn && (
+              <button
+                type="button"
+                onClick={handleCheckIn}
+                className="h-12 w-full rounded-xl border border-white/10 bg-[#1E2B7B] text-[13px] font-bold text-white transition hover:bg-[#28389E] cursor-pointer"
+              >
+                Confirm — I&apos;m here
+              </button>
+            )}
+            {evidenceDock}
+          </section>
 
-        {todaySchoolCard}
+          {/* Schedule — the card carries its own expand header */}
+          {todayTimeline.length > 0 && <DayTimeline items={todayTimeline} collapsible={true} />}
 
-        {/* Auto-arrival confirmation hint — one tap, no camera */}
-        {confirmationNotice}
-
-        {photoRequestBanner}
-        {assignment.today?.arrival && !assignment.today.arrival.confirmed && !isCheckedIn && (
-          <button
-            type="button"
-            onClick={handleCheckIn}
-            className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-bold text-white transition cursor-pointer border border-white/10"
-          >
-            Confirm — I&apos;m here
-          </button>
-        )}
-
-        {/* Paper / Arrive Tiles */}
-        {emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />}
-
-        {/* Mobile Collapsible Schedule Timeline */}
-        {todayTimeline.length > 0 && <DayTimeline items={todayTimeline} collapsible={true} />}
-
-        {/* Action Dock */}
-        <div className="w-full space-y-2.5 pt-2">
-          <CheckInButton
-            isInside={isInside && Boolean(activeVenue)}
-            distanceMeters={distanceMeters}
-            geofenceRadius={geofenceRadius}
-            isCheckedIn={isCheckedIn}
-            onCheckIn={handleCheckIn}
-            onCheckOut={handleCheckOut}
-          />
-
-          {evidenceDock}
-
-          {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
-            <ReportButton onOpenReport={() => setReportModalOpen(true)} />
-          ) : null}
-          <p className="text-center text-[11px] text-slate-500 select-none">
-            In danger? Hold the red SOS button to call for help.
+          <p className="px-2 text-center text-[11px] leading-snug text-slate-500 select-none">
+            In danger? Press and hold the red SOS button to call for help.
           </p>
+        </div>
+      </div>
+
+      {/* Mobile action dock — the primary action never scrolls away */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#1A2035] bg-[#0A0D18]/95 backdrop-blur-md lg:hidden">
+        <div className="mx-auto w-full max-w-md px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+          <div className="flex items-center gap-2.5">
+            <div className="min-w-0 flex-1">
+              <CheckInButton
+                isInside={isInside && Boolean(activeVenue)}
+                distanceMeters={distanceMeters}
+                geofenceRadius={geofenceRadius}
+                isCheckedIn={isCheckedIn}
+                onCheckIn={handleCheckIn}
+                onCheckOut={handleCheckOut}
+              />
+            </div>
+            {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
+              <div className="flex w-[92px] shrink-0">
+                <ReportButton
+                  onOpenReport={() => setReportModalOpen(true)}
+                  heightClass="h-[60px]"
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -1668,11 +1711,11 @@ export default function FieldPage() {
               <Building2 className="size-10 text-slate-500" />
               <div className="text-sm font-semibold text-slate-200">
                 {isAssignmentLoading
-                  ? 'Synchronizing duty deployment from database...'
-                  : 'No Examination Center Assigned'}
+                  ? 'Loading your duty assignment…'
+                  : 'No examination centre assigned'}
               </div>
               <p className="text-xs text-slate-400 max-w-sm">
-                Contact the Ashanti Regional Control Room to assign an examination center and exam paper timetable to your account.
+                Contact Regional Command to assign you an examination centre and paper timetable.
               </p>
             </div>
           ) : null}

@@ -30,10 +30,10 @@ export function PaperTiles({ assignment }: PaperTilesProps) {
           Today's Paper
         </span>
         <div className="mt-1.5">
-          <h4 className="text-xs font-bold text-white leading-snug">
+          <h4 className="text-[13px] font-bold text-white leading-snug">
             {assignment.title}
           </h4>
-          <p className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
+          <p className="text-[12px] text-slate-400 mt-1 tabular-nums">
             {assignment.timeRange}
           </p>
         </div>

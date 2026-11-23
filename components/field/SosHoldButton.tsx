@@ -203,7 +203,8 @@ export function SosHoldButton({
       }
       style={
         variant === 'floating'
-          ? { bottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }
+          // Sits clear above the fixed mobile action dock (~84px + safe area).
+          ? { bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))' }
           : undefined
       }
     >

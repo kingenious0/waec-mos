@@ -176,18 +176,18 @@ export default function FieldMap({
   }
 
   return (
-    <div className="relative w-full h-full min-h-[330px] flex-1 rounded-2xl overflow-hidden border border-[#1A2035] bg-[#E3E7EC] select-none shadow-inner">
+    <div className="relative w-full h-full flex-1 rounded-2xl overflow-hidden border border-[#1A2035] bg-[#E3E7EC] select-none shadow-inner">
       <div ref={containerRef} className="absolute inset-0 z-0 w-full h-full" />
-      <div className="absolute top-3 left-3 z-[400] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md">
-        <MapPin className="size-3.5 text-[#F6D300]" />
-        <span>{centerName}</span>
-        <span className="text-[10px] font-bold text-[#F6D300] bg-[#1A2035] px-1.5 py-0.5 rounded border border-[#27324B] tabular-nums">
+      <div className="absolute top-3 left-3 z-[400] flex max-w-[calc(100%_-_1.5rem)] items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md">
+        <MapPin className="size-3.5 text-[#F6D300] shrink-0" />
+        <span className="min-w-0 truncate">{centerName}</span>
+        <span className="shrink-0 text-[10px] font-bold text-[#F6D300] bg-[#1A2035] px-1.5 py-0.5 rounded border border-[#27324B] tabular-nums">
           {centerCode}
         </span>
       </div>
-      <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md tabular-nums">
-        <span className={`size-2 rounded-full ${hasOfficerCoords ? (isInside ? 'bg-emerald-400' : 'bg-[#F6D300]') : 'bg-sky-400 animate-pulse'}`} />
-        <span>{distanceFormatted}</span>
+      <div className="absolute bottom-3 left-3 z-[400] flex max-w-[calc(100%_-_4.5rem)] items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md tabular-nums">
+        <span className={`size-2 rounded-full shrink-0 ${hasOfficerCoords ? (isInside ? 'bg-emerald-400' : 'bg-[#F6D300]') : 'bg-sky-400 animate-pulse'}`} />
+        <span className="min-w-0 truncate">{distanceFormatted}</span>
       </div>
       <button
         type="button"
