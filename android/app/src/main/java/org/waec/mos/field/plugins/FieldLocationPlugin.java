@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 
@@ -122,6 +124,54 @@ public class FieldLocationPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("running", FieldLocationService.isRunning());
         call.resolve(result);
+    }
+
+    /** Lets the web layer show the right recovery step instead of guessing. */
+    @PluginMethod
+    public void getStatus(PluginCall call) {
+        JSObject result = new JSObject();
+        PermissionState permission = getPermissionState("location");
+        String permissionText = "prompt";
+        if (permission == PermissionState.GRANTED) permissionText = "granted";
+        else if (permission == PermissionState.DENIED) permissionText = "denied";
+        result.put("permission", permissionText);
+
+        LocationManager manager =
+                (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+        boolean locationServicesOn = manager != null
+                && (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER));
+        result.put("locationServicesEnabled", locationServicesOn);
+        result.put("running", FieldLocationService.isRunning());
+        call.resolve(result);
+    }
+
+    /** Opens the phone's Location switch screen for the officer. */
+    @PluginMethod
+    public void openLocationSettings(PluginCall call) {
+        Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception ex) {
+            call.reject("CANNOT_OPEN_LOCATION_SETTINGS", ex.getMessage());
+        }
+    }
+
+    /** Opens this app's permission screen when Android will not prompt again. */
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        Context context = getContext();
+        Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(Uri.parse("package:" + context.getPackageName()));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(intent);
+            call.resolve();
+        } catch (Exception ex) {
+            call.reject("CANNOT_OPEN_APP_SETTINGS", ex.getMessage());
+        }
     }
 
     /** Last fix is kept on disk so a page reload can show where the officer is immediately. */

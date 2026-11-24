@@ -8,6 +8,7 @@ export type StatusCardState =
   | 'outside'
   | 'checked-in'
   | 'gps-denied'
+  | 'gps-off'
   | 'gps-searching'
   | 'offline'
   | 'unassigned'
@@ -19,6 +20,8 @@ interface StatusCardProps {
   checkInTime?: string
   elapsedFormatted?: string
   onRetryGps?: () => void
+  onOpenLocationSettings?: () => void
+  onOpenAppSettings?: () => void
 }
 
 export function StatusCard({
@@ -28,6 +31,8 @@ export function StatusCard({
   checkInTime = 'Just now',
   elapsedFormatted = '00:00:00',
   onRetryGps,
+  onOpenLocationSettings,
+  onOpenAppSettings,
 }: StatusCardProps) {
   // 1. Checked-in state
   if (state === 'checked-in') {
@@ -62,7 +67,7 @@ export function StatusCard({
     )
   }
 
-  // 2. GPS Denied
+  // 2. GPS permission denied
   if (state === 'gps-denied') {
     return (
       <div
@@ -74,20 +79,75 @@ export function StatusCard({
         </div>
         <div className="flex-1">
           <div className="text-[15px] font-bold text-red-400">
-            Location access required
+            Allow location to check in
           </div>
           <p className="text-[13px] text-slate-300 mt-1 leading-relaxed">
-            WAEC regulations require GPS verification. Please allow location access in your browser settings to verify attendance.
+            WAEC needs your phone&apos;s location to confirm you reached the centre. Choose
+            &ldquo;Precise location&rdquo; for WAEC Field, then try again.
           </p>
-          {onRetryGps && (
-            <button
-              type="button"
-              onClick={onRetryGps}
-              className="mt-2.5 px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-semibold border border-red-500/40 transition cursor-pointer"
-            >
-              Retry GPS permission
-            </button>
-          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {onRetryGps && (
+              <button
+                type="button"
+                onClick={onRetryGps}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-200 text-xs font-semibold border border-red-500/40 transition cursor-pointer"
+              >
+                Allow and try again
+              </button>
+            )}
+            {onOpenAppSettings && (
+              <button
+                type="button"
+                onClick={onOpenAppSettings}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-transparent hover:bg-white/5 text-slate-300 text-xs font-semibold border border-slate-600 transition cursor-pointer"
+              >
+                Open app settings
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // 2b. Phone location services switched off
+  if (state === 'gps-off') {
+    return (
+      <div
+        role="alert"
+        className="w-full rounded-2xl bg-[#1C1612] border border-amber-500/30 p-4 flex items-start gap-3.5 text-zinc-100 shadow-md select-none"
+      >
+        <div className="size-11 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5">
+          <AlertCircle className="size-6 text-amber-400" />
+        </div>
+        <div className="flex-1">
+          <div className="text-[15px] font-bold text-amber-300">
+            Location is switched off
+          </div>
+          <p className="text-[13px] text-slate-300 mt-1 leading-relaxed">
+            Turn on Location on this phone, then come back. WAEC cannot confirm where you are
+            while it is off.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {onOpenLocationSettings && (
+              <button
+                type="button"
+                onClick={onOpenLocationSettings}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-semibold border border-amber-500/40 transition cursor-pointer"
+              >
+                Open phone settings
+              </button>
+            )}
+            {onRetryGps && (
+              <button
+                type="button"
+                onClick={onRetryGps}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-transparent hover:bg-white/5 text-slate-300 text-xs font-semibold border border-slate-600 transition cursor-pointer"
+              >
+                Try again
+              </button>
+            )}
+          </div>
         </div>
       </div>
     )

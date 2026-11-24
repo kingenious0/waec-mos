@@ -7,6 +7,7 @@
  * Nothing in here fabricates a position or a device check.
  */
 import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import { Geolocation } from '@capacitor/geolocation'
 
 export type DetectionMode = 'web-foreground' | 'native-background'
 
@@ -17,6 +18,18 @@ export interface NativePosition {
   timestamp: number
   mock: boolean
 }
+
+/** What the native layer actually knows about location readiness. */
+export interface NativeLocationStatus {
+  permission: 'granted' | 'denied' | 'prompt'
+  locationServicesEnabled: boolean
+  running: boolean
+}
+
+/** Outcome of the permission preflight, in plain language for the field UI. */
+export type NativeLocationReady =
+  | { ok: true }
+  | { ok: false; reason: 'permission-denied' | 'location-services-off' | 'unavailable' }
 
 export interface DeviceIntegritySignal {
   mockLocationSetting: boolean
@@ -38,8 +51,11 @@ interface FieldLocationPluginApi {
   }): Promise<{ started: boolean }>
   stop(): Promise<{ started: boolean }>
   isRunning(): Promise<{ running: boolean }>
+  getStatus(): Promise<NativeLocationStatus>
   getLastKnown(): Promise<Partial<NativePosition>>
   getIntegrity(): Promise<DeviceIntegritySignal>
+  openLocationSettings(): Promise<void>
+  openAppSettings(): Promise<void>
   addListener(
     eventName: 'position',
     listenerFunc: (position: NativePosition) => void
@@ -69,6 +85,61 @@ export function isNativeFieldApp(): boolean {
 
 export function detectionMode(): DetectionMode {
   return isNativeFieldApp() ? 'native-background' : 'web-foreground'
+}
+
+/** Read the real Android state; never infer it from a failed GPS fix. */
+export async function getNativeLocationStatus(): Promise<NativeLocationStatus | null> {
+  if (!isNativeFieldApp()) return null
+  try {
+    return await fieldLocation.getStatus()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ask for Android location permission through Capacitor's supported plugin.
+ * This guarantees a system prompt even when the foreground-service plugin is
+ * unavailable, and maps a switched-off phone to a different recovery step.
+ */
+export async function ensureNativeLocationReady(): Promise<NativeLocationReady> {
+  if (!isNativeFieldApp()) return { ok: false, reason: 'unavailable' }
+
+  const status = await getNativeLocationStatus()
+  if (status && !status.locationServicesEnabled) {
+    return { ok: false, reason: 'location-services-off' }
+  }
+
+  try {
+    const permission = await Geolocation.requestPermissions({ permissions: ['location'] })
+    const granted = permission.location === 'granted' || permission.coarseLocation === 'granted'
+    return granted ? { ok: true } : { ok: false, reason: 'permission-denied' }
+  } catch {
+    // Capacitor throws here when the phone's Location switch is off.
+    const after = await getNativeLocationStatus()
+    if (after && !after.locationServicesEnabled) {
+      return { ok: false, reason: 'location-services-off' }
+    }
+    return { ok: false, reason: 'unavailable' }
+  }
+}
+
+export async function openPhoneLocationSettings(): Promise<void> {
+  if (!isNativeFieldApp()) return
+  try {
+    await fieldLocation.openLocationSettings()
+  } catch {
+    // Nothing else to do; the officer can still use the phone's Settings app.
+  }
+}
+
+export async function openAppLocationSettings(): Promise<void> {
+  if (!isNativeFieldApp()) return
+  try {
+    await fieldLocation.openAppSettings()
+  } catch {
+    // Nothing else to do; the officer can still use the phone's Settings app.
+  }
 }
 
 export async function startNativeTracking(intervalMs = 10000): Promise<boolean> {

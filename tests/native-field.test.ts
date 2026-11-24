@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   detectionMode,
+  ensureNativeLocationReady,
   integrityWarnings,
   isNativeFieldApp,
   type DeviceIntegritySignal,
@@ -28,6 +29,13 @@ describe('native detection mode', () => {
   it('reports web foreground detection outside a native WebView', () => {
     expect(isNativeFieldApp()).toBe(false)
     expect(detectionMode()).toBe('web-foreground')
+  })
+
+  it('never asks for native permission on the web', async () => {
+    await expect(ensureNativeLocationReady()).resolves.toEqual({
+      ok: false,
+      reason: 'unavailable',
+    })
   })
 })
 

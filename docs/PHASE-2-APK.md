@@ -39,6 +39,15 @@ The foreground service streams raw fixes to the web app through a `FieldLocation
 
 Permissions are limited to what is used: coarse/fine location, foreground service + location foreground service, and notifications (Android 13+). There is no `ACCESS_BACKGROUND_LOCATION` request — the visible foreground service is what keeps tracking alive.
 
+### Location permission fix
+
+An earlier build could show **Location access required** without ever showing Android's permission dialog. Two mistakes caused it:
+
+1. `FieldLocationPlugin` was registered **after** `super.onCreate()`. Capacitor creates the bridge and injects `window.Capacitor.Plugins` inside `super.onCreate()`, so the plugin was invisible to JavaScript and the first native call rejected before any permission request.
+2. The field screen treated an empty/failed `getLastKnown()` cache read (normal on a fresh install) as a denial and skipped starting tracking.
+
+The plugin is now registered before `super.onCreate()`. The screen performs a real permission preflight through Capacitor's Geolocation plugin, distinguishes **permission denied** from **phone Location switched off**, and can open the correct settings screen. Retry now rebuilds the whole watcher so the position listener is restored too.
+
 Honesty rules:
 
 - The field screen says plainly whether it is in **background-capable APK** mode or **web foreground-only** mode.

@@ -27,11 +27,14 @@ import { impliedSpeedKmh } from '@/lib/field/geo'
 import { resolveEventMs, shouldRetryArrivalDelivery } from '@/lib/field/event-time'
 import {
   detectionMode,
+  ensureNativeLocationReady,
   getDeviceIntegrity,
   getLastNativePosition,
   integrityWarnings,
   isNativeFieldApp,
   onNativePosition,
+  openAppLocationSettings,
+  openPhoneLocationSettings,
   startNativeTracking,
   stopNativeTracking,
   type DetectionMode,
@@ -117,7 +120,7 @@ export default function FieldPage() {
     accuracy: number
     speedKmh: number
   } | null>(null)
-  const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'denied'>('searching')
+  const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'denied' | 'off'>('searching')
   const [activeDetection, setActiveDetection] = useState<DetectionMode>(() => detectionMode())
   const [deviceWarnings, setDeviceWarnings] = useState<string[]>([])
 
@@ -163,6 +166,7 @@ export default function FieldPage() {
   const initialSosPromptShownRef = useRef<boolean>(false)
   const initialTelemetrySentRef = useRef<string>('')
   const lastNativeFixRef = useRef<{ lat: number; lng: number; atMs: number } | null>(null)
+  const gpsCleanupRef = useRef<(() => void) | null>(null)
 
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setFieldFeedback({ type, message })
@@ -226,7 +230,17 @@ export default function FieldPage() {
 
       void (async () => {
         try {
-          const last = await getLastNativePosition()
+          // Ask Android first. This is the prompt the officer said never appeared.
+          const ready = await ensureNativeLocationReady()
+          if (cancelled) return
+          if (!ready.ok) {
+            setDeviceGpsActive(false)
+            setGpsStatus(ready.reason === 'location-services-off' ? 'off' : 'denied')
+            return
+          }
+
+          // No cached fix on a fresh install is normal, not a permission denial.
+          const last = await getLastNativePosition().catch(() => null)
           if (last && !cancelled) {
             lastNativeFixRef.current = {
               lat: last.latitude,
@@ -235,6 +249,8 @@ export default function FieldPage() {
             }
             applyFix(last.latitude, last.longitude, last.accuracy, 0)
           }
+          if (cancelled) return
+
           listener = await onNativePosition((fix: NativePosition) => {
             if (cancelled) return
             const previous = lastNativeFixRef.current
@@ -253,7 +269,16 @@ export default function FieldPage() {
             }
             applyFix(fix.latitude, fix.longitude, fix.accuracy, speedKmh)
           })
-          await startNativeTracking()
+          if (cancelled) {
+            void listener?.remove()
+            return
+          }
+
+          const started = await startNativeTracking()
+          if (!started && !cancelled) {
+            setDeviceGpsActive(false)
+            setGpsStatus('denied')
+          }
         } catch {
           if (!cancelled) {
             setDeviceGpsActive(false)
@@ -301,20 +326,22 @@ export default function FieldPage() {
   }, [applyFix])
 
   useEffect(() => {
-    const cleanup = startGpsWatch()
+    gpsCleanupRef.current = startGpsWatch() ?? null
     return () => {
-      if (cleanup) cleanup()
+      gpsCleanupRef.current?.()
+      gpsCleanupRef.current = null
     }
   }, [startGpsWatch])
 
+  /** Full restart, so a retry also reinstalls the position listener. */
+  const restartGpsWatch = () => {
+    gpsCleanupRef.current?.()
+    gpsCleanupRef.current = startGpsWatch() ?? null
+  }
+
   const handleRetryGps = () => {
     if (isNativeFieldApp()) {
-      setGpsStatus('searching')
-      void startNativeTracking()
-        .then((ok) => {
-          if (!ok) setGpsStatus('denied')
-        })
-        .catch(() => setGpsStatus('denied'))
+      restartGpsWatch()
       return
     }
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return
@@ -340,6 +367,14 @@ export default function FieldPage() {
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  }
+
+  const handleOpenPhoneLocationSettings = () => {
+    void openPhoneLocationSettings()
+  }
+
+  const handleOpenAppLocationSettings = () => {
+    void openAppLocationSettings()
   }
 
   // Track responsive screen size to mount Leaflet only in the visible layout
@@ -878,6 +913,8 @@ export default function FieldPage() {
     ? 'unassigned'
     : gpsStatus === 'denied'
     ? 'gps-denied'
+    : gpsStatus === 'off'
+    ? 'gps-off'
     : !liveCoords || gpsStatus === 'searching'
     ? 'gps-searching'
     : isInside
@@ -1615,6 +1652,8 @@ export default function FieldPage() {
               checkInTime={checkInTimestamp || 'Just now'}
               elapsedFormatted={formatTimer(shiftSeconds)}
               onRetryGps={handleRetryGps}
+              onOpenLocationSettings={handleOpenPhoneLocationSettings}
+              onOpenAppSettings={handleOpenAppLocationSettings}
             />
             <div className="rounded-xl border border-[#161B2B] bg-[#0B0E18] px-3.5 py-2.5">
               {detectionNote}
@@ -1732,6 +1771,8 @@ export default function FieldPage() {
               checkInTime={checkInTimestamp || 'Just now'}
               elapsedFormatted={formatTimer(shiftSeconds)}
               onRetryGps={handleRetryGps}
+              onOpenLocationSettings={handleOpenPhoneLocationSettings}
+              onOpenAppSettings={handleOpenAppLocationSettings}
             />
             {detectionNote}
 
