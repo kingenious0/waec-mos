@@ -130,6 +130,7 @@ export async function GET(request: Request) {
         centerId: schema.dailySchoolAssignments.centerId,
         source: schema.dailySchoolAssignments.source,
         assignedBy: schema.dailySchoolAssignments.assignedBy,
+        groupId: schema.dailySchoolAssignments.groupId,
       })
       .from(schema.dailySchoolAssignments)
       .where(and(eq(schema.dailySchoolAssignments.officerId, officerId), eq(schema.dailySchoolAssignments.date, todayStr)))
@@ -138,10 +139,36 @@ export async function GET(request: Request) {
     const planCenterId = planRow?.centerId || null
     const planSource = planRow?.source || null
 
+    // Determine if the officer belongs to a group and if the group has a plan for today.
+    const officerUserRow = await db
+      .select({ groupName: schema.user.groupName, isGroupLeader: schema.user.isGroupLeader })
+      .from(schema.user)
+      .where(eq(schema.user.id, officerId))
+      .limit(1)
+    const me = officerUserRow[0]
+    let groupCenterId: string | null = null
+
+    if (me?.groupName) {
+      // Check if the group has a daily assignment for today (source = 'leader').
+      const groupPlan = await db
+        .select({ centerId: schema.dailySchoolAssignments.centerId })
+        .from(schema.dailySchoolAssignments)
+        .where(
+          and(
+            eq(schema.dailySchoolAssignments.groupId, me.groupName),
+            eq(schema.dailySchoolAssignments.date, todayStr)
+          )
+        )
+        .limit(1)
+      groupCenterId = groupPlan[0]?.centerId || null
+    }
+    const effectivePlanCenterId = groupCenterId || planCenterId || null
+
     // Venue — today's plan wins, then the winning deployment's centre.
+    // Group plan takes priority over individual officer plan.
     let venue: any = null
-    if (planCenterId || deployment?.centerId) {
-      const venueCenterId = planCenterId || deployment?.centerId as string
+    if (effectivePlanCenterId || deployment?.centerId) {
+      const venueCenterId = effectivePlanCenterId || deployment?.centerId as string
       const centreRows = await db
         .select({
           id: schema.examinationCenters.id,

@@ -1463,6 +1463,8 @@ export default function FieldPage() {
     pendingArrival && !Number.isNaN(pendingArrivalMs)
       ? Math.max(0, Math.floor((nowTick - pendingArrivalMs) / 60_000))
       : 0
+  // If the officer is already checked in, the arrival is considered confirmed;
+  // do not show the confirmation notice even if the 10-min grace period passed.
   const isConfirmationOverdue =
     Boolean(pendingArrival && !pendingArrival.confirmed && !isCheckedIn) &&
     unconfirmedMinutes >= UNCONFIRMED_GRACE_MS / 60_000

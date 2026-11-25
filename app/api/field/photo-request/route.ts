@@ -192,7 +192,7 @@ export async function POST(request: Request) {
       }
 
       const evidence = await db
-        .select({ id: schema.evidencePhotos.id })
+        .select({ id: schema.evidencePhotos.id, centerId: schema.evidencePhotos.centerId })
         .from(schema.evidencePhotos)
         .where(
           and(
@@ -208,6 +208,8 @@ export async function POST(request: Request) {
           { status: 422 }
         )
       }
+      // If the evidence photo has a centerId, prefer it; otherwise evidenceCenterId stays null.
+      const evidenceCenterId = evidence[0].centerId || null
 
       await db
         .update(schema.photoRequests)
