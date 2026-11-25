@@ -130,11 +130,22 @@ export async function POST(request: Request) {
       .delete(schema.dailySchoolAssignments)
       .where(and(eq(schema.dailySchoolAssignments.officerId, officerId), eq(schema.dailySchoolAssignments.date, today)))
 
+    // Determine groupId: if the caller is a leader setting a teammate's school,
+    // inherit the target officer's group; otherwise groupId stays null (individual plan).
+    let groupId: string | null = null
+    if (parsed.data.officerId && parsed.data.officerId !== caller.id) {
+      const targetUser = await db
+        .select({ groupName: schema.user.groupName })
+        .from(schema.user)
+        .where(eq(schema.user.id, officerId))
+        .limit(1)
+      groupId = targetUser[0]?.groupName || null
+    }
     const inserted = await db
       .insert(schema.dailySchoolAssignments)
       .values({
         id: `plan-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        groupId: null,
+        groupId,
         officerId,
         centerId,
         date: today,
