@@ -182,11 +182,21 @@ function lastSeenWhere(o: FleetOfficer): string {
   return `${Math.max(1, Math.round(d))} m from the centre`
 }
 
+/**
+ * A signed-in officer is confirmed even when only the duty check-in reached
+ * HQ. Never call that arrival "unconfirmed" on the map or in a drawer.
+ */
+export function officerArrivalConfirmed(o: FleetOfficer): boolean {
+  if (o.todayArrival?.confirmedAt) return true
+  if (o.status !== 'ON_SITE' && o.assignmentStatus !== 'ON_SITE') return false
+  return Boolean(o.verifiedTime)
+}
+
 /** Meta line under the name. SOS always overrides; stale replaces status. */
 function markerMetaLine(o: FleetOfficer): string {
   if (o.status === 'SOS') return 'Needs help now'
-  if (o.todayArrival && !o.todayArrival.confirmedAt) {
-    return `Arrived ${timeOfDay(o.todayArrival.at)} — unconfirmed`
+  if (o.todayArrival && !officerArrivalConfirmed(o)) {
+    return `Arrived ${timeOfDay(o.todayArrival.at)} — not signed in`
   }
   if (o.todayDeparture) {
     const note = o.todayDeparture.duringPaper ? 'Left early' : 'Finished'
@@ -626,7 +636,7 @@ export default function FleetMap({
         const isSos = officer.status === 'SOS'
         const atCentre = isOfficerAtCentre(officer)
         const stale = isTelemetryStale(officer)
-        const arrivedUnconfirmed = Boolean(officer.todayArrival && !officer.todayArrival.confirmedAt)
+        const arrivedUnconfirmed = Boolean(officer.todayArrival && !officerArrivalConfirmed(officer))
         const departedToday = Boolean(officer.todayDeparture)
         const lineName = markerLineName(officer.name || '')
         const meta = markerMetaLine(officer)
@@ -821,8 +831,8 @@ export default function FleetMap({
   const daySummary: ArrivalsSummary = summary ?? {
     assigned: officers.length,
     arrived: officers.filter((o) => Boolean(o.todayArrival)).length,
-    confirmed: officers.filter((o) => Boolean(o.todayArrival?.confirmedAt)).length,
-    unconfirmed: 0,
+    confirmed: officers.filter((o) => Boolean(o.todayArrival) && officerArrivalConfirmed(o)).length,
+    unconfirmed: officers.filter((o) => Boolean(o.todayArrival) && !officerArrivalConfirmed(o)).length,
     enRoute: 0,
   }
   const arrivedPct =
@@ -1012,7 +1022,7 @@ export default function FleetMap({
               Map Legend
             </span>
             <LegendItem color="#10B981" label="Officer on site" />
-            <LegendItem color="#F59E0B" label="Arrived — unconfirmed" />
+            <LegendItem color="#F59E0B" label="Arrived — not signed in" />
             <LegendItem color="#38bdf8" label="Officer en route" />
             <LegendSosItem />
             <LegendStaleItem />

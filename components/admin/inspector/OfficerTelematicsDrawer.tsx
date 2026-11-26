@@ -2,7 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { Phone, Clock, Flag, X, Siren, Check, Camera, Maximize2, Download, AlertTriangle, Pencil } from 'lucide-react'
-import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
+import {
+  getOfficerUnitCode,
+  officerArrivalConfirmed,
+  type FleetOfficer,
+} from '@/components/admin/FleetMap'
+import { useOfficerPhotoProof } from './use-officer-photo-proof'
 
 interface OfficerTelematicsDrawerProps {
   officer: FleetOfficer | null
@@ -36,11 +41,6 @@ function timeOfDay(iso?: string | null): string {
   })
 }
 
-interface PhotoMeta {
-  watermark: string
-  createdAt: string
-}
-
 export function OfficerTelematicsDrawer({
   officer,
   onCallOfficer,
@@ -53,7 +53,6 @@ export function OfficerTelematicsDrawer({
   onChangeSchool,
   onRequestPhoto,
 }: OfficerTelematicsDrawerProps) {
-  const [photoMeta, setPhotoMeta] = useState<PhotoMeta | null>(null)
   const [photoFailed, setPhotoFailed] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [proofReason, setProofReason] = useState<string>(PROOF_REQUEST_REASONS[0])
@@ -62,29 +61,15 @@ export function OfficerTelematicsDrawer({
   const [savingSchool, setSavingSchool] = useState(false)
 
   const officerId = officer?.id
+  // Pinned to the exact photo that fulfilled the latest request, when one exists.
+  const proofPhoto = useOfficerPhotoProof(officerId)
+  const photoMeta = proofPhoto.meta
 
-  // Metadata (watermark + timestamp) for the newest photo — shown as the receipt.
   useEffect(() => {
-    setPhotoMeta(null)
     setPhotoFailed(false)
     setLightboxOpen(false)
     setSchoolPickerOpen(false)
     setSavingSchool(false)
-    if (!officerId) return
-    let cancelled = false
-    fetch(`/api/field/evidence?officerId=${encodeURIComponent(officerId)}`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data?.photos?.length) return
-        const latest = data.photos[0]
-        setPhotoMeta({ watermark: latest.watermark || '', createdAt: latest.createdAt || '' })
-      })
-      .catch(() => {
-        /* caption stays hidden — the thumbnail itself is the primary signal */
-      })
-    return () => {
-      cancelled = true
-    }
   }, [officerId])
 
   // Escape closes the lightbox
@@ -104,6 +89,7 @@ export function OfficerTelematicsDrawer({
   const unitCode = getOfficerUnitCode(officer)
   const isSos = officer.status === 'SOS'
   const isOnSite = officer.status === 'ON_SITE'
+  const arrivalConfirmed = officerArrivalConfirmed(officer)
   const radiusMeters = officer.centerRadius || 150
   const dist = officer.distanceFromDatum
 
@@ -162,7 +148,8 @@ export function OfficerTelematicsDrawer({
   const checkpoints = officer.checkpoints || []
   const sosAcknowledged = (officer.sosStatus || '').toUpperCase() === 'ACKNOWLEDGED'
 
-  const photoUrl = `/api/field/evidence?officerId=${encodeURIComponent(officer.id)}&latest=1`
+  const photoUrl = proofPhoto.url || ''
+  const showNoPhoto = photoFailed || !photoUrl
   const photoTimeLabel = photoMeta?.createdAt
     ? new Date(photoMeta.createdAt).toLocaleString('en-GB', {
         day: 'numeric',
@@ -515,14 +502,14 @@ export function OfficerTelematicsDrawer({
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] leading-snug border-t border-white/5 pt-2">
               {officer.todayArrival && (
                 <span className={`inline-flex items-center gap-1.5 font-semibold ${
-                  officer.todayArrival.confirmedAt ? 'text-emerald-400' : 'text-amber-300'
+                  arrivalConfirmed ? 'text-emerald-400' : 'text-amber-300'
                 }`}>
                   <span className={`size-1.5 rounded-full ${
-                    officer.todayArrival.confirmedAt ? 'bg-emerald-400' : 'bg-amber-400'
+                    arrivalConfirmed ? 'bg-emerald-400' : 'bg-amber-400'
                   }`} />
-                  {officer.todayArrival.confirmedAt
+                  {arrivalConfirmed
                     ? `Arrived ${timeOfDay(officer.todayArrival.at)} · confirmed`
-                    : `Arrived ${timeOfDay(officer.todayArrival.at)} (app opened)`}
+                    : `Arrived ${timeOfDay(officer.todayArrival.at)} (not signed in)`}
                 </span>
               )}
               {officer.todayDeparture && (
@@ -551,7 +538,7 @@ export function OfficerTelematicsDrawer({
             )}
           </div>
 
-          {photoFailed ? (
+          {showNoPhoto ? (
             <>
               <div className="mt-2 rounded-xl border border-dashed border-[#2A3048] bg-[#0A0D17]/60 px-4 py-5 text-center">
                 <Camera className="size-5 text-slate-600 mx-auto mb-1.5" />

@@ -3,6 +3,7 @@ import { db, isLiveDatabase, store } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
+import { loadOfficerGroup } from '@/lib/field/groups'
 import { desc, eq, or, asc, sql, inArray, and } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
@@ -139,23 +140,19 @@ export async function GET(request: Request) {
     const planCenterId = planRow?.centerId || null
     const planSource = planRow?.source || null
 
-    // Determine if the officer belongs to a group and if the group has a plan for today.
-    const officerUserRow = await db
-      .select({ groupName: schema.user.groupName, isGroupLeader: schema.user.isGroupLeader })
-      .from(schema.user)
-      .where(eq(schema.user.id, officerId))
-      .limit(1)
-    const me = officerUserRow[0]
+    // Resolve the officer's group to the canonical field_groups.id — never compare
+    // a group id with the human-readable "Group 1" label. Region breaks ties when
+    // two regions both use a familiar group name.
+    const officerGroup = await loadOfficerGroup(officerId)
     let groupCenterId: string | null = null
 
-    if (me?.groupName) {
-      // Check if the group has a daily assignment for today (source = 'leader').
+    if (officerGroup) {
       const groupPlan = await db
         .select({ centerId: schema.dailySchoolAssignments.centerId })
         .from(schema.dailySchoolAssignments)
         .where(
           and(
-            eq(schema.dailySchoolAssignments.groupId, me.groupName),
+            eq(schema.dailySchoolAssignments.groupId, officerGroup.id),
             eq(schema.dailySchoolAssignments.date, todayStr)
           )
         )
@@ -338,7 +335,12 @@ export async function GET(request: Request) {
       isDeployed,
       seriesName,
       venue,
-      plan: planCenterId ? { centerId: planCenterId, source: planSource } : null,
+      group: officerGroup
+        ? { name: officerGroup.name, region: officerGroup.regionName }
+        : null,
+      plan: effectivePlanCenterId
+        ? { centerId: effectivePlanCenterId, source: groupCenterId ? 'leader' : planSource }
+        : null,
       papers,
       timeline: buildTimeline(papers),
       arriveBy,

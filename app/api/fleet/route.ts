@@ -3,7 +3,13 @@ import { db, isLiveDatabase } from '@/lib/db'
 import * as schema from '@/lib/db/schema'
 import { parseOfflineTimeoutMs, parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { requireCommand } from '@/lib/auth/guard'
-import { clockToMinutes, evaluateOfficerDay, summarizeArrivals } from '@/lib/field/exceptions'
+import {
+  clockToMinutes,
+  confirmedArrivalMs,
+  evaluateOfficerDay,
+  isTodayCheckIn,
+  summarizeArrivals,
+} from '@/lib/field/exceptions'
 import { resolveEventMs } from '@/lib/field/event-time'
 import { haversineMeters } from '@/lib/field/geo'
 import { and, desc, eq, ne, gte, inArray, sql } from 'drizzle-orm'
@@ -48,6 +54,7 @@ export async function GET(request: Request) {
         isSosActive: schema.user.isSosActive,
         assignmentId: schema.assignments.id,
         assignmentStatus: schema.assignments.status,
+        assignmentDate: schema.assignments.date,
         checkInTime: schema.assignments.checkInTime,
         checkInDistance: schema.assignments.checkInDistanceMeters,
         checkInLat: schema.assignments.checkInLatitude,
@@ -310,6 +317,19 @@ export async function GET(request: Request) {
       const slot = todayByOfficer.get(r.userId)
       const dayArrival = slot?.arrival
       const dayDeparture = slot?.departure
+      const checkInToday = isTodayCheckIn(
+        r.assignmentStatus,
+        r.assignmentDate,
+        r.checkInTime,
+        todayStr
+      )
+      const checkInTodayAtMs = checkInToday
+        ? r.checkInTime
+          ? new Date(r.checkInTime).getTime()
+          : nowMs
+        : null
+      const arrivalConfirmedAtMs = confirmedArrivalMs(dayArrival?.confirmedAt, checkInTodayAtMs)
+      const arrivalConfirmed = arrivalConfirmedAtMs !== null
       const deploymentCenterId = depCenterByOfficer.get(r.userId) || null
       const deploymentName = deploymentCenterId
         ? depCenterMap.get(deploymentCenterId)?.centerName || null
@@ -323,13 +343,13 @@ export async function GET(request: Request) {
 
       if (dayArrival) {
         arrivedCount += 1
-        if (dayArrival.confirmedAt) confirmedCount += 1
+        if (arrivalConfirmed) confirmedCount += 1
       }
 
       for (const ex of evaluateOfficerDay({
         officerName: r.userName,
         arrivalAtMs: resolveEventMs(dayArrival?.serverTime, dayArrival?.phoneTime),
-        arrivalConfirmed: Boolean(dayArrival?.confirmedAt),
+        arrivalConfirmed,
         departureAtMs: resolveEventMs(dayDeparture?.serverTime, dayDeparture?.phoneTime),
         plannedSchool,
         hasPlan: Boolean(plan),
@@ -404,7 +424,7 @@ export async function GET(request: Request) {
           return {
             at: a.serverTime ? new Date(a.serverTime).toISOString() : null,
             phoneTime: a.phoneTime ? new Date(a.phoneTime).toISOString() : null,
-            confirmedAt: a.confirmedAt ? new Date(a.confirmedAt).toISOString() : null,
+            confirmedAt: arrivalConfirmedAtMs ? new Date(arrivalConfirmedAtMs).toISOString() : null,
             accuracyTier: a.accuracyTier || null,
           }
         })(),

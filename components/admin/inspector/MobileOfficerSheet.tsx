@@ -3,8 +3,13 @@
 import React, { useEffect, useState } from 'react'
 import { Phone, Flag, ChevronDown, Clock, X, AlertTriangle, Pencil, Camera } from 'lucide-react'
 import { formatRelativeTime } from '@/lib/relative-time'
-import { getOfficerUnitCode, type FleetOfficer } from '@/components/admin/FleetMap'
+import {
+  getOfficerUnitCode,
+  officerArrivalConfirmed,
+  type FleetOfficer,
+} from '@/components/admin/FleetMap'
 import { PROOF_REQUEST_REASONS } from '@/lib/field/proof-reasons'
+import { useOfficerPhotoProof } from './use-officer-photo-proof'
 
 /** "07:58" — Ghana is GMT year-round. */
 function timeOfDay(iso?: string | null): string {
@@ -54,16 +59,30 @@ export function MobileOfficerSheet({
   const [pickerCenterId, setPickerCenterId] = useState('')
   const [proofReason, setProofReason] = useState<string>(PROOF_REQUEST_REASONS[0])
   const [busy, setBusy] = useState(false)
+  const [photoFailed, setPhotoFailed] = useState(false)
+  const proofPhoto = useOfficerPhotoProof(officer.id)
 
   useEffect(() => {
     setSchoolPickerOpen(false)
     setPickerCenterId('')
     setProofReason(PROOF_REQUEST_REASONS[0])
     setBusy(false)
+    setPhotoFailed(false)
   }, [officer.id])
 
   const isSos = officer.status === 'SOS'
   const isOnSite = officer.status === 'ON_SITE'
+  const arrivalConfirmed = officerArrivalConfirmed(officer)
+  const photoUrl = proofPhoto.url || ''
+  const photoTimeLabel = proofPhoto.meta?.createdAt
+    ? new Date(proofPhoto.meta.createdAt).toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Africa/Accra',
+      }) + ' GMT'
+    : null
 
   const batteryVal = officer.battery
   const batteryDisplay = typeof batteryVal === 'number' ? `${batteryVal}%` : '--'
@@ -192,14 +211,14 @@ export function MobileOfficerSheet({
     <div className="flex flex-wrap items-center gap-1.5 text-[10px] leading-snug text-slate-400 px-0.5 -mt-1">
       {officer.todayArrival && (
         <span className={`inline-flex items-center gap-1.5 font-semibold ${
-          officer.todayArrival.confirmedAt ? 'text-emerald-400' : 'text-amber-300'
+          arrivalConfirmed ? 'text-emerald-400' : 'text-amber-300'
         }`}>
           <span className={`size-1.5 rounded-full ${
-            officer.todayArrival.confirmedAt ? 'bg-emerald-400' : 'bg-amber-400'
+            arrivalConfirmed ? 'bg-emerald-400' : 'bg-amber-400'
           }`} />
-          {officer.todayArrival.confirmedAt
+          {arrivalConfirmed
             ? `Arrived ${timeOfDay(officer.todayArrival.at)} · confirmed`
-            : `Arrived ${timeOfDay(officer.todayArrival.at)} (app opened)`}
+            : `Arrived ${timeOfDay(officer.todayArrival.at)} (not signed in)`}
         </span>
       )}
       {officer.todayDeparture && (
@@ -388,8 +407,55 @@ export function MobileOfficerSheet({
           <div className="px-4 pb-3 flex flex-col gap-2.5 flex-1 overflow-y-auto">
             {identityHeader}
             {chipsRow}
-          {lifecycleLine}
+            {lifecycleLine}
             {telemetryTiles}
+
+            {/* Watermarked proof — pinned to the photo that answered an ask */}
+            {onRequestPhoto || photoUrl || proofPhoto.meta ? (
+              <div className="rounded-xl border border-[#22263C] bg-[#11131F] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-[10px] font-sans uppercase tracking-wider text-slate-500">
+                    <Camera className="size-3.5 text-slate-500" />
+                    Photo proof
+                  </span>
+                  {photoTimeLabel && (
+                    <span className="text-[10px] text-slate-500 tabular-nums">{photoTimeLabel}</span>
+                  )}
+                </div>
+                {photoUrl && !photoFailed ? (
+                  <a
+                    href={photoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 block overflow-hidden rounded-xl border border-[#22263C] bg-[#0A0D17]"
+                  >
+                    <img
+                      src={photoUrl}
+                      alt={`Watermarked evidence from ${officer.name}`}
+                      loading="lazy"
+                      onError={() => setPhotoFailed(true)}
+                      className="h-32 w-full object-cover"
+                    />
+                    <span className="block px-3 py-2 text-center text-[11px] font-semibold text-sky-300">
+                      Open full photo
+                    </span>
+                  </a>
+                ) : (
+                  <div className="mt-2 rounded-xl border border-dashed border-[#2A3048] bg-[#0A0D17]/60 px-4 py-4 text-center">
+                    <Camera className="size-5 text-slate-600 mx-auto mb-1" />
+                    <p className="text-[11px] font-medium text-slate-400">No photo proof yet</p>
+                    <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                      Appears after the officer takes one at the school
+                    </p>
+                  </div>
+                )}
+                {proofPhoto.meta?.watermark && (
+                  <p className="mt-1.5 text-[10px] leading-snug text-slate-500 line-clamp-2">
+                    {proofPhoto.meta.watermark}
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             {/* Centre correction + rare proof request */}
             {(schoolOptions.length > 0 && onChangeSchool) || onRequestPhoto ? (

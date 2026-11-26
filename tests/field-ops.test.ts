@@ -18,6 +18,8 @@ import {
   formatGmtTime,
   minutesOfDay,
   summarizeArrivals,
+  confirmedArrivalMs,
+  isTodayCheckIn,
   UNCONFIRMED_GRACE_MS,
   type OfficerDayInput,
 } from '@/lib/field/exceptions'
@@ -25,6 +27,8 @@ import { PRESENT_REASONS, isPresentReason } from '@/lib/field/present-reasons'
 import { PROOF_REQUEST_REASONS, isProofRequestReason } from '@/lib/field/proof-reasons'
 import { resolveEventMs, shouldRetryArrivalDelivery } from '@/lib/field/event-time'
 import { roleKind } from '@/lib/auth/guard'
+import { chooseGroupId, filterGroupOfficers } from '@/lib/field/group-assignment'
+import { evidencePhotoUrl, selectFulfillmentEvidenceId } from '@/lib/field/evidence-link'
 
 const baseDay = (overrides: Partial<OfficerDayInput> = {}): OfficerDayInput => ({
   officerName: 'Elliot',
@@ -216,5 +220,118 @@ describe('arrivals summary', () => {
       unconfirmed: 0,
       enRoute: 0,
     })
+  })
+})
+
+describe('group → region → school assignment', () => {
+  const groups = [
+    { id: 'group-kumasi', name: 'Group 1', regionId: 'ashanti' },
+    { id: 'group-accra', name: 'Group 1', regionId: 'greater-accra' },
+  ]
+  const officers = [
+    { id: 'usr-kumasi', groupName: 'group 1', regionId: 'ashanti' },
+    { id: 'usr-accra', groupName: 'Group 1', regionId: 'greater-accra' },
+    { id: 'usr-unposted', groupName: 'Group 1', regionId: null },
+  ]
+
+  it('resolves the canonical group id using the officer region', () => {
+    expect(chooseGroupId(groups, 'GROUP 1', 'greater-accra')).toBe('group-accra')
+    expect(chooseGroupId(groups, 'Group 1', 'ashanti')).toBe('group-kumasi')
+    expect(chooseGroupId(groups, '', 'ashanti')).toBeNull()
+  })
+
+  it('never gives one region another region’s group officers', () => {
+    const kumasi = groups[0]
+    expect(filterGroupOfficers(officers, kumasi).map((o) => o.id)).toEqual([
+      'usr-kumasi',
+      'usr-unposted',
+    ])
+    expect(filterGroupOfficers(officers, kumasi, 'usr-accra')).toEqual([])
+  })
+})
+
+describe('photo proof fulfilment', () => {
+  const photos = [
+    { id: 'photo-new', officerId: 'usr-1', createdAt: '2026-11-21T09:00:00.000Z' },
+    { id: 'photo-answer', officerId: 'usr-1', createdAt: '2026-11-21T08:00:00.000Z' },
+  ]
+
+  it('pins a fulfilled request to the stored evidence id', () => {
+    expect(
+      selectFulfillmentEvidenceId(
+        {
+          status: 'FULFILLED',
+          evidenceId: 'photo-answer',
+          officerId: 'usr-1',
+          createdAt: '2026-11-21T07:55:00.000Z',
+        },
+        photos
+      )
+    ).toBe('photo-answer')
+  })
+
+  it('accepts a later photo for a pending request but ignores other officers', () => {
+    expect(
+      selectFulfillmentEvidenceId(
+        {
+          status: 'PENDING',
+          evidenceId: null,
+          officerId: 'usr-1',
+          createdAt: '2026-11-21T07:55:00.000Z',
+        },
+        photos
+      )
+    ).toBe('photo-new')
+    expect(
+      selectFulfillmentEvidenceId(
+        {
+          status: 'PENDING',
+          evidenceId: null,
+          officerId: 'usr-2',
+          createdAt: '2026-11-21T07:55:00.000Z',
+        },
+        photos
+      )
+    ).toBeNull()
+  })
+
+  it('streams the exact photo when HQ views a fulfilled proof request', () => {
+    expect(evidencePhotoUrl('usr-1', 'photo-answer')).toBe(
+      '/api/field/evidence?officerId=usr-1&evidenceId=photo-answer&latest=1'
+    )
+    expect(evidencePhotoUrl('usr-1')).toBe('/api/field/evidence?officerId=usr-1&latest=1')
+  })
+})
+
+describe('check-in confirmation', () => {
+  const today = '2026-11-21'
+
+  it('counts today’s ON_SITE check-in as a real confirmation', () => {
+    expect(
+      isTodayCheckIn('ON_SITE', '2026-11-20', `${today}T08:00:00.000Z`, today)
+    ).toBe(true)
+    expect(confirmedArrivalMs(null, Date.parse(`${today}T08:00:00.000Z`))).toBe(
+      Date.parse(`${today}T08:00:00.000Z`)
+    )
+  })
+
+  it('still flags an old or absent check-in', () => {
+    expect(isTodayCheckIn('ON_SITE', '2026-11-20', null, today)).toBe(false)
+    expect(isTodayCheckIn('PENDING', today, `${today}T08:00:00.000Z`, today)).toBe(false)
+    expect(confirmedArrivalMs(null, null)).toBeNull()
+  })
+
+  it('never reports an unconfirmed exception once the officer signed in', () => {
+    const arrivalAtMs = Date.parse(`${today}T07:50:00Z`)
+    const checkInMs = Date.parse(`${today}T08:00:00Z`)
+    expect(
+      evaluateOfficerDay(
+        baseDay({
+          arrivalAtMs,
+          arrivalConfirmed: confirmedArrivalMs(null, checkInMs) !== null,
+          nowMs: arrivalAtMs + 60 * 60_000,
+        })
+      )
+    ).toEqual([])
   })
 })

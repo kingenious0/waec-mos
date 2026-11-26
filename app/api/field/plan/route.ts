@@ -4,6 +4,7 @@ import * as schema from '@/lib/db/schema'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { recordAuditLog } from '@/lib/db/audit'
 import { canActOnOfficer } from '@/lib/field/team-access'
+import { loadOfficerGroup } from '@/lib/field/groups'
 import { desc, eq, and, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -130,16 +131,12 @@ export async function POST(request: Request) {
       .delete(schema.dailySchoolAssignments)
       .where(and(eq(schema.dailySchoolAssignments.officerId, officerId), eq(schema.dailySchoolAssignments.date, today)))
 
-    // Determine groupId: if the caller is a leader setting a teammate's school,
-    // inherit the target officer's group; otherwise groupId stays null (individual plan).
+    // A leader assigning a teammate writes a group plan, tagged with the real
+    // field_groups.id. An officer choosing their own school stays individual.
     let groupId: string | null = null
     if (parsed.data.officerId && parsed.data.officerId !== caller.id) {
-      const targetUser = await db
-        .select({ groupName: schema.user.groupName })
-        .from(schema.user)
-        .where(eq(schema.user.id, officerId))
-        .limit(1)
-      groupId = targetUser[0]?.groupName || null
+      const officerGroup = await loadOfficerGroup(officerId)
+      groupId = officerGroup?.id || null
     }
     const inserted = await db
       .insert(schema.dailySchoolAssignments)

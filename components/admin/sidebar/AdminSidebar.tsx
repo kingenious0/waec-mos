@@ -11,11 +11,30 @@ import {
   Settings,
   ShieldCheck,
   CalendarDays,
+  UsersRound,
 } from 'lucide-react'
 
 interface AdminSidebarProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable') => void
+  activeTab:
+    | 'map'
+    | 'directory'
+    | 'centers'
+    | 'incidents'
+    | 'settings'
+    | 'safety'
+    | 'timetable'
+    | 'groups'
+  onSelectTab: (
+    tab:
+      | 'map'
+      | 'directory'
+      | 'centers'
+      | 'incidents'
+      | 'settings'
+      | 'safety'
+      | 'timetable'
+      | 'groups'
+  ) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   sosCount: number
@@ -59,6 +78,11 @@ export function AdminSidebar({
       id: 'centers' as const,
       label: 'Exam centres',
       icon: Building2,
+    },
+    {
+      id: 'groups' as const,
+      label: 'Field groups',
+      icon: UsersRound,
     },
     {
       id: 'incidents' as const,

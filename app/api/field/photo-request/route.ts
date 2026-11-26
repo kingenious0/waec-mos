@@ -5,7 +5,7 @@ import { recordAuditLog } from '@/lib/db/audit'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
 import { canActOnOfficer } from '@/lib/field/team-access'
 import { isProofRequestReason } from '@/lib/field/proof-reasons'
-import { and, desc, eq, gte, or } from 'drizzle-orm'
+import { and, desc, eq, gte, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -49,6 +49,9 @@ export async function GET(request: Request) {
     if (!isLiveDatabase || !db) return NextResponse.json({ requests: [] })
 
     const kind = roleKind(caller.role)
+    const { searchParams } = new URL(request.url)
+    const officerParam = searchParams.get('officerId')
+    const scopedByOfficer = kind !== 'officer' && Boolean(officerParam)
     const selection = {
       id: schema.photoRequests.id,
       officerId: schema.photoRequests.officerId,
@@ -79,12 +82,24 @@ export async function GET(request: Request) {
         ? await db
             .select(selection)
             .from(schema.photoRequests)
+            .where(
+              scopedByOfficer
+                ? eq(schema.photoRequests.officerId, officerParam!)
+                : sql`true`
+            )
             .orderBy(order)
             .limit(50)
         : await db
             .select(selection)
             .from(schema.photoRequests)
-            .where(eq(schema.photoRequests.requesterId, caller.id))
+            .where(
+              and(
+                eq(schema.photoRequests.requesterId, caller.id),
+                scopedByOfficer
+                  ? eq(schema.photoRequests.officerId, officerParam!)
+                  : sql`true`
+              )
+            )
             .orderBy(order)
             .limit(50)
 

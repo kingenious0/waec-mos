@@ -5,7 +5,7 @@ import { parseGeofenceRadiusMeters } from '@/lib/settings-utils'
 import { recordAuditLog } from '@/lib/db/audit'
 import { checkinSchema } from '@/lib/validation-schemas'
 import { getServerUser, roleKind } from '@/lib/auth/guard'
-import { desc, eq, asc, sql, or, and } from 'drizzle-orm'
+import { desc, eq, asc, sql, or, and, gte } from 'drizzle-orm'
 
 export async function POST(request: Request) {
   try {
@@ -232,6 +232,48 @@ export async function POST(request: Request) {
                 updatedAt: now,
               })
           }
+        }
+
+        // A completed check-in is a human confirmation of presence. Confirm
+        // today's auto-detected arrival so HQ never shows "unconfirmed" after
+        // the officer has signed in at the centre.
+        const todayStart = new Date(`${todayStr}T00:00:00.000Z`)
+        const todayArrivals = await db
+          .select({ id: schema.arrivalEvents.id })
+          .from(schema.arrivalEvents)
+          .where(
+            and(
+              eq(schema.arrivalEvents.officerId, officerId),
+              eq(schema.arrivalEvents.kind, 'ARRIVAL'),
+              gte(schema.arrivalEvents.serverTime, todayStart),
+              sql`${schema.arrivalEvents.confirmedAt} IS NULL`
+            )
+          )
+          .orderBy(desc(schema.arrivalEvents.serverTime))
+          .limit(1)
+        if (todayArrivals[0]) {
+          await db
+            .update(schema.arrivalEvents)
+            .set({ confirmedAt: now })
+            .where(eq(schema.arrivalEvents.id, todayArrivals[0].id))
+        } else {
+          // No auto-detection reached the server — the check-in itself is the
+          // arrival record, already confirmed by the officer's tap.
+          await db.insert(schema.arrivalEvents).values({
+            id: `evt-checkin-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            officerId,
+            centerId: venueCenterId,
+            kind: 'ARRIVAL',
+            phoneTime: now,
+            serverTime: now,
+            lat: safeLat,
+            lng: safeLng,
+            accuracyM: typeof accuracyMeters === 'number' ? Math.round(accuracyMeters) : null,
+            source: 'auto',
+            accuracyTier:
+              typeof accuracyMeters === 'number' && accuracyMeters <= 50 ? 'solid' : 'weak',
+            confirmedAt: now,
+          })
         }
 
         const userTel: Record<string, unknown> = {

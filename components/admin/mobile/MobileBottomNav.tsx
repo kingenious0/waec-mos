@@ -8,11 +8,30 @@ import {
   AlertTriangle,
   ShieldCheck,
   CalendarDays,
+  UsersRound,
 } from 'lucide-react'
 
 interface MobileBottomNavProps {
-  activeTab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable'
-  onSelectTab: (tab: 'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable') => void
+  activeTab:
+    | 'map'
+    | 'directory'
+    | 'centers'
+    | 'incidents'
+    | 'settings'
+    | 'safety'
+    | 'timetable'
+    | 'groups'
+  onSelectTab: (
+    tab:
+      | 'map'
+      | 'directory'
+      | 'centers'
+      | 'incidents'
+      | 'settings'
+      | 'safety'
+      | 'timetable'
+      | 'groups'
+  ) => void
   sosCount: number
 }
 
@@ -43,6 +62,11 @@ export function MobileBottomNav({
       icon: Building2,
     },
     {
+      id: 'groups' as const,
+      label: 'Groups',
+      icon: UsersRound,
+    },
+    {
       id: 'incidents' as const,
       label: 'Incidents',
       icon: AlertTriangle,
@@ -63,7 +87,7 @@ export function MobileBottomNav({
   return (
     <nav
       aria-label="Admin sections"
-      className="lg:hidden shrink-0 z-30 border-t border-[#22263C] bg-[#0B0D14] grid grid-cols-6 select-none"
+      className="lg:hidden shrink-0 z-30 border-t border-[#22263C] bg-[#0B0D14] flex overflow-x-auto select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {tabs.map((tab) => {
         const Icon = tab.icon
@@ -75,7 +99,7 @@ export function MobileBottomNav({
             type="button"
             onClick={() => onSelectTab(tab.id)}
             aria-current={isActive ? 'page' : undefined}
-            className="flex flex-col items-center justify-center gap-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] min-h-[76px] transition-colors cursor-pointer"
+            className="flex min-w-[76px] flex-1 flex-col items-center justify-center gap-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] min-h-[76px] transition-colors cursor-pointer"
           >
             <span
               className={`relative flex items-center justify-center rounded-full px-5 py-1 transition-colors ${

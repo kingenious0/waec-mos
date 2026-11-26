@@ -87,6 +87,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const officerParam = searchParams.get('officerId')
+    const evidenceParam = searchParams.get('evidenceId')
     const latestOnly = searchParams.get('latest') === '1'
 
     let officerId = caller.id
@@ -97,10 +98,19 @@ export async function GET(request: Request) {
     }
 
     if (latestOnly) {
+      // A fulfilled photo request pins HQ to the exact photo that answered it.
+      // Without evidenceId, fall back to the officer's newest watermarked shot.
       const rows = await db
         .select()
         .from(schema.evidencePhotos)
-        .where(eq(schema.evidencePhotos.officerId, officerId))
+        .where(
+          evidenceParam
+            ? and(
+                eq(schema.evidencePhotos.officerId, officerId),
+                eq(schema.evidencePhotos.id, evidenceParam)
+              )
+            : eq(schema.evidencePhotos.officerId, officerId)
+        )
         .orderBy(desc(schema.evidencePhotos.createdAt))
         .limit(1)
       if (rows.length === 0) return new NextResponse(null, { status: 404 })

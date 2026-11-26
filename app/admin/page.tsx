@@ -68,6 +68,7 @@ import {
 import { SystemSettingsTab } from '@/components/admin/settings/SystemSettingsTab'
 import { SafetyCenter } from '@/components/admin/safety/SafetyCenter'
 import { TimetablePanel } from '@/components/admin/timetable/TimetablePanel'
+import { FieldGroupsPanel } from '@/components/admin/groups/FieldGroupsPanel'
 import type { NotificationItem } from '@/components/admin/notifications/NotificationsPopover'
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -182,7 +183,7 @@ export default function AdminPage() {
   const [session, setSession] = useState<SessionData | null>(null)
 
   const [activeTab, setActiveTab] = useState<
-    'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable'
+    'map' | 'directory' | 'centers' | 'incidents' | 'settings' | 'safety' | 'timetable' | 'groups'
   >('map')
 
   // Live dashboard state
@@ -280,6 +281,8 @@ export default function AdminPage() {
         return 'Safety centre'
       case 'timetable':
         return 'Examination timetable'
+      case 'groups':
+        return 'Field groups'
       default:
         return 'Live map'
     }
@@ -1551,6 +1554,9 @@ export default function AdminPage() {
             onSearchChange={(q) => {
               if (activeTab === 'directory') {
                 setDirectorySearch(q)
+              } else if (activeTab === 'groups') {
+                // Group screen shares the roster search results with the map.
+                setRosterSearch(q)
               } else {
                 setRosterSearch(q)
               }
@@ -1591,6 +1597,8 @@ export default function AdminPage() {
               ? 'Safety centre'
               : activeTab === 'timetable'
               ? 'Timetable'
+              : activeTab === 'groups'
+              ? 'Field groups'
               : 'Settings'
           }
           badge={
@@ -2648,7 +2656,12 @@ export default function AdminPage() {
           {activeTab === 'timetable' && <TimetablePanel />}
 
           {/* ========================================================= */}
-          {/* TAB 7: SYSTEM SETTINGS VIEW */}
+          {/* TAB 7: FIELD GROUPS — region, leader and each school by day */}
+          {/* ========================================================= */}
+          {activeTab === 'groups' && <FieldGroupsPanel onFeedback={setFeedback} />}
+
+          {/* ========================================================= */}
+          {/* TAB 8: SYSTEM SETTINGS VIEW */}
           {/* ========================================================= */}
           {activeTab === 'settings' && (
             <SystemSettingsTab

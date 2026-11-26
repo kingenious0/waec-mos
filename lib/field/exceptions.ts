@@ -147,3 +147,33 @@ export function summarizeArrivals(input: {
     enRoute: Math.max(0, input.assigned - arrived),
   }
 }
+
+function momentMs(value?: Date | string | number | null): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const ms = value instanceof Date ? value.getTime() : typeof value === 'number' ? value : Date.parse(value)
+  return Number.isNaN(ms) ? null : ms
+}
+
+/**
+ * A completed duty check-in is a human confirmation of presence. Assignment
+ * rows can be old, so the date must match today before it counts.
+ */
+export function isTodayCheckIn(
+  status: string | null | undefined,
+  assignmentDate: string | null | undefined,
+  checkInTime: Date | string | null | undefined,
+  today: string
+): boolean {
+  if (status !== 'ON_SITE') return false
+  if (assignmentDate === today) return true
+  const checkedInAt = momentMs(checkInTime)
+  return checkedInAt !== null && new Date(checkedInAt).toISOString().slice(0, 10) === today
+}
+
+/** HQ treats either the officer's "I'm here" tap or today's check-in as confirmed. */
+export function confirmedArrivalMs(
+  arrivalConfirmedAt: Date | string | null | undefined,
+  checkInAtMs: number | null
+): number | null {
+  return momentMs(arrivalConfirmedAt) ?? checkInAtMs
+}
