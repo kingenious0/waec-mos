@@ -2,6 +2,7 @@
 
 **Date:** Thu Nov 26 2026  
 **Branch:** `main`  
+**Application commit:** `8655cd6` — “Feat: add admin group workflow and fix proof photo visibility”  
 **Production:** `https://waec-mos-prd.vercel.app`  
 **Status:** Shipped after full TypeScript, test, build, APK and HTTP verification.
 
@@ -157,6 +158,12 @@ Build note: Next.js 16 emits a non-blocking deprecation notice for the `middlewa
 
 - `main` deploys to `https://waec-mos-prd.vercel.app`.
 - Production verification is **HTTP-only**, as required; no browser automation was used for sign-in.
+- Live HTTP results after deployment propagation:
+  - `200`: `/`, `/login`, `/manifest.webmanifest`, `/icon.png`, `/apple-icon.png`
+  - `307`: `/admin`, `/field` for unauthenticated users (redirect to sign-in)
+  - `401`: `/api/auth/me`, `/api/field/duty`, `/api/field/photo-request`, `/api/field/evidence`, `GET /api/field/groups`
+  - `405`: `GET /api/field/groups/assignments`, `GET /api/field/groups/members` — POST-only routes exist and reject the wrong method
+  - During the first minutes after push the new group routes returned `404`; after Vercel finished propagating `8655cd6` they returned the expected `401`/`405`. This is recorded honestly rather than hidden.
 - Public routes and protected-API unauthenticated behaviour are checked by status code. A full authenticated click-through is limited by production auth state:
   - officer PIN hash/pepper mismatch on the test account;
   - admin HTTP login returned `403`;
