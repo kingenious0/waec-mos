@@ -47,8 +47,11 @@ export default function FieldMap({
     if (!map || !L) return
     if (hasOfficerCoords) {
       map.fitBounds(
-        L.latLngBounds([[centerLat, centerLng], [officerLat, officerLng]]),
-        { padding: [60, 60], maxZoom: isInside ? 17 : 16 }
+        L.latLngBounds([
+          [centerLat, centerLng],
+          [officerLat, officerLng],
+        ]),
+        { padding: [60, 60], maxZoom: isInside ? 17 : 16 },
       )
     } else {
       map.setView([centerLat, centerLng], 16)
@@ -140,19 +143,25 @@ export default function FieldMap({
         const officerIcon = L.divIcon({
           className: 'custom-officer-dot',
           html: `<div style="position:relative;width:24px;height:24px;display:flex;align-items:center;justify-content:center;">
-            <div style="position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(59,87,240,0.28);"></div>
-            <div style="width:12px;height:12px;border-radius:50%;background:#3B57F0;border:2px solid #FFFFFF;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
-          </div>`,
+ <div style="position:absolute;width:24px;height:24px;border-radius:50%;background:rgba(59,87,240,0.28);"></div>
+ <div style="width:12px;height:12px;border-radius:50%;background:#3B57F0;border:2px solid #FFFFFF;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
+ </div>`,
           iconSize: [24, 24],
           iconAnchor: [12, 12],
         })
         L.marker([officerLat, officerLng], { icon: officerIcon }).addTo(group)
 
-        L.polyline([[centerLat, centerLng], [officerLat, officerLng]], {
-          color: isInside ? '#10B981' : '#F59E0B',
-          weight: 2.5,
-          dashArray: isInside ? undefined : '6, 6',
-        }).addTo(group)
+        L.polyline(
+          [
+            [centerLat, centerLng],
+            [officerLat, officerLng],
+          ],
+          {
+            color: isInside ? '#10B981' : '#F59E0B',
+            weight: 2.5,
+            dashArray: isInside ? undefined : '6, 6',
+          },
+        ).addTo(group)
       }
 
       if (!hasFittedRef.current || hasOfficerCoords) {
@@ -178,15 +187,19 @@ export default function FieldMap({
   return (
     <div className="relative w-full h-full flex-1 rounded-2xl overflow-hidden border border-[#1A2035] bg-[#E3E7EC] select-none shadow-inner">
       <div ref={containerRef} className="absolute inset-0 z-0 w-full h-full" />
-      <div className="absolute top-3 left-3 z-[400] flex max-w-[calc(100%_-_1.5rem)] items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md">
+      <div className="absolute top-3 left-3 z-[400] flex max-w-[calc(100%_-_1.5rem)] items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg ">
         <MapPin className="size-3.5 text-[#F6D300] shrink-0" />
         <span className="min-w-0 truncate">{centerName}</span>
-        <span className="shrink-0 text-[10px] font-bold text-[#F6D300] bg-[#1A2035] px-1.5 py-0.5 rounded border border-[#27324B] tabular-nums">
+        <span className="shrink-0 text-xs font-medium text-[#F6D300] bg-[#1A2035] px-1.5 py-0.5 rounded border border-[#27324B] tabular-nums">
           {centerCode}
         </span>
       </div>
-      <div className="absolute bottom-3 left-3 z-[400] flex max-w-[calc(100%_-_4.5rem)] items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg backdrop-blur-md tabular-nums">
-        <span className={`size-2 rounded-full shrink-0 ${hasOfficerCoords ? (isInside ? 'bg-emerald-400' : 'bg-[#F6D300]') : 'bg-sky-400 animate-pulse'}`} />
+      <div className="absolute bottom-3 left-3 z-[400] flex max-w-[calc(100%_-_4.5rem)] items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B0F1A]/90 border border-[#1E273E] text-xs font-semibold text-white shadow-lg tabular-nums">
+        <span
+          className={`size-2 rounded-full shrink-0 ${
+            hasOfficerCoords ? (isInside ? 'bg-emerald-400' : 'bg-[#F6D300]') : 'bg-sky-400'
+          }`}
+        />
         <span className="min-w-0 truncate">{distanceFormatted}</span>
       </div>
       <button
@@ -194,8 +207,10 @@ export default function FieldMap({
         onClick={handleRecenter}
         aria-label="Recenter map on venue and officer"
         title="Recenter"
-        className="absolute bottom-3 right-3 z-[400] size-10 rounded-full bg-[#0B0F1A]/90 border border-[#1E273E] flex items-center justify-center text-[#F6D300] hover:text-white shadow-lg backdrop-blur-md transition cursor-pointer"
-      ><Crosshair className="size-5" /></button>
+        className="absolute bottom-3 right-3 z-[400] size-10 rounded-full bg-[#0B0F1A]/90 border border-[#1E273E] flex items-center justify-center text-[#F6D300] hover:text-white shadow-lg transition cursor-pointer"
+      >
+        <Crosshair className="size-5" />
+      </button>
     </div>
   )
 }

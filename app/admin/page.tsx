@@ -5,14 +5,20 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getClientSession, signOutEverywhere, SessionData } from '@/lib/auth/session'
 import { ProfileModal } from '@/components/profile/ProfileModal'
-import { PreProvisionOfficerModal, PreProvisionData } from '@/components/admin/modals/PreProvisionOfficerModal'
+import {
+  PreProvisionOfficerModal,
+  PreProvisionData,
+} from '@/components/admin/modals/PreProvisionOfficerModal'
 import { ResetPinModal } from '@/components/admin/modals/ResetPinModal'
 import {
   ExamCenterModal,
   type DistrictOption,
   type ExamCenterFormPayload,
 } from '@/components/admin/modals/ExamCenterModal'
-import { LogIncidentModal, type LogIncidentPayload } from '@/components/admin/modals/LogIncidentModal'
+import {
+  LogIncidentModal,
+  type LogIncidentPayload,
+} from '@/components/admin/modals/LogIncidentModal'
 import { ConfirmDialog } from '@/components/admin/modals/ConfirmDialog'
 import {
   Users,
@@ -45,7 +51,12 @@ import {
   VolumeX,
 } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
-import type { FleetOfficer, ExamCenter, FleetException, ArrivalsSummary } from '@/components/admin/FleetMap'
+import type {
+  FleetOfficer,
+  ExamCenter,
+  FleetException,
+  ArrivalsSummary,
+} from '@/components/admin/FleetMap'
 import { AdminSidebar } from '@/components/admin/sidebar/AdminSidebar'
 import { AdminTopNav } from '@/components/admin/header/AdminTopNav'
 import { OfficerTelematicsDrawer } from '@/components/admin/inspector/OfficerTelematicsDrawer'
@@ -83,7 +94,7 @@ const FleetMap = dynamic(() => import('@/components/admin/FleetMap'), {
   loading: () => (
     <div className="flex h-full w-full flex-col items-center justify-center bg-[#090A0F] text-slate-400">
       <div className="size-8 animate-spin rounded-full border-2 border-[#1E2B7B] border-t-[#F6D300] mb-3" />
-      <span className="text-xs font-mono font-semibold tracking-wider text-slate-400">
+      <span className="text-xs font-mono font-semibold text-slate-400">
         INITIALIZING ASHANTI REGIONAL TELEMATICS GRID...
       </span>
     </div>
@@ -153,7 +164,13 @@ function auditActionMeta(action: string): { label: string; tone: AuditTone } {
   const label = action.toLowerCase().replace(/_/g, ' ')
   return { label: label.charAt(0).toUpperCase() + label.slice(1), tone: 'muted' }
 }
-const ATTENTION_ACTIONS = new Set(['SOS_TRIGGERED', 'GEOFENCE_BREACH', 'USER_REVOKED', 'NEW_DEVICE_SIGNIN', 'LOW_BATTERY_ALERT'])
+const ATTENTION_ACTIONS = new Set([
+  'SOS_TRIGGERED',
+  'GEOFENCE_BREACH',
+  'USER_REVOKED',
+  'NEW_DEVICE_SIGNIN',
+  'LOW_BATTERY_ALERT',
+])
 const CHECKIN_ACTIONS = new Set(['CHECK_IN_LOGGED', 'CHECK_OUT_LOGGED'])
 const SIGNIN_ACTIONS = new Set(['ADMIN_LOGIN', 'OFFICER_LOGIN', 'NEW_DEVICE_SIGNIN'])
 type ActivityFilter = 'attention' | 'all' | 'checkins' | 'signins'
@@ -214,9 +231,8 @@ export default function AdminPage() {
   })
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0)
-  const [systemSettings, setSystemSettings] = useState<SystemSettingsConfig>(
-    DEFAULT_SYSTEM_SETTINGS
-  )
+  const [systemSettings, setSystemSettings] =
+    useState<SystemSettingsConfig>(DEFAULT_SYSTEM_SETTINGS)
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(true)
 
   // Map, Search & Filter States
@@ -227,9 +243,9 @@ export default function AdminPage() {
   } | null>(null)
   const [rosterSearch, setRosterSearch] = useState('')
   const [directorySearch, setDirectorySearch] = useState('')
-  const [directoryFilter, setDirectoryFilter] = useState<
-    'all' | 'active' | 'revoked' | 'nocentre'
-  >('all')
+  const [directoryFilter, setDirectoryFilter] = useState<'all' | 'active' | 'revoked' | 'nocentre'>(
+    'all',
+  )
   const [incidentFilter, setIncidentFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL')
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('attention')
@@ -238,7 +254,9 @@ export default function AdminPage() {
 
   // Responsive Layout & Feedback
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [mapStatusFilter, setMapStatusFilter] = useState<'all' | 'onsite' | 'enroute' | 'sos'>('all')
+  const [mapStatusFilter, setMapStatusFilter] = useState<'all' | 'onsite' | 'enroute' | 'sos'>(
+    'all',
+  )
   const [sheetSnap, setSheetSnap] = useState<'peek' | 'half' | 'full'>('peek')
   const [feedback, setFeedback] = useState('')
 
@@ -260,7 +278,6 @@ export default function AdminPage() {
   const [isDeletingRecord, setIsDeletingRecord] = useState(false)
   const [centerSearchQuery, setCenterSearchQuery] = useState('')
   const [centerDistrictFilter, setCenterDistrictFilter] = useState('ALL')
-
 
   const prevSosCountRef = useRef(0)
   const seenExceptionsRef = useRef<Set<string> | null>(null)
@@ -324,21 +341,15 @@ export default function AdminPage() {
             fetch('/api/settings'),
           ])
 
-        const [
-          centersData,
-          fleetData,
-          officersData,
-          incidentsData,
-          notifData,
-          settingsData,
-        ] = await Promise.all([
-          centersRes.json(),
-          fleetRes.json(),
-          officersRes.json(),
-          incidentsRes.json(),
-          notifRes.json(),
-          settingsRes.json(),
-        ])
+        const [centersData, fleetData, officersData, incidentsData, notifData, settingsData] =
+          await Promise.all([
+            centersRes.json(),
+            fleetRes.json(),
+            officersRes.json(),
+            incidentsRes.json(),
+            notifRes.json(),
+            settingsRes.json(),
+          ])
 
         if (centersData.centers) {
           setExamCenters(centersData.centers)
@@ -355,9 +366,7 @@ export default function AdminPage() {
             ? fleetData.exceptions
             : []
           const exceptionKeys = new Set(
-            nextExceptions.map(
-              (ex) => `${ex.officerId}|${ex.kind}|${ex.message}`
-            )
+            nextExceptions.map((ex) => `${ex.officerId}|${ex.kind}|${ex.message}`),
           )
           const seen = seenExceptionsRef.current
           if (seen === null) {
@@ -365,7 +374,7 @@ export default function AdminPage() {
             seenExceptionsRef.current = exceptionKeys
           } else {
             const fresh = nextExceptions.find(
-              (ex) => !seen.has(`${ex.officerId}|${ex.kind}|${ex.message}`)
+              (ex) => !seen.has(`${ex.officerId}|${ex.kind}|${ex.message}`),
             )
             // Quiet, exception-only notice. No sound here; only SOS uses the alarm.
             if (fresh) setFeedback(`Needs attention: ${fresh.message}`)
@@ -417,7 +426,7 @@ export default function AdminPage() {
         if (!silent) setIsLoadingLive(false)
       }
     },
-    [playCommandSosTone, sosAlarmArmed]
+    [playCommandSosTone, sosAlarmArmed],
   )
 
   // Check auth session & perform initial fetch
@@ -427,7 +436,11 @@ export default function AdminPage() {
         router.push('/login')
         return
       }
-      if (!['ADMIN', 'SUPER_ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(String(s.role || '').toUpperCase())) {
+      if (
+        !['ADMIN', 'SUPER_ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(
+          String(s.role || '').toUpperCase(),
+        )
+      ) {
         router.push('/field')
         return
       }
@@ -443,7 +456,7 @@ export default function AdminPage() {
   // Background polling interval driven by DB locationRefreshInterval
   const pollIntervalMs = useMemo(
     () => parseRefreshIntervalMs(systemSettings.locationRefreshInterval),
-    [systemSettings.locationRefreshInterval]
+    [systemSettings.locationRefreshInterval],
   )
 
   useEffect(() => {
@@ -498,11 +511,11 @@ export default function AdminPage() {
   const activeSosCount = fleetOfficers.filter((o) => o.status === 'SOS').length
   const centresNeedingAttention = useMemo(
     () => examCenters.filter((c) => (c.openIncidentsCount || 0) > 0).length,
-    [examCenters]
+    [examCenters],
   )
   const assignedOfficerCount = useMemo(
     () => examCenters.reduce((acc, c) => acc + (c.totalMonitors || 0), 0),
-    [examCenters]
+    [examCenters],
   )
   const officersAtCentreByCode = useMemo(() => {
     const counts: Record<string, number> = {}
@@ -520,18 +533,15 @@ export default function AdminPage() {
 
   const unresolvedIncidents = useMemo(
     () => incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(i.status)),
-    [incidents]
+    [incidents],
   )
   const criticalSosIncidents = useMemo(
-    () =>
-      unresolvedIncidents.filter(
-        (i) => i.severity === 'CRITICAL' || i.category === 'SOS'
-      ),
-    [unresolvedIncidents]
+    () => unresolvedIncidents.filter((i) => i.severity === 'CRITICAL' || i.category === 'SOS'),
+    [unresolvedIncidents],
   )
   const safeCentersCount = useMemo(
     () => examCenters.filter((c) => (c.openIncidentsCount || 0) === 0).length,
-    [examCenters]
+    [examCenters],
   )
 
   const filteredCenters = useMemo(() => {
@@ -545,7 +555,7 @@ export default function AdminPage() {
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.code.toLowerCase().includes(q) ||
-          (c.districtName && c.districtName.toLowerCase().includes(q))
+          (c.districtName && c.districtName.toLowerCase().includes(q)),
       )
     }
     return list
@@ -608,7 +618,7 @@ export default function AdminPage() {
       setFeedback(
         data?.alreadyPending
           ? `${officer.name} already has a photo request waiting.`
-          : `Photo request sent to ${officer.name}.`
+          : `Photo request sent to ${officer.name}.`,
       )
     } catch {
       setFeedback('Could not ask for the photo. Check your connection and try again.')
@@ -631,7 +641,7 @@ export default function AdminPage() {
   const handleFocusIncidentLocation = (inc: LiveIncidentRecord) => {
     const matchedOfficer = fleetOfficers.find((o) => o.id === inc.reportedBy)
     const matchedCenter = examCenters.find(
-      (c) => c.code === inc.centerCode || c.name === inc.centerName
+      (c) => c.code === inc.centerCode || c.name === inc.centerName,
     )
     setActiveTab('map')
     if (matchedOfficer) {
@@ -684,7 +694,7 @@ export default function AdminPage() {
       setFeedback(
         input.action === 'block'
           ? `${input.name}'s account blocked. Restore anytime from the Officers page.`
-          : `${input.name} confirmed — removed from Needs attention.`
+          : `${input.name} confirmed — removed from Needs attention.`,
       )
       loadDashboardData(true)
       return true
@@ -695,7 +705,7 @@ export default function AdminPage() {
   }
 
   /** The new-device sign-in row action. "It was them" is safe and runs directly;
-   *  blocking goes through the in-app ConfirmDialog (never a native popup). */
+   * blocking goes through the in-app ConfirmDialog (never a native popup). */
   const handleSecurityReview = async (log: LiveAuditLogRecord, action: 'it_was_me' | 'block') => {
     const name = displayName(log.actorName)
     if (!log.actorId) {
@@ -829,9 +839,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleSaveOfficerProfile = async (
-    updated: Partial<SessionData>
-  ): Promise<boolean> => {
+  const handleSaveOfficerProfile = async (updated: Partial<SessionData>): Promise<boolean> => {
     if (!inspectedOfficer) return false
     const res = await fetch('/api/officers', {
       method: 'PUT',
@@ -856,7 +864,9 @@ export default function AdminPage() {
       throw new Error(errData.error || 'Failed to save officer profile')
     }
 
-    setFeedback(`Profile & assignment for ${updated.name || inspectedOfficer.name} saved to database`)
+    setFeedback(
+      `Profile & assignment for ${updated.name || inspectedOfficer.name} saved to database`,
+    )
     setInspectedOfficer(null)
     loadDashboardData(true)
     return true
@@ -867,12 +877,14 @@ export default function AdminPage() {
     setIsDeletingRecord(true)
     try {
       const res = await fetch(
-        `/api/centers?id=${encodeURIComponent(centerToDelete.id || '')}&actorId=${encodeURIComponent(
-          session?.userId || ''
-        )}&actorName=${encodeURIComponent(session?.name || '')}`,
+        `/api/centers?id=${encodeURIComponent(
+          centerToDelete.id || '',
+        )}&actorId=${encodeURIComponent(session?.userId || '')}&actorName=${encodeURIComponent(
+          session?.name || '',
+        )}`,
         {
           method: 'DELETE',
-        }
+        },
       )
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -895,11 +907,11 @@ export default function AdminPage() {
     try {
       const res = await fetch(
         `/api/officers?id=${encodeURIComponent(officerToDelete.id)}&actorId=${encodeURIComponent(
-          session?.userId || ''
+          session?.userId || '',
         )}&actorName=${encodeURIComponent(session?.name || '')}`,
         {
           method: 'DELETE',
-        }
+        },
       )
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -937,7 +949,7 @@ export default function AdminPage() {
     setFeedback(
       isEdit
         ? `Updated check-in area and centre configuration for ${payload.name}`
-        : `Registered new examination centre ${payload.name} (${payload.code})`
+        : `Registered new examination centre ${payload.name} (${payload.code})`,
     )
     loadDashboardData(true)
   }
@@ -961,7 +973,7 @@ export default function AdminPage() {
 
   const handleUpdateIncidentStatus = async (
     incidentId: string,
-    nextStatus: 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED' | 'CLOSED'
+    nextStatus: 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED' | 'CLOSED',
   ) => {
     try {
       const res = await fetch('/api/incidents', {
@@ -1000,13 +1012,13 @@ export default function AdminPage() {
         off.name.toLowerCase().includes(query) ||
         off.assignedCenter.toLowerCase().includes(query) ||
         off.group.toLowerCase().includes(query) ||
-        off.staffId.toLowerCase().includes(query)
+        off.staffId.toLowerCase().includes(query),
     )
   }, [fleetOfficers, rosterSearch])
 
   const mapSosOfficer = useMemo(
     () => fleetOfficers.find((o) => o.status === 'SOS' && o.sosIncidentId) ?? null,
-    [fleetOfficers]
+    [fleetOfficers],
   )
 
   // Centres the correction tool may move an officer to, in display order.
@@ -1016,7 +1028,7 @@ export default function AdminPage() {
         .filter((c): c is ExamCenter & { id: string } => Boolean(c.id))
         .map((c) => ({ id: c.id, name: c.name }))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [examCenters]
+    [examCenters],
   )
 
   // Reset the mobile officer sheet to peek whenever a different officer is selected
@@ -1033,7 +1045,7 @@ export default function AdminPage() {
         off.phone.toLowerCase().includes(q) ||
         (off.staffId && off.staffId.toLowerCase().includes(q)) ||
         (off.assignedCenter && off.assignedCenter.toLowerCase().includes(q)) ||
-        (off.group && off.group.toLowerCase().includes(q))
+        (off.group && off.group.toLowerCase().includes(q)),
     )
   }, [officers, directorySearch])
 
@@ -1047,7 +1059,7 @@ export default function AdminPage() {
       revoked: officers.filter((o) => o.status !== 'ACTIVE').length,
       nocentre: officers.filter(isOfficerUnassigned).length,
     }),
-    [officers]
+    [officers],
   )
 
   const mobileDirectoryList = useMemo(() => {
@@ -1058,8 +1070,7 @@ export default function AdminPage() {
     return list
   }, [filteredDirectoryOfficers, directoryFilter])
 
-  const isIncidentOpen = (inc: LiveIncidentRecord) =>
-    !['RESOLVED', 'CLOSED'].includes(inc.status)
+  const isIncidentOpen = (inc: LiveIncidentRecord) => !['RESOLVED', 'CLOSED'].includes(inc.status)
 
   const filteredIncidents = useMemo(() => {
     const list = incidents.filter((inc) => {
@@ -1080,7 +1091,7 @@ export default function AdminPage() {
   const filteredAuditLogs = useMemo(() => {
     if (!auditOfficerFilterId) return auditLogs
     return auditLogs.filter(
-      (log) => log.actorId === auditOfficerFilterId || log.entityId === auditOfficerFilterId
+      (log) => log.actorId === auditOfficerFilterId || log.entityId === auditOfficerFilterId,
     )
   }, [auditLogs, auditOfficerFilterId])
 
@@ -1088,9 +1099,7 @@ export default function AdminPage() {
     switch (activityFilter) {
       case 'attention':
         // A review ("It was them" / block) resolves the row — it leaves the tab.
-        return filteredAuditLogs.filter(
-          (l) => ATTENTION_ACTIONS.has(l.action) && !l.isRead
-        )
+        return filteredAuditLogs.filter((l) => ATTENTION_ACTIONS.has(l.action) && !l.isRead)
       case 'checkins':
         return filteredAuditLogs.filter((l) => CHECKIN_ACTIONS.has(l.action))
       case 'signins':
@@ -1124,7 +1133,6 @@ export default function AdminPage() {
     )
   }, [auditOfficerFilterId, officers, fleetOfficers])
 
-
   // --- Incident list shared by the mobile + desktop layouts (defined once) ---
   // Collapsed by default. A LIVE incident opens the panel automatically and
   // can never be hidden behind the toggle — resolving it collapses the panel again.
@@ -1147,12 +1155,14 @@ export default function AdminPage() {
         aria-expanded={incidentsPanelOpen}
         aria-controls="incidents-panel-body"
         className={`w-full flex items-center gap-3 p-4 sm:p-5 text-left ${
-          liveCount > 0 ? 'cursor-default' : 'cursor-pointer hover:bg-white/[0.03] transition-colors'
+          liveCount > 0
+            ? 'cursor-default'
+            : 'cursor-pointer hover:bg-white/[0.03] transition-colors'
         }`}
       >
         {liveCount > 0 ? (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 border border-rose-500/35">
-            <Siren className="size-4.5 text-rose-400 animate-pulse" aria-hidden />
+            <Siren className="size-4 text-rose-400" aria-hidden />
           </span>
         ) : (
           <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/25">
@@ -1160,16 +1170,13 @@ export default function AdminPage() {
           </span>
         )}
         <span className="min-w-0">
-          <h3 className="font-bold text-xs text-slate-200 tracking-wider">
-            Incidents{' '}
-            <span className="text-slate-500 font-semibold">({incidents.length})</span>
+          <h3 className="font-semibold text-xs text-slate-200">
+            Incidents <span className="text-slate-500 font-semibold">({incidents.length})</span>
             {liveCount > 0 && (
-              <span className="ml-2 text-rose-400 font-sans normal-case tracking-normal">
-                · {liveCount} live — needs you
-              </span>
+              <span className="ml-2 text-rose-400 font-sans">· {liveCount} live — needs you</span>
             )}
           </h3>
-          <p className="text-[10px] text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             {liveCount > 0
               ? 'Showing open incidents — resolve to close them'
               : incidentsExpanded
@@ -1189,193 +1196,203 @@ export default function AdminPage() {
 
       {incidentsPanelOpen && (
         <div id="incidents-panel-body" className="border-t border-[#1E243A] p-4 sm:p-5 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h3 className="font-bold text-xs text-slate-300 tracking-wider">
-          Showing <span className="text-slate-500 font-semibold">({filteredIncidents.length})</span>
-        </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <h3 className="font-semibold text-xs text-slate-300">
+              Showing{' '}
+              <span className="text-slate-500 font-semibold">({filteredIncidents.length})</span>
+            </h3>
 
-        <div className="flex items-center gap-1.5 text-[11px]">
-          {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => {
-            const openCount = unresolvedIncidents.length
-            const resolvedCount = incidents.length - unresolvedIncidents.length
-            const active = incidentFilter === tab
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setIncidentFilter(tab)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
-                  active
-                    ? 'bg-[#1E2B7B] text-white border border-indigo-400/40'
-                    : 'text-slate-400 hover:text-white bg-[#0A0D17]'
-                }`}
-              >
-                {tab === 'ALL'
-                  ? `All (${incidents.length})`
-                  : tab === 'OPEN'
-                  ? `Open (${openCount})`
-                  : `Resolved (${resolvedCount})`}
-                {tab === 'OPEN' && openCount > 0 && (
-                  <span className="size-1.5 rounded-full bg-rose-500" aria-hidden />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {filteredIncidents.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
-          {incidentFilter === 'OPEN' ? 'No open incidents right now.' : 'Nothing recorded in this view yet.'}
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {filteredIncidents.map((inc) => {
-            const isClosed = !isIncidentOpen(inc)
-            const isSos = inc.severity === 'CRITICAL' || inc.category === 'SOS'
-            const isAck = inc.status === 'ACKNOWLEDGED'
-            const reporter = displayName(inc.reporterName)
-            const fixedLog = auditLogs.find(
-              (l) => l.action === 'INCIDENT_RESOLVED' && l.entityId === inc.id
-            )
-            // Auto-written status notes ("Cleared by X" / "Status transitioned to …")
-            // duplicate the footer — only surface notes a person actually wrote.
-            const noteRaw = (inc.resolutionNotes || '').trim()
-            const note = noteRaw && !/^(Status transitioned to|Cleared by)/i.test(noteRaw) ? noteRaw : null
-            const fixedBy = fixedLog ? displayName(fixedLog.actorName) : null
-            const fixedIn = formatDurationBetween(inc.reportedAt, inc.resolvedAt)
-            const waiting = formatWaitingSince(inc.reportedAt)
-            const distanceKm =
-              typeof inc.reporterDistance === 'number' ? inc.reporterDistance : null
-            const distanceText =
-              distanceKm === null
-                ? null
-                : distanceKm >= 1000
-                ? `${(distanceKm / 1000).toFixed(1)} km`
-                : `${Math.round(distanceKm)} m`
-
-            return (
-              <div
-                key={inc.id}
-                className={`rounded-xl bg-[#0C0F1D] border border-l-4 p-4 space-y-2 ${
-                  isClosed
-                    ? 'border-[#22263C] border-l-[#22263C]'
-                    : isSos
-                    ? 'border-rose-500/40 border-l-rose-500'
-                    : 'border-amber-500/30 border-l-amber-500/70'
-                }`}
-              >
-                {/* Tag + reference + when */}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      isSos
-                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                        : inc.severity === 'HIGH'
-                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                        : 'bg-slate-500/10 text-slate-400 border-[#22263C]'
+            <div className="flex items-center gap-1.5 text-xs">
+              {(['ALL', 'OPEN', 'RESOLVED'] as const).map((tab) => {
+                const openCount = unresolvedIncidents.length
+                const resolvedCount = incidents.length - unresolvedIncidents.length
+                const active = incidentFilter === tab
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setIncidentFilter(tab)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-semibold transition cursor-pointer ${
+                      active
+                        ? 'bg-[#1E2B7B] text-white border border-indigo-400/40'
+                        : 'text-slate-400 hover:text-white bg-[#0A0D17]'
                     }`}
                   >
-                    {isSos ? 'SOS' : inc.severity.charAt(0).toUpperCase() + inc.severity.slice(1).toLowerCase()}
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Reference {inc.incidentNumber}
-                  </span>
-                  <span className="text-[11px] text-slate-500 tabular-nums">
-                    {formatDayTime(inc.reportedAt)}
-                  </span>
-                </div>
-
-                {/* Title + centre */}
-                <h4 className="text-sm font-bold text-white leading-snug">
-                  {isSos
-                    ? `SOS from ${reporter}`
-                    : inc.title?.trim() || `Incident at ${inc.centerName}`}
-                </h4>
-                <p className="text-xs text-slate-300">{inc.centerName}</p>
-
-                {/* Footer line */}
-                {isClosed ? (
-                  <p className="text-[11px] text-slate-400">
-                    {fixedBy ? (
-                      <>
-                        Fixed by <span className="text-slate-200">{fixedBy}</span> ·{' '}
-                      </>
-                    ) : null}
-                    {formatDayTime(inc.resolvedAt)}
-                    {fixedIn ? (
-                      <>
-                        {' '}
-                        · <span className="text-emerald-400 font-semibold">Fixed in {fixedIn}</span>
-                      </>
-                    ) : null}
-                  </p>
-                ) : (
-                  <p className="text-[11px] font-semibold text-rose-400">
-                    {isAck ? 'On it' : 'Open'} · waiting for {waiting}
-                  </p>
-                )}
-
-                {/* Note — only when a person actually wrote one */}
-                {note ? (
-                  <p className="text-[11px] text-slate-400 border-t border-[#1E243A] pt-2 leading-snug">
-                    Note: {note}
-                  </p>
-                ) : null}
-
-                {/* Actions — open cards only */}
-                {!isClosed && (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {inc.status === 'REPORTED' && (
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateIncidentStatus(inc.id, 'ACKNOWLEDGED')}
-                        className="px-3 py-2 rounded-xl border border-indigo-400/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-200 text-xs font-semibold transition cursor-pointer min-h-[40px]"
-                      >
-                        I&apos;m on it
-                      </button>
+                    {tab === 'ALL'
+                      ? `All (${incidents.length})`
+                      : tab === 'OPEN'
+                      ? `Open (${openCount})`
+                      : `Resolved (${resolvedCount})`}
+                    {tab === 'OPEN' && openCount > 0 && (
+                      <span className="size-1.5 rounded-full bg-rose-500" aria-hidden />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
-                      className="px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 text-xs font-semibold transition cursor-pointer min-h-[40px]"
-                    >
-                      Problem fixed
-                    </button>
-                    {isSos && (
-                      <>
-                        <a
-                          href="tel:191"
-                          className="px-3 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer min-h-[40px]"
-                        >
-                          <Phone className="size-3.5" />
-                          <span>Call 191</span>
-                        </a>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {filteredIncidents.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#22263C] p-6 text-center text-xs text-slate-500">
+              {incidentFilter === 'OPEN'
+                ? 'No open incidents right now.'
+                : 'Nothing recorded in this view yet.'}
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {filteredIncidents.map((inc) => {
+                const isClosed = !isIncidentOpen(inc)
+                const isSos = inc.severity === 'CRITICAL' || inc.category === 'SOS'
+                const isAck = inc.status === 'ACKNOWLEDGED'
+                const reporter = displayName(inc.reporterName)
+                const fixedLog = auditLogs.find(
+                  (l) => l.action === 'INCIDENT_RESOLVED' && l.entityId === inc.id,
+                )
+                // Auto-written status notes ("Cleared by X" / "Status transitioned to …")
+                // duplicate the footer — only surface notes a person actually wrote.
+                const noteRaw = (inc.resolutionNotes || '').trim()
+                const note =
+                  noteRaw && !/^(Status transitioned to|Cleared by)/i.test(noteRaw) ? noteRaw : null
+                const fixedBy = fixedLog ? displayName(fixedLog.actorName) : null
+                const fixedIn = formatDurationBetween(inc.reportedAt, inc.resolvedAt)
+                const waiting = formatWaitingSince(inc.reportedAt)
+                const distanceKm =
+                  typeof inc.reporterDistance === 'number' ? inc.reporterDistance : null
+                const distanceText =
+                  distanceKm === null
+                    ? null
+                    : distanceKm >= 1000
+                    ? `${(distanceKm / 1000).toFixed(1)} km`
+                    : `${Math.round(distanceKm)} m`
+
+                return (
+                  <div
+                    key={inc.id}
+                    className={`rounded-xl bg-[#0C0F1D] border border-l-4 p-4 space-y-2 ${
+                      isClosed
+                        ? 'border-[#22263C] border-l-[#22263C]'
+                        : isSos
+                        ? 'border-rose-500/40 border-l-rose-500'
+                        : 'border-amber-500/30 border-l-amber-500/70'
+                    }`}
+                  >
+                    {/* Tag + reference + when */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                          isSos
+                            ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                            : inc.severity === 'HIGH'
+                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                            : 'bg-slate-500/10 text-slate-400 border-[#22263C]'
+                        }`}
+                      >
+                        {isSos
+                          ? 'SOS'
+                          : inc.severity.charAt(0).toUpperCase() +
+                            inc.severity.slice(1).toLowerCase()}
+                      </span>
+                      <span className="text-xs text-slate-500">Reference {inc.incidentNumber}</span>
+                      <span className="text-xs text-slate-500 tabular-nums">
+                        {formatDayTime(inc.reportedAt)}
+                      </span>
+                    </div>
+
+                    {/* Title + centre */}
+                    <h4 className="text-sm font-semibold text-white leading-snug">
+                      {isSos
+                        ? `SOS from ${reporter}`
+                        : inc.title?.trim() || `Incident at ${inc.centerName}`}
+                    </h4>
+                    <p className="text-xs text-slate-300">{inc.centerName}</p>
+
+                    {/* Footer line */}
+                    {isClosed ? (
+                      <p className="text-xs text-slate-400">
+                        {fixedBy ? (
+                          <>
+                            Fixed by <span className="text-slate-200">{fixedBy}</span> ·{' '}
+                          </>
+                        ) : null}
+                        {formatDayTime(inc.resolvedAt)}
+                        {fixedIn ? (
+                          <>
+                            {' '}
+                            ·{' '}
+                            <span className="text-emerald-400 font-semibold">
+                              Fixed in {fixedIn}
+                            </span>
+                          </>
+                        ) : null}
+                      </p>
+                    ) : (
+                      <p className="text-xs font-semibold text-rose-400">
+                        {isAck ? 'On it' : 'Open'} · waiting for {waiting}
+                      </p>
+                    )}
+
+                    {/* Note — only when a person actually wrote one */}
+                    {note ? (
+                      <p className="text-xs text-slate-400 border-t border-[#1E243A] pt-2 leading-snug">
+                        Note: {note}
+                      </p>
+                    ) : null}
+
+                    {/* Actions — open cards only */}
+                    {!isClosed && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {inc.status === 'REPORTED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateIncidentStatus(inc.id, 'ACKNOWLEDGED')}
+                            className="px-3 py-2 rounded-xl border border-indigo-400/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-200 text-xs font-semibold transition cursor-pointer min-h-[40px]"
+                          >
+                            I&apos;m on it
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handleFocusIncidentLocation(inc)}
-                          className="px-3 py-2 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-slate-200 hover:text-white text-xs font-semibold transition cursor-pointer min-h-[40px]"
+                          onClick={() => handleUpdateIncidentStatus(inc.id, 'RESOLVED')}
+                          className="px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-300 text-xs font-semibold transition cursor-pointer min-h-[40px]"
                         >
-                          Show on map
+                          Problem fixed
                         </button>
-                      </>
-                    )}
-                    {isSos && (
-                      <span className="flex items-center gap-3 text-[10px] text-slate-500 sm:ml-auto">
-                        {typeof inc.reporterBattery === 'number' && (
-                          <span className="tabular-nums">Battery {inc.reporterBattery}%</span>
+                        {isSos && (
+                          <>
+                            <a
+                              href="tel:191"
+                              className="px-3 py-2 rounded-xl bg-[#EF4444] hover:bg-red-600 text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer min-h-[40px]"
+                            >
+                              <Phone className="size-3.5" />
+                              <span>Call 191</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleFocusIncidentLocation(inc)}
+                              className="px-3 py-2 rounded-xl bg-[#161B2E] hover:bg-[#202742] border border-[#22263C] text-slate-200 hover:text-white text-xs font-semibold transition cursor-pointer min-h-[40px]"
+                            >
+                              Show on map
+                            </button>
+                          </>
                         )}
-                        {distanceText && <span className="tabular-nums">{distanceText}</span>}
-                        {inc.reporterPhone && <span className="tabular-nums">{inc.reporterPhone}</span>}
-                      </span>
+                        {isSos && (
+                          <span className="flex items-center gap-3 text-xs text-slate-500 sm:ml-auto">
+                            {typeof inc.reporterBattery === 'number' && (
+                              <span className="tabular-nums">Battery {inc.reporterBattery}%</span>
+                            )}
+                            {distanceText && <span className="tabular-nums">{distanceText}</span>}
+                            {inc.reporterPhone && (
+                              <span className="tabular-nums">{inc.reporterPhone}</span>
+                            )}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1392,15 +1409,16 @@ export default function AdminPage() {
   const activityHistoryBlock = (
     <div className="rounded-2xl border border-[#22263C] bg-[#11131F] p-4 sm:p-5 space-y-3 shadow-md">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-bold text-xs text-slate-300 tracking-wider">
-          Activity history <span className="text-slate-500 font-semibold">({activityFiltered.length})</span>
+        <h3 className="font-semibold text-xs text-slate-300">
+          Activity history{' '}
+          <span className="text-slate-500 font-semibold">({activityFiltered.length})</span>
         </h3>
         <div className="flex items-center gap-2">
           {auditOfficerFilterId && (
             <button
               type="button"
               onClick={() => setAuditOfficerFilterId(null)}
-              className="text-[11px] bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer"
+              className="text-xs bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-pointer"
             >
               <span>Officer: {displayName(filteredAuditOfficerName)}</span>
               <X className="size-3" />
@@ -1410,7 +1428,11 @@ export default function AdminPage() {
       </div>
 
       {/* Filters: routine events (sign-ins, profile updates) only show under All or Sign-ins */}
-      <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="Filter activity">
+      <div
+        className="flex items-center gap-1.5 flex-wrap"
+        role="tablist"
+        aria-label="Filter activity"
+      >
         {activityTabs.map((tab) => {
           const active = activityFilter === tab.id
           return (
@@ -1420,7 +1442,7 @@ export default function AdminPage() {
               role="tab"
               aria-selected={active}
               onClick={() => setActivityFilter(tab.id as ActivityFilter)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                 active
                   ? 'bg-[#1E2B7B] text-white border border-indigo-400/40'
                   : 'text-slate-400 hover:text-white bg-[#0A0D17] border border-transparent'
@@ -1442,9 +1464,7 @@ export default function AdminPage() {
         <div className="space-y-4">
           {groupedAuditLogs.map((group) => (
             <div key={group.label}>
-              <div className="px-1 pb-1.5 text-[10px] font-semibold tracking-wider text-slate-500">
-                {group.label}
-              </div>
+              <div className="px-1 pb-1.5 text-xs font-semibold text-slate-500">{group.label}</div>
               <div className="rounded-xl border border-[#22263C] bg-[#0C0F1D] overflow-hidden divide-y divide-[#1C2237]">
                 {group.rows.map((log) => {
                   const meta = auditActionMeta(log.action)
@@ -1453,12 +1473,12 @@ export default function AdminPage() {
                   const tagClass = reviewed
                     ? 'text-slate-400 bg-[#121626] border-[#22263C]'
                     : meta.tone === 'crit'
-                      ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
-                      : meta.tone === 'warn'
-                        ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
-                        : meta.tone === 'ok'
-                          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                          : 'text-slate-400 bg-[#121626] border-[#22263C]'
+                    ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                    : meta.tone === 'warn'
+                    ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+                    : meta.tone === 'ok'
+                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                    : 'text-slate-400 bg-[#121626] border-[#22263C]'
                   return (
                     <div
                       key={log.id}
@@ -1467,12 +1487,12 @@ export default function AdminPage() {
                       }`}
                     >
                       {/* Time (+ tag pinned right on mobile) */}
-                      <span className="text-[11px] tabular-nums text-slate-500 self-start pt-0.5 sm:pt-0 sm:w-9 sm:shrink-0">
+                      <span className="text-xs tabular-nums text-slate-500 self-start pt-0.5 sm:pt-0 sm:w-9 sm:shrink-0">
                         {formatTimeOnly(log.createdAt)}
                       </span>
                       <span className="sm:hidden justify-self-end self-start">
                         <span
-                          className={`inline-block font-semibold text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
+                          className={`inline-block font-semibold text-xs px-2 py-0.5 rounded-full border ${tagClass}`}
                         >
                           {reviewed ? 'Reviewed' : meta.label}
                         </span>
@@ -1488,21 +1508,21 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => handleSecurityReview(log, 'it_was_me')}
-                              className="h-9 sm:h-7 flex-1 sm:flex-none px-3 sm:px-2.5 rounded-lg border border-[#22263C] bg-[#121626] text-[11px] sm:text-[10px] font-semibold text-slate-200 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
+                              className="h-11 flex-1 sm:flex-none px-3 sm:px-2.5 rounded-lg border border-[#22263C] bg-[#121626] text-xs font-semibold text-slate-200 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
                             >
                               It was them
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSecurityReview(log, 'block')}
-                              className="h-9 sm:h-7 flex-1 sm:flex-none px-3 sm:px-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-[11px] sm:text-[10px] font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
+                              className="h-11 flex-1 sm:flex-none px-3 sm:px-2.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
                             >
                               Block account
                             </button>
                           </>
                         )}
                         <span
-                          className={`hidden sm:inline-block font-semibold shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${tagClass}`}
+                          className={`hidden sm:inline-block font-semibold shrink-0 text-xs px-2 py-0.5 rounded-full border ${tagClass}`}
                         >
                           {reviewed ? 'Reviewed' : meta.label}
                         </span>
@@ -1520,9 +1540,7 @@ export default function AdminPage() {
               onClick={() => setShowAllActivity((v) => !v)}
               className="w-full h-11 flex items-center justify-center gap-2 rounded-xl border border-[#22263C] bg-[#0C0F17] hover:bg-[#151A28] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
             >
-              {showAllActivity
-                ? 'Show less'
-                : `Show full history (${activityFiltered.length})`}
+              {showAllActivity ? 'Show less' : `Show full history (${activityFiltered.length})`}
             </button>
           )}
         </div>
@@ -1566,9 +1584,7 @@ export default function AdminPage() {
             notifications={notifications}
             notificationsLoading={isLoadingLive && notifications.length === 0}
             onMarkAllRead={handleMarkAllNotificationsRead}
-            unreadAlertsCount={
-              systemSettings.inAppNotifications ? notificationsUnreadCount : 0
-            }
+            unreadAlertsCount={systemSettings.inAppNotifications ? notificationsUnreadCount : 0}
             onFocusOfficer={(officerId) => handleFocusOfficer(officerId)}
             onFocusSos={() => handleFocusOfficer()}
             onCallEmergency={() => {
@@ -1603,7 +1619,10 @@ export default function AdminPage() {
           }
           badge={
             activeTab === 'map'
-              ? { label: `${verifiedOnSiteCount} on duty`, tone: verifiedOnSiteCount > 0 ? ('ok' as const) : undefined }
+              ? {
+                  label: `${verifiedOnSiteCount} on duty`,
+                  tone: verifiedOnSiteCount > 0 ? ('ok' as const) : undefined,
+                }
               : activeTab === 'directory'
               ? {
                   label:
@@ -1652,7 +1671,7 @@ export default function AdminPage() {
 
         {/* Undo-block toast */}
         {undoBlock && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-amber-500/40 bg-[#1A150A]/95 px-4 py-2.5 text-xs text-amber-200 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 max-w-[90vw]">
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-amber-500/40 bg-[#1A150A]/95 px-4 py-2.5 text-xs text-amber-200 shadow-2xl animate-in fade-in slide-in-from-top-2 max-w-[90vw]">
             <ShieldAlert className="size-4 shrink-0 text-amber-400" />
             <span className="whitespace-nowrap truncate">{undoBlock.name} blocked</span>
             <button
@@ -1661,7 +1680,7 @@ export default function AdminPage() {
                 handleToggleStatus(undoBlock)
                 setUndoBlock(null)
               }}
-              className="shrink-0 rounded-lg border border-amber-500/60 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-extrabold text-amber-100 hover:bg-amber-500/25 transition cursor-pointer min-h-[36px]"
+              className="shrink-0 rounded-lg border border-amber-500/60 bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/25 transition cursor-pointer min-h-[44px]"
             >
               Undo
             </button>
@@ -1674,7 +1693,7 @@ export default function AdminPage() {
             const isError = /fail|error|invalid|cannot|unable/i.test(feedback)
             return (
               <div
-                className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-mono shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 max-w-[90vw] ${
+                className={`absolute top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-mono shadow-2xl animate-in fade-in slide-in-from-top-2 max-w-[90vw] ${
                   isError
                     ? 'border-rose-500/40 bg-[#1A0D12]/95 text-rose-300'
                     : 'border-emerald-500/30 bg-[#11131F]/95 text-[#10B981]'
@@ -1733,12 +1752,14 @@ export default function AdminPage() {
                     setFeedback(
                       next
                         ? 'SOS alarm on. You will hear a loud tone when an officer calls for help.'
-                        : 'SOS alarm silenced. New SOS alerts stay visual only.'
+                        : 'SOS alarm silenced. New SOS alerts stay visual only.',
                     )
                   }}
                   aria-pressed={sosAlarmArmed}
-                  aria-label={sosAlarmArmed ? 'Turn off SOS alarm sound' : 'Turn on SOS alarm sound'}
-                  className={`absolute z-20 flex h-10 items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold shadow-xl backdrop-blur-md transition cursor-pointer right-3 top-[108px] lg:right-4 lg:top-auto lg:bottom-4 ${
+                  aria-label={
+                    sosAlarmArmed ? 'Turn off SOS alarm sound' : 'Turn on SOS alarm sound'
+                  }
+                  className={`absolute z-20 flex h-11 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-xl transition cursor-pointer right-3 top-[108px] lg:right-4 lg:top-auto lg:bottom-4 ${
                     sosAlarmArmed
                       ? 'border-rose-500/60 bg-rose-600/90 text-white'
                       : 'border-[#2A3048] bg-[#0C0F17]/92 text-slate-300 hover:text-white'
@@ -1754,19 +1775,17 @@ export default function AdminPage() {
                 {mapSosOfficer && (
                   <div
                     role="alert"
-                    className="lg:hidden absolute top-14 left-3 right-3 z-20 flex items-center gap-2.5 rounded-2xl border border-status-sos/50 bg-[#1A0D12]/95 backdrop-blur-md px-3 py-2.5 shadow-xl"
+                    className="lg:hidden absolute top-14 left-3 right-3 z-20 flex items-center gap-2.5 rounded-2xl border border-status-sos/50 bg-[#1A0D12]/95 px-3 py-2.5 shadow-xl"
                   >
-                    <Siren className="size-5 shrink-0 text-status-sos animate-pulse" />
+                    <Siren className="size-5 shrink-0 text-status-sos" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[9px] font-extrabold tracking-[0.14em] text-status-sos">
-                        ACTIVE SOS
-                      </div>
-                      <div className="text-[11px] text-red-100/85 truncate">
+                      <div className="text-xs font-semibold text-status-sos">ACTIVE SOS</div>
+                      <div className="text-xs text-red-100/85 truncate">
                         {mapSosOfficer.name} · {mapSosOfficer.sosIncidentNumber || 'DISTRESS'}
                       </div>
                     </div>
                     {mapSosOfficer.sosStatus === 'ACKNOWLEDGED' ? (
-                      <span className="shrink-0 inline-flex items-center rounded-lg border border-white/15 bg-white/5 px-2.5 py-2 text-[10px] font-bold text-slate-300">
+                      <span className="shrink-0 inline-flex items-center rounded-lg border border-white/15 bg-white/5 px-2.5 py-2 text-xs font-semibold text-slate-300">
                         ACKED
                       </span>
                     ) : (
@@ -1776,7 +1795,7 @@ export default function AdminPage() {
                           mapSosOfficer.sosIncidentId &&
                           handleUpdateIncidentStatus(mapSosOfficer.sosIncidentId, 'ACKNOWLEDGED')
                         }
-                        className="shrink-0 h-10 px-3.5 rounded-xl border border-white/15 bg-white/5 text-[11px] font-bold text-slate-100 hover:bg-white/10 cursor-pointer"
+                        className="shrink-0 h-11 px-3.5 rounded-xl border border-white/15 bg-white/5 text-xs font-semibold text-slate-100 hover:bg-white/10 cursor-pointer"
                       >
                         Acknowledge
                       </button>
@@ -1813,7 +1832,8 @@ export default function AdminPage() {
                       setActiveTab('incidents')
                     }}
                     onAcknowledgeSos={(off) =>
-                      off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'ACKNOWLEDGED')
+                      off.sosIncidentId &&
+                      handleUpdateIncidentStatus(off.sosIncidentId, 'ACKNOWLEDGED')
                     }
                     onResolveSos={(off) =>
                       off.sosIncidentId && handleUpdateIncidentStatus(off.sosIncidentId, 'RESOLVED')
@@ -1825,7 +1845,6 @@ export default function AdminPage() {
                   />
                 </aside>
               )}
-
             </div>
           )}
 
@@ -1834,355 +1853,370 @@ export default function AdminPage() {
           {/* ========================================================= */}
           {activeTab === 'directory' && (
             <>
-            {/* ===== MOBILE (< lg) — compact cards, chip filters, FAB ===== */}
-            <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
-              <div className="p-4 space-y-3 pb-32">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="size-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
-                    type="text"
-                    value={directorySearch}
-                    onChange={(e) => setDirectorySearch(e.target.value)}
-                    placeholder="Search name, phone or staff ID"
-                    aria-label="Search officers"
-                    className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
-                  />
-                </div>
-
-                {/* Requests — access & PIN reset review */}
-                <RequestsPanel onChanged={() => loadDashboardData(true)} />
-
-                {/* Filter chips */}
-                <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  {(
-                    [
-                      { id: 'all', label: `All ${directoryCounts.all}` },
-                      { id: 'active', label: `Active ${directoryCounts.active}` },
-                      { id: 'revoked', label: `Blockd ${directoryCounts.revoked}` },
-                      { id: 'nocentre', label: `No centre ${directoryCounts.nocentre}` },
-                    ] as const
-                  ).map((chip) => {
-                    const isActive = directoryFilter === chip.id
-                    return (
-                      <button
-                        key={chip.id}
-                        type="button"
-                        onClick={() => setDirectoryFilter(chip.id)}
-                        className={`h-9 shrink-0 rounded-full border px-3.5 text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                          isActive
-                            ? 'border-indigo-400/70 bg-indigo-500/15 text-indigo-300'
-                            : 'border-[#22263C] bg-[#11131F] text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        {chip.label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Officer list */}
-                {mobileDirectoryList.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-8 text-center space-y-2">
-                    <Users className="size-7 text-slate-500 mx-auto" />
-                    <p className="text-sm font-semibold text-slate-300">
-                      {directorySearch
-                        ? 'No officers matched your search'
-                        : directoryFilter === 'revoked'
-                        ? 'No revoked officers'
-                        : directoryFilter === 'nocentre'
-                        ? 'Every officer has a centre'
-                        : 'No field officers registered yet'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {mobileDirectoryList.map((officer) => (
-                      <MobileOfficerCard
-                        key={officer.id}
-                        officer={officer}
-                        onViewProfile={(o) => setInspectedOfficer(o as unknown as UserAccount)}
-                        onResetPin={(o) =>
-                          setShowResetPinModal(o as unknown as UserAccount)
-                        }
-                        onToggleStatus={(o) =>
-                          handleToggleStatusGuarded(o as unknown as UserAccount)
-                        }
-                        onDelete={(o) => setOfficerToDelete(o as unknown as UserAccount)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Floating Register button — above the tab bar */}
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(true)}
-                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
-              >
-                <UserPlus className="size-5" />
-                Register officer
-              </button>
-            </div>
-
-            {/* ===== DESKTOP (lg+) — existing console layout ===== */}
-            <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 bg-[#090A0F] font-sans">
-              <div className="flex flex-col gap-3 pb-3 border-b border-[#22263C]">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-slate-300 max-w-md">
-                    Add officers, assign them to centres, and give new PINs.
-                  </p>
-
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
-                  >
-                    <UserPlus className="size-3.5 text-white" />
-                    <span>Register officer</span>
-                  </button>
-                </div>
-
-                {/* Requests — access & PIN reset review */}
-                <RequestsPanel onChanged={() => loadDashboardData(true)} />
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search className="size-4 absolute left-3 top-2.5 text-slate-500" />
+              {/* ===== MOBILE (< lg) — compact cards, chip filters, FAB ===== */}
+              <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
+                <div className="p-4 space-y-3 pb-32">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="size-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
                     <input
                       type="text"
                       value={directorySearch}
                       onChange={(e) => setDirectorySearch(e.target.value)}
-                      placeholder="Search by name, phone, staff ID, or assigned centre..."
-                      className="w-full rounded-xl border border-[#22263C] bg-[#11131F] py-2 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans"
+                      placeholder="Search name, phone or staff ID"
+                      aria-label="Search officers"
+                      className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
                     />
-                    {directorySearch && (
-                      <button
-                        onClick={() => setDirectorySearch('')}
-                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
-                        aria-label="Clear search"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    )}
                   </div>
 
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="sm:hidden flex items-center justify-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white py-2.5 px-4 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer w-full"
-                  >
-                    <UserPlus className="size-4 text-white" />
-                    <span>+ Register Field Officer</span>
-                  </button>
+                  {/* Requests — access & PIN reset review */}
+                  <RequestsPanel onChanged={() => loadDashboardData(true)} />
+
+                  {/* Filter chips */}
+                  <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                    {(
+                      [
+                        { id: 'all', label: `All ${directoryCounts.all}` },
+                        { id: 'active', label: `Active ${directoryCounts.active}` },
+                        { id: 'revoked', label: `Blockd ${directoryCounts.revoked}` },
+                        { id: 'nocentre', label: `No centre ${directoryCounts.nocentre}` },
+                      ] as const
+                    ).map((chip) => {
+                      const isActive = directoryFilter === chip.id
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          onClick={() => setDirectoryFilter(chip.id)}
+                          className={`h-11 shrink-0 rounded-full border px-3.5 text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                            isActive
+                              ? 'border-indigo-400/70 bg-indigo-500/15 text-indigo-300'
+                              : 'border-[#22263C] bg-[#11131F] text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          {chip.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/* Officer list */}
+                  {mobileDirectoryList.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-8 text-center space-y-2">
+                      <Users className="size-7 text-slate-500 mx-auto" />
+                      <p className="text-sm font-semibold text-slate-300">
+                        {directorySearch
+                          ? 'No officers matched your search'
+                          : directoryFilter === 'revoked'
+                          ? 'No revoked officers'
+                          : directoryFilter === 'nocentre'
+                          ? 'Every officer has a centre'
+                          : 'No field officers registered yet'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {mobileDirectoryList.map((officer) => (
+                        <MobileOfficerCard
+                          key={officer.id}
+                          officer={officer}
+                          onViewProfile={(o) => setInspectedOfficer(o as unknown as UserAccount)}
+                          onResetPin={(o) => setShowResetPinModal(o as unknown as UserAccount)}
+                          onToggleStatus={(o) =>
+                            handleToggleStatusGuarded(o as unknown as UserAccount)
+                          }
+                          onDelete={(o) => setOfficerToDelete(o as unknown as UserAccount)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* Floating Register button — above the tab bar */}
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+                >
+                  <UserPlus className="size-5" />
+                  Register officer
+                </button>
               </div>
 
-              {filteredDirectoryOfficers.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
-                  <Users className="size-7 text-slate-500 mx-auto" />
-                  <p className="text-sm font-semibold text-slate-300">
-                    {directorySearch
-                      ? 'No officers matched your search filter'
-                      : 'No field officers registered yet'}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Register a new field officer to assign an examination centre and PIN.
-                  </p>
+              {/* ===== DESKTOP (lg+) — existing console layout ===== */}
+              <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 bg-[#090A0F] font-sans">
+                <div className="flex flex-col gap-3 pb-3 border-b border-[#22263C]">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-slate-300 max-w-md">
+                      Add officers, assign them to centres, and give new PINs.
+                    </p>
+
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-semibold border border-white/10 transition shadow-md cursor-pointer shrink-0"
+                    >
+                      <UserPlus className="size-3.5 text-white" />
+                      <span>Register officer</span>
+                    </button>
+                  </div>
+
+                  {/* Requests — access & PIN reset review */}
+                  <RequestsPanel onChanged={() => loadDashboardData(true)} />
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="size-4 absolute left-3 top-2.5 text-slate-500" />
+                      <input
+                        type="text"
+                        value={directorySearch}
+                        onChange={(e) => setDirectorySearch(e.target.value)}
+                        placeholder="Search by name, phone, staff ID, or assigned centre..."
+                        className="w-full rounded-xl border border-[#22263C] bg-[#11131F] py-2 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 font-sans"
+                      />
+                      {directorySearch && (
+                        <button
+                          onClick={() => setDirectorySearch('')}
+                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+                          aria-label="Clear search"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="sm:hidden flex items-center justify-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white py-2.5 px-4 text-xs font-semibold border border-white/10 transition shadow-md cursor-pointer w-full"
+                    >
+                      <UserPlus className="size-4 text-white" />
+                      <span>+ Register Field Officer</span>
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-                  {filteredDirectoryOfficers.map((officer) => {
-                    return (
-                      <div
-                        key={officer.id}
-                        className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] transition-all duration-200 hover:border-indigo-500/40"
-                      >
-                        <div className="space-y-3.5 p-4">
-                          {/* Identity */}
-                          <div className="flex items-start gap-3">
-                            <div className="relative shrink-0">
-                              <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl border border-[#2B355A] bg-gradient-to-br from-[#1E2B7B] to-[#12162B] text-sm font-bold text-white shadow-md">
-                                {officer.photo ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={officer.photo}
-                                    alt={officer.name}
-                                    className="size-full object-cover"
-                                  />
-                                ) : (
-                                  officer.name
-                                    .split(' ')
-                                    .map((n) => n[0])
-                                    .join('')
-                                    .slice(0, 2)
-                                )}
-                              </div>
-                            </div>
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <h3 className="min-w-0 text-sm font-bold leading-snug break-words text-white">
-                                  {officer.name}
-                                </h3>
-                                <span
-                                  className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                    officer.status === 'ACTIVE'
-                                      ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                                      : 'border border-rose-500/30 bg-rose-500/10 text-rose-400'
-                                  }`}
-                                >
+                {filteredDirectoryOfficers.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
+                    <Users className="size-7 text-slate-500 mx-auto" />
+                    <p className="text-sm font-semibold text-slate-300">
+                      {directorySearch
+                        ? 'No officers matched your search filter'
+                        : 'No field officers registered yet'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Register a new field officer to assign an examination centre and PIN.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    {filteredDirectoryOfficers.map((officer) => {
+                      return (
+                        <div
+                          key={officer.id}
+                          className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] transition-all duration-200 hover:border-indigo-500/40"
+                        >
+                          <div className="space-y-3.5 p-4">
+                            {/* Identity */}
+                            <div className="flex items-start gap-3">
+                              <div className="relative shrink-0">
+                                <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl border border-[#2B355A] bg-[#1E2B7B] text-sm font-semibold text-white">
+                                  {officer.photo ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={officer.photo}
+                                      alt={officer.name}
+                                      className="size-full object-cover"
+                                    />
+                                  ) : (
+                                    officer.name
+                                      .split(' ')
+                                      .map((n) => n[0])
+                                      .join('')
+                                      .slice(0, 2)
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h3 className="min-w-0 text-sm font-semibold leading-snug break-words text-white">
+                                    {officer.name}
+                                  </h3>
                                   <span
-                                    className={`size-1.5 rounded-full ${
+                                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
                                       officer.status === 'ACTIVE'
-                                        ? 'animate-pulse bg-emerald-400'
-                                        : 'bg-rose-400'
+                                        ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                        : 'border border-rose-500/30 bg-rose-500/10 text-rose-400'
                                     }`}
-                                  />
-                                  <span>
-                                    {officer.status === 'ACTIVE' ? 'Account active' : 'Blocked'}
+                                  >
+                                    <span
+                                      className={`size-1.5 rounded-full ${
+                                        officer.status === 'ACTIVE'
+                                          ? 'bg-emerald-400'
+                                          : 'bg-rose-400'
+                                      }`}
+                                    />
+                                    <span>
+                                      {officer.status === 'ACTIVE' ? 'Account active' : 'Blocked'}
+                                    </span>
                                   </span>
+                                </div>
+
+                                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  {officer.isGroupLeader && (
+                                    <span className="flex items-center gap-0.5 rounded-full border border-[#F6D300]/30 bg-[#F6D300]/10 px-1.5 py-0.5 text-xs font-semibold text-[#F6D300]">
+                                      <Star className="size-2 fill-[#F6D300]" />
+                                      <span>Leader</span>
+                                    </span>
+                                  )}
+                                  <span className="flex items-center gap-1 text-xs text-slate-400 tabular-nums">
+                                    <Phone className="size-3 shrink-0 text-slate-500" />
+                                    <span>{formatGhanaPhone(officer.phone)}</span>
+                                  </span>
+                                  {officer.staffId && (
+                                    <span className="flex items-center gap-1 rounded-md border border-[#22263C] bg-[#121626] px-1.5 py-0.5">
+                                      <span className="text-xs font-sans text-slate-500">
+                                        Staff ID
+                                      </span>
+                                      <span className="font-mono text-xs font-semibold text-slate-400">
+                                        {officer.staffId}
+                                      </span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Assignment details */}
+                            <div className="divide-y divide-[#1C2237] overflow-hidden rounded-xl border border-[#1E243A] bg-[#0A0D17] text-xs">
+                              <div className="flex items-center gap-2.5 px-3 py-2.5">
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
+                                  <Building2 className="size-3.5 text-sky-400" />
+                                </span>
+                                <span className="shrink-0 font-semibold text-slate-500">
+                                  Centre
+                                </span>
+                                <span
+                                  className={`ml-auto text-right font-medium leading-snug line-clamp-2 min-w-0 break-words ${
+                                    isOfficerUnassigned(officer)
+                                      ? 'text-amber-400'
+                                      : 'text-slate-200'
+                                  }`}
+                                  title={
+                                    isOfficerUnassigned(officer)
+                                      ? 'No centre yet'
+                                      : officer.assignedCenter
+                                  }
+                                >
+                                  {isOfficerUnassigned(officer)
+                                    ? 'No centre yet'
+                                    : officer.assignedCenter}
                                 </span>
                               </div>
 
-                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                {officer.isGroupLeader && (
-                                  <span className="flex items-center gap-0.5 rounded-full border border-[#F6D300]/30 bg-[#F6D300]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#F6D300]">
-                                    <Star className="size-2 fill-[#F6D300]" />
-                                    <span>Leader</span>
-                                  </span>
-                                )}
-                                <span className="flex items-center gap-1 text-xs text-slate-400 tabular-nums">
-                                  <Phone className="size-3 shrink-0 text-slate-500" />
-                                  <span>{formatGhanaPhone(officer.phone)}</span>
+                              <div className="flex items-center gap-2.5 px-3 py-2.5">
+                                <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
+                                  <Users className="size-3.5 text-indigo-400" />
                                 </span>
-                                {officer.staffId && (
-                                  <span className="flex items-center gap-1 rounded-md border border-[#22263C] bg-[#121626] px-1.5 py-0.5">
-                                    <span className="text-[9px] font-sans uppercase tracking-wide text-slate-500">Staff ID</span>
-                                    <span className="font-mono text-[10px] font-semibold text-slate-400">{officer.staffId}</span>
-                                  </span>
-                                )}
+                                <span className="shrink-0 font-semibold text-slate-500">Group</span>
+                                <span className="ml-auto font-semibold text-slate-300">
+                                  {officer.group || 'Group 1'}
+                                </span>
                               </div>
                             </div>
                           </div>
 
-                        {/* Assignment details */}
-                        <div className="divide-y divide-[#1C2237] overflow-hidden rounded-xl border border-[#1E243A] bg-[#0A0D17] text-xs">
-                          <div className="flex items-center gap-2.5 px-3 py-2.5">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
-                              <Building2 className="size-3.5 text-sky-400" />
-                            </span>
-                            <span className="shrink-0 font-semibold text-slate-500">Centre</span>
-                            <span
-                              className={`ml-auto text-right font-medium leading-snug line-clamp-2 min-w-0 break-words ${
-                                isOfficerUnassigned(officer) ? 'text-amber-400' : 'text-slate-200'
-                              }`}
-                              title={isOfficerUnassigned(officer) ? 'No centre yet' : officer.assignedCenter}
-                            >
-                              {isOfficerUnassigned(officer) ? 'No centre yet' : officer.assignedCenter}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2.5 px-3 py-2.5">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-[#22263C] bg-[#121626]">
-                              <Users className="size-3.5 text-indigo-400" />
-                            </span>
-                            <span className="shrink-0 font-semibold text-slate-500">Group</span>
-                            <span className="ml-auto font-semibold text-slate-300">
-                              {officer.group || 'Group 1'}
-                            </span>
-                          </div>
-                        </div>
-
-                        </div>
-
-                        {/* Actions footer */}
-                        <div className="mt-auto relative border-t border-[#1C2237] bg-[#0B0E18] p-2.5">
-                          <div className="flex items-stretch gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setInspectedOfficer(officer)}
-                              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2.5 px-2 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
-                              title="View & edit officer profile & assignment"
-                            >
-                              <User className="size-3.5 text-slate-400 shrink-0" />
-                              <span>Profile</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowResetPinModal(officer)}
-                              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2.5 px-2 text-[11px] font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
-                              title="Give the officer a new PIN"
-                            >
-                              <KeyRound className="size-3.5 text-[#F6D300] shrink-0" />
-                              <span>Give new PIN</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setOpenActionsOfficerId(openActionsOfficerId === officer.id ? null : officer.id)}
-                              className="w-11 flex items-center justify-center rounded-lg border border-[#22263C] bg-[#121626] text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
-                              aria-label="More actions"
-                              aria-expanded={openActionsOfficerId === officer.id}
-                            >
-                              <MoreVertical className="size-4" />
-                            </button>
-                          </div>
-
-                          {/* Overflow menu — Block and Delete live here */}
-                          {openActionsOfficerId === officer.id && (
-                            <>
+                          {/* Actions footer */}
+                          <div className="mt-auto relative border-t border-[#1C2237] bg-[#0B0E18] p-2.5">
+                            <div className="flex items-stretch gap-1.5">
                               <button
                                 type="button"
-                                aria-label="Close menu"
-                                className="fixed inset-0 z-30 cursor-default"
-                                onClick={() => setOpenActionsOfficerId(null)}
-                              />
-                              <div className="absolute right-2 bottom-full z-40 mb-1.5 w-52 overflow-hidden rounded-xl border border-[#22263C] bg-[#121629] shadow-2xl py-1 animate-in fade-in slide-in-from-bottom-1">
+                                onClick={() => setInspectedOfficer(officer)}
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2.5 px-2 text-xs font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
+                                title="View & edit officer profile & assignment"
+                              >
+                                <User className="size-3.5 text-slate-400 shrink-0" />
+                                <span>Profile</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowResetPinModal(officer)}
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#22263C] bg-[#121626] py-2.5 px-2 text-xs font-semibold text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
+                                title="Give the officer a new PIN"
+                              >
+                                <KeyRound className="size-3.5 text-[#F6D300] shrink-0" />
+                                <span>Give new PIN</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenActionsOfficerId(
+                                    openActionsOfficerId === officer.id ? null : officer.id,
+                                  )
+                                }
+                                className="w-11 flex items-center justify-center rounded-lg border border-[#22263C] bg-[#121626] text-slate-300 transition cursor-pointer hover:border-slate-500/50 hover:bg-[#181D2E] hover:text-white"
+                                aria-label="More actions"
+                                aria-expanded={openActionsOfficerId === officer.id}
+                              >
+                                <MoreVertical className="size-4" />
+                              </button>
+                            </div>
+
+                            {/* Overflow menu — Block and Delete live here */}
+                            {openActionsOfficerId === officer.id && (
+                              <>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setOpenActionsOfficerId(null)
-                                    handleToggleStatusGuarded(officer)
-                                  }}
-                                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer ${
-                                    officer.status === 'ACTIVE'
-                                      ? 'text-rose-400 hover:bg-rose-500/10'
-                                      : 'text-emerald-400 hover:bg-emerald-500/10'
-                                  }`}
-                                >
-                                  {officer.status === 'ACTIVE' ? (
-                                    <>
-                                      <ShieldAlert className="size-4 shrink-0" />
-                                      <span>Block access</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ShieldCheck className="size-4 shrink-0" />
-                                      <span>Activate access</span>
-                                    </>
-                                  )}
-                                </button>
-                                <div className="my-1 border-t border-[#22263C]" />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenActionsOfficerId(null)
-                                    setOfficerToDelete(officer)
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-                                >
-                                  <Trash2 className="size-4 shrink-0" />
-                                  <span>Delete officer…</span>
-                                </button>
-                              </div>
-                            </>
-                          )}
+                                  aria-label="Close menu"
+                                  className="fixed inset-0 z-30 cursor-default"
+                                  onClick={() => setOpenActionsOfficerId(null)}
+                                />
+                                <div className="absolute right-2 bottom-full z-40 mb-1.5 w-52 overflow-hidden rounded-xl border border-[#22263C] bg-[#121629] shadow-2xl py-1 animate-in fade-in slide-in-from-bottom-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionsOfficerId(null)
+                                      handleToggleStatusGuarded(officer)
+                                    }}
+                                    className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold transition cursor-pointer ${
+                                      officer.status === 'ACTIVE'
+                                        ? 'text-rose-400 hover:bg-rose-500/10'
+                                        : 'text-emerald-400 hover:bg-emerald-500/10'
+                                    }`}
+                                  >
+                                    {officer.status === 'ACTIVE' ? (
+                                      <>
+                                        <ShieldAlert className="size-4 shrink-0" />
+                                        <span>Block access</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ShieldCheck className="size-4 shrink-0" />
+                                        <span>Activate access</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <div className="my-1 border-t border-[#22263C]" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionsOfficerId(null)
+                                      setOfficerToDelete(officer)
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                                  >
+                                    <Trash2 className="size-4 shrink-0" />
+                                    <span>Delete officer…</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -2191,330 +2225,347 @@ export default function AdminPage() {
           {/* ========================================================= */}
           {activeTab === 'centers' && (
             <>
-            {/* ===== MOBILE (< lg) — compact cards, one FAB ===== */}
-            <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
-              <div className="p-4 space-y-3 pb-32">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="size-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
-                    type="text"
-                    value={centerSearchQuery}
-                    onChange={(e) => setCenterSearchQuery(e.target.value)}
-                    placeholder="Search by centre name, code or district"
-                    aria-label="Search centres"
-                    className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
-                  />
-                </div>
+              {/* ===== MOBILE (< lg) — compact cards, one FAB ===== */}
+              <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
+                <div className="p-4 space-y-3 pb-32">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="size-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                    <input
+                      type="text"
+                      value={centerSearchQuery}
+                      onChange={(e) => setCenterSearchQuery(e.target.value)}
+                      placeholder="Search by centre name, code or district"
+                      aria-label="Search centres"
+                      className="w-full h-12 rounded-xl border border-[#22263C] bg-[#11131F] pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400"
+                    />
+                  </div>
 
-                {/* Summary line + one status chip */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  {centresNeedingAttention > 0 ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-300">
-                      <span className="size-2 rounded-full bg-amber-400" />
-                      {centresNeedingAttention} need{centresNeedingAttention === 1 ? 's' : ''} attention
+                  {/* Summary line + one status chip */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {centresNeedingAttention > 0 ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-300">
+                        <span className="size-2 rounded-full bg-amber-400" />
+                        {centresNeedingAttention} need{centresNeedingAttention === 1 ? 's' : ''}{' '}
+                        attention
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
+                        <span className="size-2 rounded-full bg-emerald-400" />
+                        All check-in areas clear
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-400">
+                      <span className="font-semibold text-white tabular-nums">
+                        {examCenters.length}
+                      </span>{' '}
+                      {examCenters.length === 1 ? 'centre' : 'centres'} ·{' '}
+                      <span className="font-semibold text-white tabular-nums">
+                        {assignedOfficerCount}
+                      </span>{' '}
+                      assigned ·{' '}
+                      <span className="font-semibold text-white tabular-nums">
+                        {verifiedOnSiteCount}
+                      </span>{' '}
+                      at a centre
                     </span>
+                  </div>
+
+                  {/* Centre cards */}
+                  {filteredCenters.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-8 text-center space-y-2">
+                      <Building2 className="size-7 text-slate-500 mx-auto" />
+                      <p className="text-sm font-semibold text-slate-300">
+                        {centerSearchQuery
+                          ? 'No centres matched your search'
+                          : 'No examination centres registered yet'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Register a WAEC examination centre to monitor its check-in area.
+                      </p>
+                    </div>
                   ) : (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-2 text-xs font-semibold text-emerald-400">
-                      <span className="size-2 rounded-full bg-emerald-400" />
-                      All check-in areas clear
-                    </span>
+                    <div className="space-y-3.5">
+                      {filteredCenters.map((center, idx) => (
+                        <MobileCenterCard
+                          key={center.id || center.code}
+                          index={idx + 1}
+                          center={center}
+                          atCentreCount={officersAtCentreByCode[center.code] || 0}
+                          onFocus={handleCenterFocus}
+                          onEdit={(c) => setCenterModalState({ mode: 'edit', center: c })}
+                          onDelete={setCenterToDelete}
+                        />
+                      ))}
+                    </div>
                   )}
-                  <span className="text-xs text-slate-400">
-                    <span className="font-semibold text-white tabular-nums">{examCenters.length}</span>{' '}
-                    {examCenters.length === 1 ? 'centre' : 'centres'} ·{' '}
-                    <span className="font-semibold text-white tabular-nums">{assignedOfficerCount}</span>{' '}
-                    assigned ·{' '}
-                    <span className="font-semibold text-white tabular-nums">{verifiedOnSiteCount}</span>{' '}
-                    at a centre
-                  </span>
                 </div>
 
-                {/* Centre cards */}
-                {filteredCenters.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-8 text-center space-y-2">
+                {/* Floating Register button — above the tab bar */}
+                <button
+                  type="button"
+                  onClick={() => setCenterModalState({ mode: 'create' })}
+                  className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+                >
+                  <Plus className="size-5" />
+                  Register centre
+                </button>
+              </div>
+
+              {/* ===== DESKTOP (lg+) — existing console layout ===== */}
+              <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
+                <div className="flex flex-col gap-2 border-b border-[#22263C] pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Building2 className="size-4.5 text-[#F6D300] shrink-0" />
+                      <h2 className="text-base font-semibold text-slate-100">Exam centres</h2>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                      {centresNeedingAttention > 0 ? (
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/25 bg-amber-500/10 text-xs font-semibold text-amber-300">
+                          <span className="size-2 rounded-full bg-amber-400" />
+                          <span>
+                            {centresNeedingAttention} need
+                            {centresNeedingAttention === 1 ? 's' : ''} attention
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-xs font-semibold text-emerald-400">
+                          <span className="size-2 rounded-full bg-emerald-400" />
+                          <span>All check-in areas clear</span>
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setCenterModalState({ mode: 'create' })}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-semibold border border-white/10 transition shadow-md cursor-pointer shrink-0"
+                      >
+                        <Plus className="size-3.5 text-white" />
+                        <span>Register centre</span>
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    <span className="font-semibold text-white tabular-nums">
+                      {examCenters.length}
+                    </span>{' '}
+                    {examCenters.length === 1 ? 'centre' : 'centres'} ·{' '}
+                    <span className="font-semibold text-white tabular-nums">
+                      {assignedOfficerCount}
+                    </span>{' '}
+                    {assignedOfficerCount === 1 ? 'officer' : 'officers'} assigned ·{' '}
+                    <span className="font-semibold text-white tabular-nums">
+                      {verifiedOnSiteCount}
+                    </span>{' '}
+                    at a centre
+                  </p>
+                </div>
+
+                {/* Search & district filter — sits directly on the page, no card */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="flex-1 relative">
+                    <Search className="size-4 absolute left-3 top-3 text-slate-500" />
+                    <input
+                      type="text"
+                      value={centerSearchQuery}
+                      onChange={(e) => setCenterSearchQuery(e.target.value)}
+                      placeholder="Search by centre name, code or district"
+                      aria-label="Search centres"
+                      className="w-full rounded-xl border border-[#22263C] bg-[#0E111D] py-2.5 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400 font-sans min-h-[44px]"
+                    />
+                    {centerSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setCenterSearchQuery('')}
+                        className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
+                        aria-label="Clear search"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative min-w-[170px]">
+                    <Filter className="size-3.5 absolute left-3 top-3 text-slate-400 pointer-events-none" />
+                    <select
+                      value={centerDistrictFilter}
+                      onChange={(e) => setCenterDistrictFilter(e.target.value)}
+                      aria-label="Filter by district"
+                      className="w-full rounded-xl border border-[#22263C] bg-[#0E111D] py-2.5 pl-8 pr-7 text-xs text-slate-200 focus:outline-hidden focus:border-indigo-400 font-sans appearance-none cursor-pointer min-h-[44px]"
+                    >
+                      <option value="ALL">All districts</option>
+                      {districts.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Centers Cards Grid */}
+                {examCenters.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
                     <Building2 className="size-7 text-slate-500 mx-auto" />
                     <p className="text-sm font-semibold text-slate-300">
-                      {centerSearchQuery
-                        ? 'No centres matched your search'
-                        : 'No examination centres registered yet'}
+                      No examination centres yet
                     </p>
                     <p className="text-xs text-slate-500">
-                      Register a WAEC examination centre to monitor its check-in area.
+                      Click &ldquo;Register centre&rdquo; to add a WAEC-approved spot and its
+                      check-in area.
                     </p>
                   </div>
+                ) : filteredCenters.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-3">
+                    <Building2 className="size-7 text-slate-500 mx-auto" />
+                    <p className="text-sm font-semibold text-slate-300">
+                      No examination centres match your filters
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Try adjusting your search query or reset the district filter.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCenterSearchQuery('')
+                        setCenterDistrictFilter('ALL')
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-semibold text-white transition cursor-pointer"
+                    >
+                      <span>Reset filters</span>
+                    </button>
+                  </div>
                 ) : (
-                  <div className="space-y-3.5">
-                    {filteredCenters.map((center, idx) => (
-                      <MobileCenterCard
-                        key={center.id || center.code}
-                        index={idx + 1}
-                        center={center}
-                        atCentreCount={officersAtCentreByCode[center.code] || 0}
-                        onFocus={handleCenterFocus}
-                        onEdit={(c) => setCenterModalState({ mode: 'edit', center: c })}
-                        onDelete={setCenterToDelete}
-                      />
-                    ))}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
+                    {filteredCenters.map((center, index) => {
+                      const hasOpenInc = (center.openIncidentsCount || 0) > 0
+                      const atCentre = officersAtCentreByCode[center.code] || 0
+                      const assigned = center.totalMonitors || 0
+                      const radius = effectiveRadius(center.radius)
+                      const isCustomRadius = radius !== defaultRadiusMeters
+                      const menuId = center.id || center.code
+                      return (
+                        <div
+                          key={center.code}
+                          className="relative flex flex-col rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-indigo-500/40 transition-all duration-200 p-4 sm:p-5 shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="size-10 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] font-semibold text-sm shrink-0">
+                                {String(index + 1).padStart(2, '0')}
+                              </div>
+                              <div className="min-w-0">
+                                <h3 className="font-semibold text-sm sm:text-base text-white leading-snug break-words">
+                                  {center.name}
+                                </h3>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  Centre code{' '}
+                                  <span className="font-semibold text-slate-300 tabular-nums">
+                                    {center.code}
+                                  </span>
+                                  {center.districtName ? <> · {center.districtName}</> : null}
+                                </p>
+                              </div>
+                            </div>
+                            <span
+                              className={`rounded-full border px-2.5 py-1 text-xs font-semibold shrink-0 flex items-center gap-1.5 ${
+                                hasOpenInc
+                                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              }`}
+                            >
+                              <span
+                                className={`size-1.5 rounded-full ${
+                                  hasOpenInc ? 'bg-amber-400' : 'bg-emerald-400'
+                                }`}
+                              />
+                              <span>{hasOpenInc ? 'Needs attention' : 'All clear'}</span>
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-400 pt-3 mt-3 border-t border-[#1E243A]">
+                            <span className="font-semibold text-white tabular-nums">
+                              {assigned}
+                            </span>{' '}
+                            {assigned === 1 ? 'officer' : 'officers'} assigned ·{' '}
+                            <span className="font-semibold text-white tabular-nums">
+                              {atCentre}
+                            </span>{' '}
+                            at the centre ·{' '}
+                            <span className="font-semibold text-white tabular-nums">
+                              {radius}&nbsp;m
+                            </span>{' '}
+                            check-in area{isCustomRadius ? ' (custom)' : ''}
+                          </p>
+
+                          {/* Actions: primary "Show on map" + ⋯ overflow menu */}
+                          <div className="mt-auto relative flex items-stretch gap-2 pt-3">
+                            <button
+                              type="button"
+                              onClick={() => handleCenterFocus(center)}
+                              className="flex-1 py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-semibold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
+                              title="Show this centre on the live map"
+                            >
+                              <MapPin className="size-3.5 text-white shrink-0" />
+                              <span>Show on map</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenCentreMenuId(openCentreMenuId === menuId ? null : menuId)
+                              }
+                              className="w-11 flex items-center justify-center rounded-xl border border-[#22263C] bg-[#161B2E] text-slate-300 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
+                              aria-label="More actions"
+                              aria-expanded={openCentreMenuId === menuId}
+                            >
+                              <MoreVertical className="size-4" />
+                            </button>
+
+                            {openCentreMenuId === menuId && (
+                              <>
+                                <button
+                                  type="button"
+                                  aria-label="Close menu"
+                                  className="fixed inset-0 z-30 cursor-default"
+                                  onClick={() => setOpenCentreMenuId(null)}
+                                />
+                                <div className="absolute right-0 bottom-full z-40 mb-1.5 w-56 overflow-hidden rounded-xl border border-[#22263C] bg-[#121629] shadow-2xl py-1 animate-in fade-in slide-in-from-bottom-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenCentreMenuId(null)
+                                      setCenterModalState({ mode: 'edit', center })
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
+                                  >
+                                    <Pencil className="size-4 shrink-0 text-slate-400" />
+                                    <span>Edit check-in area</span>
+                                  </button>
+                                  <div className="my-1 border-t border-[#22263C]" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenCentreMenuId(null)
+                                      setCenterToDelete(center)
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
+                                  >
+                                    <Trash2 className="size-4 shrink-0" />
+                                    <span>Delete…</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
-
-              {/* Floating Register button — above the tab bar */}
-              <button
-                type="button"
-                onClick={() => setCenterModalState({ mode: 'create' })}
-                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
-              >
-                <Plus className="size-5" />
-                Register centre
-              </button>
-            </div>
-
-            {/* ===== DESKTOP (lg+) — existing console layout ===== */}
-            <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-5 pb-6 space-y-4 sm:space-y-5 bg-[#090A0F] font-sans">
-              <div className="flex flex-col gap-2 border-b border-[#22263C] pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Building2 className="size-4.5 text-[#F6D300] shrink-0" />
-                    <h2 className="text-base font-bold text-slate-100">Exam centres</h2>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                    {centresNeedingAttention > 0 ? (
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-amber-500/25 bg-amber-500/10 text-xs font-semibold text-amber-300">
-                        <span className="size-2 rounded-full bg-amber-400" />
-                        <span>
-                          {centresNeedingAttention} need
-                          {centresNeedingAttention === 1 ? 's' : ''} attention
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-xs font-semibold text-emerald-400">
-                        <span className="size-2 rounded-full bg-emerald-400" />
-                        <span>All check-in areas clear</span>
-                      </span>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setCenterModalState({ mode: 'create' })}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-white px-3.5 py-2 text-xs font-bold border border-white/10 transition shadow-md cursor-pointer shrink-0"
-                    >
-                      <Plus className="size-3.5 text-white" />
-                      <span>Register centre</span>
-                    </button>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400">
-                  <span className="font-semibold text-white tabular-nums">{examCenters.length}</span>{' '}
-                  {examCenters.length === 1 ? 'centre' : 'centres'} ·{' '}
-                  <span className="font-semibold text-white tabular-nums">{assignedOfficerCount}</span>{' '}
-                  {assignedOfficerCount === 1 ? 'officer' : 'officers'} assigned ·{' '}
-                  <span className="font-semibold text-white tabular-nums">{verifiedOnSiteCount}</span>{' '}
-                  at a centre
-                </p>
-              </div>
-
-              {/* Search & district filter — sits directly on the page, no card */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                <div className="flex-1 relative">
-                  <Search className="size-4 absolute left-3 top-3 text-slate-500" />
-                  <input
-                    type="text"
-                    value={centerSearchQuery}
-                    onChange={(e) => setCenterSearchQuery(e.target.value)}
-                    placeholder="Search by centre name, code or district"
-                    aria-label="Search centres"
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0E111D] py-2.5 pl-9 pr-8 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400 font-sans min-h-[44px]"
-                  />
-                  {centerSearchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setCenterSearchQuery('')}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-white cursor-pointer"
-                      aria-label="Clear search"
-                    >
-                      <X className="size-4" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="relative min-w-[170px]">
-                  <Filter className="size-3.5 absolute left-3 top-3 text-slate-400 pointer-events-none" />
-                  <select
-                    value={centerDistrictFilter}
-                    onChange={(e) => setCenterDistrictFilter(e.target.value)}
-                    aria-label="Filter by district"
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0E111D] py-2.5 pl-8 pr-7 text-xs text-slate-200 focus:outline-hidden focus:border-indigo-400 font-sans appearance-none cursor-pointer min-h-[44px]"
-                  >
-                    <option value="ALL">All districts</option>
-                    {districts.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Centers Cards Grid */}
-              {examCenters.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-2">
-                  <Building2 className="size-7 text-slate-500 mx-auto" />
-                  <p className="text-sm font-semibold text-slate-300">
-                    No examination centres yet
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Click &ldquo;Register centre&rdquo; to add a WAEC-approved spot and its check-in area.
-                  </p>
-                </div>
-              ) : filteredCenters.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#22263C] bg-[#0E111D]/60 p-10 text-center space-y-3">
-                  <Building2 className="size-7 text-slate-500 mx-auto" />
-                  <p className="text-sm font-semibold text-slate-300">
-                    No examination centres match your filters
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Try adjusting your search query or reset the district filter.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCenterSearchQuery('')
-                      setCenterDistrictFilter('ALL')
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-semibold text-white transition cursor-pointer"
-                  >
-                    <span>Reset filters</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 sm:gap-4">
-                  {filteredCenters.map((center, index) => {
-                    const hasOpenInc = (center.openIncidentsCount || 0) > 0
-                    const atCentre = officersAtCentreByCode[center.code] || 0
-                    const assigned = center.totalMonitors || 0
-                    const radius = effectiveRadius(center.radius)
-                    const isCustomRadius = radius !== defaultRadiusMeters
-                    const menuId = center.id || center.code
-                    return (
-                      <div
-                        key={center.code}
-                        className="relative flex flex-col rounded-2xl border border-[#22263C] bg-[#11131F] hover:border-indigo-500/40 transition-all duration-200 p-4 sm:p-5 shadow-md"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className="size-10 rounded-xl bg-[#1E2B7B]/60 border border-[#F6D300]/30 flex items-center justify-center text-[#F6D300] font-bold text-sm shrink-0">
-                              {String(index + 1).padStart(2, '0')}
-                            </div>
-                            <div className="min-w-0">
-                              <h3 className="font-bold text-sm sm:text-base text-white leading-snug break-words">
-                                {center.name}
-                              </h3>
-                              <p className="text-[11px] text-slate-400 mt-1">
-                                Centre code{' '}
-                                <span className="font-semibold text-slate-300 tabular-nums">
-                                  {center.code}
-                                </span>
-                                {center.districtName ? (
-                                  <>
-                                    {' '}
-                                    · {center.districtName}
-                                  </>
-                                ) : null}
-                              </p>
-                            </div>
-                          </div>
-                          <span
-                            className={`rounded-full border px-2.5 py-1 text-[10px] font-bold shrink-0 flex items-center gap-1.5 ${
-                              hasOpenInc
-                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                            }`}
-                          >
-                            <span
-                              className={`size-1.5 rounded-full ${
-                                hasOpenInc ? 'bg-amber-400' : 'bg-emerald-400'
-                              }`}
-                            />
-                            <span>{hasOpenInc ? 'Needs attention' : 'All clear'}</span>
-                          </span>
-                        </div>
-
-                        <p className="text-xs text-slate-400 pt-3 mt-3 border-t border-[#1E243A]">
-                          <span className="font-semibold text-white tabular-nums">{assigned}</span>{' '}
-                          {assigned === 1 ? 'officer' : 'officers'} assigned ·{' '}
-                          <span className="font-semibold text-white tabular-nums">{atCentre}</span>{' '}
-                          at the centre ·{' '}
-                          <span className="font-semibold text-white tabular-nums">{radius}&nbsp;m</span>{' '}
-                          check-in area{isCustomRadius ? ' (custom)' : ''}
-                        </p>
-
-                        {/* Actions: primary "Show on map" + ⋯ overflow menu */}
-                        <div className="mt-auto relative flex items-stretch gap-2 pt-3">
-                          <button
-                            type="button"
-                            onClick={() => handleCenterFocus(center)}
-                            className="flex-1 py-2.5 px-3 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[44px]"
-                            title="Show this centre on the live map"
-                          >
-                            <MapPin className="size-3.5 text-white shrink-0" />
-                            <span>Show on map</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setOpenCentreMenuId(openCentreMenuId === menuId ? null : menuId)}
-                            className="w-11 flex items-center justify-center rounded-xl border border-[#22263C] bg-[#161B2E] text-slate-300 hover:text-white hover:border-slate-500/50 transition cursor-pointer"
-                            aria-label="More actions"
-                            aria-expanded={openCentreMenuId === menuId}
-                          >
-                            <MoreVertical className="size-4" />
-                          </button>
-
-                          {openCentreMenuId === menuId && (
-                            <>
-                              <button
-                                type="button"
-                                aria-label="Close menu"
-                                className="fixed inset-0 z-30 cursor-default"
-                                onClick={() => setOpenCentreMenuId(null)}
-                              />
-                              <div className="absolute right-0 bottom-full z-40 mb-1.5 w-56 overflow-hidden rounded-xl border border-[#22263C] bg-[#121629] shadow-2xl py-1 animate-in fade-in slide-in-from-bottom-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenCentreMenuId(null)
-                                    setCenterModalState({ mode: 'edit', center })
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-slate-200 hover:bg-white/5 hover:text-white transition cursor-pointer"
-                                >
-                                  <Pencil className="size-4 shrink-0 text-slate-400" />
-                                  <span>Edit check-in area</span>
-                                </button>
-                                <div className="my-1 border-t border-[#22263C]" />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenCentreMenuId(null)
-                                    setCenterToDelete(center)
-                                  }}
-                                  className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
-                                >
-                                  <Trash2 className="size-4 shrink-0" />
-                                  <span>Delete…</span>
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
             </>
           )}
 
@@ -2523,119 +2574,130 @@ export default function AdminPage() {
           {/* ========================================================= */}
           {activeTab === 'incidents' && (
             <>
-            {/* ===== MOBILE (< lg) — strip, chips, flat activity, FAB ===== */}
-            <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
-              <div className="p-4 space-y-4 pb-32">
-                {/* Subtitle + one status chip */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* ===== MOBILE (< lg) — strip, chips, flat activity, FAB ===== */}
+              <div className="lg:hidden relative flex-1 overflow-y-auto bg-[#090A0F] font-sans">
+                <div className="p-4 space-y-4 pb-32">
+                  {/* Subtitle + one status chip */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-slate-400">
+                      SOS alerts and what happened, in order.
+                    </p>
+                    {unresolvedIncidents.length === 0 ? (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400">
+                        <span className="size-1.5 rounded-full bg-emerald-400" />
+                        No open incidents
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-400">
+                        <span className="size-1.5 rounded-full bg-rose-500" />
+                        {unresolvedIncidents.length} open
+                      </span>
+                    )}
+                  </div>
+
+                  {recordedIncidentsBlock}
+
+                  {activityHistoryBlock}
+                </div>
+
+                {/* Floating Log incident button — above the tab bar */}
+                <button
+                  type="button"
+                  onClick={() => setShowLogIncidentModal(true)}
+                  className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
+                >
+                  <Plus className="size-5" />
+                  Log incident
+                </button>
+              </div>
+
+              {/* ===== DESKTOP (lg+) — existing console layout ===== */}
+              <div className="hidden lg:block flex-1 overflow-y-auto p-5 pb-6 space-y-5 bg-[#090A0F] font-sans">
+                <div className="border-b border-[#22263C] pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <p className="text-xs text-slate-400">SOS alerts and what happened, in order.</p>
-                  {unresolvedIncidents.length === 0 ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-400">
-                      <span className="size-1.5 rounded-full bg-emerald-400" />
-                      No open incidents
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-[11px] font-semibold text-rose-400">
-                      <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />
-                      {unresolvedIncidents.length} open
-                    </span>
-                  )}
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {unresolvedIncidents.length > 0 ? (
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-400">
+                        <span className="size-2 rounded-full bg-rose-500" />
+                        <span>{unresolvedIncidents.length} open</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-xs font-semibold text-emerald-400">
+                        <span className="size-2 rounded-full bg-emerald-400" />
+                        <span>No open incidents</span>
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowLogIncidentModal(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-semibold shadow-md border border-white/10 transition cursor-pointer"
+                    >
+                      <Plus className="size-3.5" />
+                      <span>Log incident</span>
+                    </button>
+                  </div>
                 </div>
 
                 {recordedIncidentsBlock}
 
-                {activityHistoryBlock}
-              </div>
-
-              {/* Floating Log incident button — above the tab bar */}
-              <button
-                type="button"
-                onClick={() => setShowLogIncidentModal(true)}
-                className="fixed bottom-24 right-4 z-30 h-14 flex items-center gap-2 rounded-full bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] px-6 text-base font-semibold text-white shadow-lg shadow-indigo-950/50 transition cursor-pointer"
-              >
-                <Plus className="size-5" />
-                Log incident
-              </button>
-            </div>
-
-            {/* ===== DESKTOP (lg+) — existing console layout ===== */}
-            <div className="hidden lg:block flex-1 overflow-y-auto p-5 pb-6 space-y-5 bg-[#090A0F] font-sans">
-              <div className="border-b border-[#22263C] pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <p className="text-xs text-slate-400">SOS alerts and what happened, in order.</p>
-
-                <div className="flex items-center gap-2 self-start sm:self-auto">
-                  {unresolvedIncidents.length > 0 ? (
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-400">
-                      <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
-                      <span>
-                        {unresolvedIncidents.length} open
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-xs font-semibold text-emerald-400">
-                      <span className="size-2 rounded-full bg-emerald-400" />
-                      <span>No open incidents</span>
-                    </span>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setShowLogIncidentModal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] text-white px-3.5 py-2 text-xs font-bold shadow-md border border-white/10 transition cursor-pointer"
-                  >
-                    <Plus className="size-3.5" />
-                    <span>Log incident</span>
-                  </button>
-                </div>
-              </div>
-
-              {recordedIncidentsBlock}
-
-              {/* Activity history + safety summary */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
-                <div className="lg:col-span-2">{activityHistoryBlock}</div>
-                {/* When an SOS comes in — the four things a controller actually does */}
-                <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 space-y-3 shadow-md">
-                  <h3 className="font-bold text-xs text-slate-300 tracking-wider">
-                    Safety summary
-                  </h3>
-                  <div className="space-y-0 text-xs divide-y divide-[#1E243A] border-y border-[#1E243A]">
-                    <div className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-400">Open incidents</span>
-                      <span
-                        className={`font-bold tabular-nums ${
-                          incidentSummary.openIncidentsCount > 0 ? 'text-rose-400' : 'text-emerald-400'
-                        }`}
-                      >
-                        {incidentSummary.openIncidentsCount}
-                      </span>
+                {/* Activity history + safety summary */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-4">
+                  <div className="lg:col-span-2">{activityHistoryBlock}</div>
+                  {/* When an SOS comes in — the four things a controller actually does */}
+                  <div className="rounded-2xl border border-[#22263C] bg-[#111422] p-4 sm:p-5 space-y-3 shadow-md">
+                    <h3 className="font-semibold text-xs text-slate-300">Safety summary</h3>
+                    <div className="space-y-0 text-xs divide-y divide-[#1E243A] border-y border-[#1E243A]">
+                      <div className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-400">Open incidents</span>
+                        <span
+                          className={`font-semibold tabular-nums ${
+                            incidentSummary.openIncidentsCount > 0
+                              ? 'text-rose-400'
+                              : 'text-emerald-400'
+                          }`}
+                        >
+                          {incidentSummary.openIncidentsCount}
+                        </span>
+                      </div>
+                      <div className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-400">Check-in areas clear</span>
+                        <span className="text-white font-semibold tabular-nums">
+                          {safeCentersCount} / {examCenters.length}
+                        </span>
+                      </div>
+                      <div className="py-2.5 flex items-center justify-between">
+                        <span className="text-slate-400">Officers at centre</span>
+                        <span className="text-white font-semibold tabular-nums">
+                          {verifiedOnSiteCount} of {deployedMonitorsCount}
+                        </span>
+                      </div>
                     </div>
-                    <div className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-400">Check-in areas clear</span>
-                      <span className="text-white font-bold tabular-nums">
-                        {safeCentersCount} / {examCenters.length}
-                      </span>
-                    </div>
-                    <div className="py-2.5 flex items-center justify-between">
-                      <span className="text-slate-400">Officers at centre</span>
-                      <span className="text-white font-bold tabular-nums">
-                        {verifiedOnSiteCount} of {deployedMonitorsCount}
-                      </span>
-                    </div>
-                  </div>
 
-                  <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#22263C] text-xs text-slate-400 space-y-1.5">
-                    <p className="text-slate-100 font-semibold">When an SOS comes in</p>
-                    <ol className="space-y-1 leading-snug">
-                      <li><span className="text-slate-200 font-semibold">1.</span> Call the officer.</li>
-                      <li><span className="text-slate-200 font-semibold">2.</span> Tap <span className="text-slate-200">I&apos;m on it</span>.</li>
-                      <li><span className="text-slate-200 font-semibold">3.</span> Send help if needed.</li>
-                      <li><span className="text-slate-200 font-semibold">4.</span> Mark <span className="text-slate-200">Problem fixed</span> and add a note.</li>
-                    </ol>
+                    <div className="p-3 rounded-xl bg-[#0C0F17] border border-[#22263C] text-xs text-slate-400 space-y-1.5">
+                      <p className="text-slate-100 font-semibold">When an SOS comes in</p>
+                      <ol className="space-y-1 leading-snug">
+                        <li>
+                          <span className="text-slate-200 font-semibold">1.</span> Call the officer.
+                        </li>
+                        <li>
+                          <span className="text-slate-200 font-semibold">2.</span> Tap{' '}
+                          <span className="text-slate-200">I&apos;m on it</span>.
+                        </li>
+                        <li>
+                          <span className="text-slate-200 font-semibold">3.</span> Send help if
+                          needed.
+                        </li>
+                        <li>
+                          <span className="text-slate-200 font-semibold">4.</span> Mark{' '}
+                          <span className="text-slate-200">Problem fixed</span> and add a note.
+                        </li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
             </>
           )}
 
@@ -2725,8 +2787,8 @@ export default function AdminPage() {
         title={`Block ${blockAccountTarget?.name ?? ''}?`}
         description={
           <>
-            They will be signed out everywhere and will not be able to sign back in.
-            You can restore access at any time from the Officers page.
+            They will be signed out everywhere and will not be able to sign back in. You can restore
+            access at any time from the Officers page.
           </>
         }
         confirmLabel="Block account"
@@ -2781,7 +2843,7 @@ export default function AdminPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-center-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in"
         >
           <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
@@ -2789,7 +2851,7 @@ export default function AdminPage() {
                 <Trash2 className="size-5.5" />
               </div>
               <div>
-                <h3 id="delete-center-title" className="text-base font-bold text-white">
+                <h3 id="delete-center-title" className="text-base font-semibold text-white">
                   Delete {centerToDelete.name}? This can&apos;t be undone
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -2802,8 +2864,9 @@ export default function AdminPage() {
               <p className="font-semibold text-white">
                 {centerToDelete.name} ({centerToDelete.code})
               </p>
-              <p className="text-[11px] text-rose-300/90 leading-relaxed">
-                This deletes the centre, unlinks all officer deployments and incidents from it, and removes the check-in area ({centerToDelete.radius} m). This can&apos;t be undone.
+              <p className="text-xs text-rose-300/90 leading-relaxed">
+                This deletes the centre, unlinks all officer deployments and incidents from it, and
+                removes the check-in area ({centerToDelete.radius} m). This can&apos;t be undone.
               </p>
             </div>
 
@@ -2820,7 +2883,7 @@ export default function AdminPage() {
                 type="button"
                 onClick={handleDeleteCenterConfirm}
                 disabled={isDeletingRecord}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-semibold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
               >
                 {isDeletingRecord ? (
                   <>
@@ -2845,7 +2908,7 @@ export default function AdminPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-officer-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in"
         >
           <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
@@ -2853,7 +2916,7 @@ export default function AdminPage() {
                 <Trash2 className="size-5.5" />
               </div>
               <div>
-                <h3 id="delete-officer-title" className="text-base font-bold text-white">
+                <h3 id="delete-officer-title" className="text-base font-semibold text-white">
                   Delete {officerToDelete.name.split(' ')[0]}? This can&apos;t be undone
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -2866,11 +2929,14 @@ export default function AdminPage() {
               <p className="font-semibold text-white">
                 {officerToDelete.name} ({formatGhanaPhone(officerToDelete.phone)})
               </p>
-              <p className="text-[11px] text-slate-300">
-                Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned: {officerToDelete.assignedCenter || 'No centre yet'}
+              <p className="text-xs text-slate-300">
+                Staff ID: {officerToDelete.staffId || 'N/A'} • Assigned:{' '}
+                {officerToDelete.assignedCenter || 'No centre yet'}
               </p>
-              <p className="text-[11px] text-rose-300/90 leading-relaxed pt-1">
-                This deletes the officer account, signs them out everywhere, removes their centre and shift assignments, and archives incident audit references. This can&apos;t be undone.
+              <p className="text-xs text-rose-300/90 leading-relaxed pt-1">
+                This deletes the officer account, signs them out everywhere, removes their centre
+                and shift assignments, and archives incident audit references. This can&apos;t be
+                undone.
               </p>
             </div>
 
@@ -2887,7 +2953,7 @@ export default function AdminPage() {
                 type="button"
                 onClick={handleDeleteOfficerConfirm}
                 disabled={isDeletingRecord}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-semibold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
               >
                 {isDeletingRecord ? (
                   <>
@@ -2911,7 +2977,7 @@ export default function AdminPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="revoke-officer-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in"
         >
           <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3">
@@ -2919,7 +2985,7 @@ export default function AdminPage() {
                 <ShieldAlert className="size-5.5" />
               </div>
               <div>
-                <h3 id="revoke-officer-title" className="text-base font-bold text-white">
+                <h3 id="revoke-officer-title" className="text-base font-semibold text-white">
                   Block officer access
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -2932,7 +2998,7 @@ export default function AdminPage() {
               <p className="font-semibold text-white">
                 {revokingOfficer.name} ({formatGhanaPhone(revokingOfficer.phone)})
               </p>
-              <p className="text-[11px] text-slate-300">
+              <p className="text-xs text-slate-300">
                 Staff ID: {revokingOfficer.staffId || 'N/A'} • Assigned:{' '}
                 {revokingOfficer.assignedCenter || 'No centre yet'}
               </p>
@@ -2953,7 +3019,7 @@ export default function AdminPage() {
                   setRevokingOfficer(null)
                   handleToggleStatus(officer)
                 }}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-bold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-xs font-semibold text-white transition flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-900/30 min-h-[44px]"
               >
                 <ShieldAlert className="size-3.5" />
                 <span>Block Access</span>

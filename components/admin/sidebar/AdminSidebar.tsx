@@ -33,7 +33,7 @@ interface AdminSidebarProps {
       | 'settings'
       | 'safety'
       | 'timetable'
-      | 'groups'
+      | 'groups',
   ) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
@@ -122,10 +122,8 @@ export function AdminSidebar({
           />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="text-xs font-bold tracking-wider text-foreground truncate">
-                M.O.S ADMIN
-              </span>
-              <span className="text-[10px] font-sans tracking-wider text-muted-foreground truncate">
+              <span className="text-xs font-semibold text-foreground truncate">M.O.S ADMIN</span>
+              <span className="text-xs font-sans text-muted-foreground truncate">
                 Monitoring system
               </span>
             </div>
@@ -139,18 +137,14 @@ export function AdminSidebar({
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted/50 transition-colors cursor-pointer"
         >
-          {isCollapsed ? (
-            <ChevronRight className="size-4" />
-          ) : (
-            <ChevronLeft className="size-4" />
-          )}
+          {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
         </button>
       </div>
 
       {/* Navigation Section */}
       <div className="flex-1 py-4 px-2.5 space-y-4">
         {!isCollapsed && (
-          <div className="px-2 text-[10px] font-sans font-semibold tracking-wider text-muted-foreground">
+          <div className="px-2 text-xs font-sans font-semibold text-muted-foreground">
             Main navigation
           </div>
         )}
@@ -197,7 +191,7 @@ export function AdminSidebar({
             title="Open your profile"
             className="flex items-center gap-2.5 overflow-hidden text-left hover:opacity-90 transition cursor-pointer"
           >
-            <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="size-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-semibold text-xs flex items-center justify-center shrink-0 overflow-hidden">
               {adminPhoto ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={adminPhoto} alt={adminName} className="size-full object-cover" />
@@ -210,7 +204,7 @@ export function AdminSidebar({
                 <span className="text-xs font-medium text-foreground truncate" title={adminName}>
                   {adminName}
                 </span>
-                <div className="flex items-center gap-1.5 text-[10px] text-status-ok font-medium">
+                <div className="flex items-center gap-1.5 text-xs text-status-ok font-medium">
                   <span className="size-1.5 rounded-full bg-status-ok" />
                   <span>Online</span>
                 </div>
@@ -250,7 +244,6 @@ export function AdminSidebar({
             <Settings className="size-4" />
           </button>
         )}
-
       </div>
     </aside>
   )

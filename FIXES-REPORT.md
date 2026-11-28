@@ -1,8 +1,8 @@
 # WAEC MOS V1:1 Field Officer Operations — Final Fix & Delivery Report
 
-**Date:** Thu Nov 26 2026  
+**Date:** Sat Nov 28 2026  
 **Branch:** `main`  
-**Application commit:** `8655cd6` — “Feat: add admin group workflow and fix proof photo visibility”  
+**Application commits:** `8655cd6`, `ec695ca` and the current unslop design pass  
 **Production:** `https://waec-mos-prd.vercel.app`  
 **Status:** Shipped after full TypeScript, test, build, APK and HTTP verification.
 
@@ -131,7 +131,7 @@ Run immediately before push:
 |---|---|
 | `npx tsc --noEmit` | Clean, no errors |
 | `npm test` | **65/65 passed** (5 test files) |
-| `npm run build` | **Compiled successfully**, 47 static pages, TypeScript finished clean |
+| `npm run build` | **Compiled successfully**, 46 static pages, TypeScript finished clean (47 → 46 after the fake `/demo` route was removed) |
 | `npx cap sync android` | Succeeded; 1 Capacitor plugin (`@capacitor/geolocation`) |
 | `gradlew assembleRelease --no-daemon` | **BUILD SUCCESSFUL** |
 | `apksigner verify --verbose --print-certs` | **v2 signature valid**, 1 signer |
@@ -172,6 +172,34 @@ Build note: Next.js 16 emits a non-blocking deprecation notice for the `middlewa
 
 ---
 
-## 7. Final statement
+## 7. Unslop design pass
 
-The system now covers the full WAEC field loop: HQ creates groups and links them to regions; leaders assign each officer to a school per day; the APK/PWA streams location into one shared arrival engine; check-in confirms presence; HQ sees only real exceptions; and a rare proof request resolves to the exact watermarked photo. All light wrapper code is in the APK — rules are not duplicated — and every delivered gate passed before push.
+The interface was audited with the `unslop` skill and moved to one deliberate direction: **an examination-morning centre gate** — exact, institutional, calm under pressure. Colour is reserved for real state: `#3b57f0` for the single primary action, green for confirmed arrival, amber for attention, red for SOS. Richness appears only where it earns attention (centre perimeter check and the one primary action); the verified-at-centre dot is the quiet signature.
+
+### Removed
+
+- Fake `/demo` route, fake personnel, fake statistics, fake live state and unused slop components (`app-1`, `login-page`, command header, institutional showcase scaffold).
+- Auth glass/gradient exception, decorative blobs, pulsing dots, glow shadows, uppercase micro-label tracking, glass blur and 9–11 px microcopy.
+- Background blur and gradient remnants in the field, admin, profile and SOS surfaces; 3xl radii and 36 px touch targets normalised to 12–16 px radii and 44 px targets.
+
+### Rebuilt / cleaned
+
+- **Auth shell:** login, signup, request access, forgot password, choose PIN, change password and landing route now share one solid surface system with plain Ghanaian/WAEC copy and real form states.
+- **National operations showcase:** replaced invented numbers with product facts; it is a proof-of-work panel, not a fake dashboard.
+- **PIN input:** tokenised shared classes, retained paste/backspace/autocomplete behaviour; letter spacing remains only on actual PIN/OTP digit fields where it aids legibility.
+- **Field:** section labels, confirmation notice, SOS banner, schedule, arrival confirmation and bottom navigation use sentence case, static state dots, larger targets and solid surfaces.
+- **Admin:** incidents, officer cards, safety centre, fleet map labels, modals and toasts use solid tokens, readable 12 px minimum copy and 44 px actions; no DB-backed behaviour changed.
+- **Profile / shared:** solid profile header, quiet avatar/badge, static active state, simplified SOS hold button, and quieter venue/status/timeline/paper components.
+
+### Evidence
+
+- `artifacts/design-evidence/waec-login-before.png` → `artifacts/design-evidence/waec-login-after.png`
+- `artifacts/design-evidence/waec-signup-before.png` → `artifacts/design-evidence/waec-signup-after.png`
+- Both pairs were captured at 1440 × 900. Pixel sampling shows deliberate layout replacement rather than a cosmetic token tweak: login changed ~82% of sampled pixels and signup ~15%, driven by removing the fake glass/fake-data shell and tightening the real form.
+- Served HTML was checked over HTTP on all six public auth routes: `200`, zero decorative slop tokens, and `/demo` now returns `404`.
+
+---
+
+## 8. Final statement
+
+The system now covers the full WAEC field loop: HQ creates groups and links them to regions; leaders assign each officer to a school per day; the APK/PWA streams location into one shared arrival engine; check-in confirms presence; HQ sees only real exceptions; and a rare proof request resolves to the exact watermarked photo. The unslop pass removes fake and decorative UI without altering DB-backed operations. All light wrapper code is in the APK — rules are not duplicated — and every delivered gate passed before push.

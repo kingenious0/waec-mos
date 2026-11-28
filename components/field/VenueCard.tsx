@@ -9,30 +9,21 @@ interface VenueCardProps {
   regionName?: string
 }
 
-export function VenueCard({
-  venueName,
-  venueCode,
-  zoneName,
-  regionName,
-}: VenueCardProps) {
+export function VenueCard({ venueName, venueCode, zoneName, regionName }: VenueCardProps) {
   return (
     <div className="w-full rounded-2xl bg-[#0F121E] border border-[#1C2337] p-4 text-zinc-100 shadow-md select-none font-sans">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-          Assigned Venue
-        </span>
+        <span className="text-xs font-medium text-slate-400">Assigned Venue</span>
         {venueCode && (
-          <span className="text-[10px] font-semibold text-[#F6D300] bg-[#1A2035] px-2 py-0.5 rounded-md border border-[#27324E] tabular-nums">
+          <span className="text-xs font-medium text-[#F6D300] bg-[#1A2035] px-2 py-0.5 rounded-md border border-[#27324E] tabular-nums">
             {venueCode}
           </span>
         )}
       </div>
 
-      <h3 className="text-base font-bold text-white mt-1 leading-snug">
-        {venueName}
-      </h3>
+      <h3 className="text-base font-semibold text-white mt-1 leading-snug">{venueName}</h3>
 
-      <p className="text-[13px] text-slate-400 mt-1 leading-normal">
+      <p className="text-sm text-slate-400 mt-1 leading-normal">
         {zoneName} · {regionName}
       </p>
     </div>

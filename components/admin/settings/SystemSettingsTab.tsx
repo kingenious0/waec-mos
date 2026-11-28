@@ -2,10 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { RotateCcw, CheckCircle2, ChevronDown } from 'lucide-react'
-import {
-  DEFAULT_SYSTEM_SETTINGS,
-  type SystemSettingsConfig,
-} from '@/lib/settings-utils'
+import { DEFAULT_SYSTEM_SETTINGS, type SystemSettingsConfig } from '@/lib/settings-utils'
 import type { SessionData } from '@/lib/auth/session'
 
 export type { SystemSettingsConfig }
@@ -24,7 +21,7 @@ export function SystemSettingsTab({
   onFeedback,
 }: SystemSettingsTabProps) {
   const [settings, setSettings] = useState<SystemSettingsConfig>(
-    initialSettings || DEFAULT_SYSTEM_SETTINGS
+    initialSettings || DEFAULT_SYSTEM_SETTINGS,
   )
   const [isLoading, setIsLoading] = useState<boolean>(!initialSettings)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
@@ -134,9 +131,10 @@ export function SystemSettingsTab({
       <div className="max-w-4xl mx-auto space-y-8 pb-16">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-bold tracking-tight text-white">System settings</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">System settings</h1>
             <p className="text-sm text-zinc-400">
-              Alert rules, map behaviour, and security for the {session?.region || 'Ashanti'} regional hub.
+              Alert rules, map behaviour, and security for the {session?.region || 'Ashanti'}{' '}
+              regional hub.
             </p>
           </div>
           {isLoading && (
@@ -148,9 +146,7 @@ export function SystemSettingsTab({
 
         {/* SECTION 1: ALERT RULES */}
         <div className="space-y-3">
-          <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
-            ALERT RULES
-          </div>
+          <div className="text-xs font-sans font-semibold text-muted-foreground ">ALERT RULES</div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
@@ -214,9 +210,7 @@ export function SystemSettingsTab({
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Officer offline</div>
-                <div className="text-xs text-zinc-400">
-                  Warn when no location update arrives.
-                </div>
+                <div className="text-xs text-zinc-400">Warn when no location update arrives.</div>
               </div>
               <div className="relative shrink-0">
                 <select
@@ -237,9 +231,7 @@ export function SystemSettingsTab({
 
         {/* SECTION 2: DELIVERY */}
         <div className="space-y-3">
-          <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
-            DELIVERY
-          </div>
+          <div className="text-xs font-sans font-semibold text-muted-foreground ">DELIVERY</div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
@@ -342,7 +334,7 @@ export function SystemSettingsTab({
 
         {/* SECTION 3: MAP AND GEOFENCES */}
         <div className="space-y-3">
-          <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
+          <div className="text-xs font-sans font-semibold text-muted-foreground ">
             Map and geofences
           </div>
 
@@ -396,17 +388,13 @@ export function SystemSettingsTab({
 
         {/* SECTION 4: SECURITY */}
         <div className="space-y-3">
-          <div className="text-[11px] font-sans font-semibold tracking-wider text-muted-foreground uppercase">
-            SECURITY
-          </div>
+          <div className="text-xs font-sans font-semibold text-muted-foreground ">SECURITY</div>
 
           <div className="rounded-2xl border border-border/80 bg-[#0E1017] divide-y divide-border/60 overflow-hidden shadow-xs">
             <div className="p-4 sm:px-5 flex items-center justify-between gap-4">
               <div className="space-y-0.5">
                 <div className="text-sm font-semibold text-white">Session timeout</div>
-                <div className="text-xs text-zinc-400">
-                  Sign out controllers after inactivity.
-                </div>
+                <div className="text-xs text-zinc-400">Sign out controllers after inactivity.</div>
               </div>
               <div className="relative shrink-0">
                 <select
@@ -430,7 +418,7 @@ export function SystemSettingsTab({
                 <div className="text-sm font-semibold text-white flex items-center gap-2">
                   Extra check for admins
                   {session?.role === 'SUPER_ADMIN' && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-400">
                       Locked
                     </span>
                   )}
@@ -480,7 +468,7 @@ export function SystemSettingsTab({
             type="button"
             disabled={isSubmitting || isLoading}
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] disabled:opacity-50 text-white text-xs font-bold shadow-lg shadow-blue-900/30 transition cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2 rounded-xl bg-[#2563EB] hover:bg-[#1D4ED8] active:bg-[#1E40AF] disabled:opacity-50 text-white text-xs font-semibold shadow-lg shadow-blue-900/30 transition cursor-pointer flex items-center gap-1.5"
           >
             {isSaved ? (
               <>

@@ -94,11 +94,11 @@ export function LogIncidentModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.95)] select-none font-sans"
+        className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-xl select-none font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
@@ -107,12 +107,10 @@ export function LogIncidentModal({
               <AlertTriangle className="size-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <h2 className="text-lg font-semibold tracking-tight text-white">
                 Log Operations Incident
               </h2>
-              <p className="text-xs text-slate-400">
-                Record incident and notify command
-              </p>
+              <p className="text-xs text-slate-400">Record incident and notify command</p>
             </div>
           </div>
 
@@ -248,7 +246,7 @@ export function LogIncidentModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-xs font-bold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-xs font-semibold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="size-3.5" />
               <span>{isSubmitting ? 'Submitting...' : 'Log Incident'}</span>
@@ -257,7 +255,6 @@ export function LogIncidentModal({
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   )
 }
-

@@ -3,14 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { validatePin } from '@/lib/auth/pin-policy'
-import {
-  X,
-  KeyRound,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  RefreshCw,
-} from 'lucide-react'
+import { X, KeyRound, Eye, EyeOff, CheckCircle2, RefreshCw } from 'lucide-react'
 import type { UserAccount } from '@/lib/db'
 
 interface ResetPinModalProps {
@@ -19,11 +12,7 @@ interface ResetPinModalProps {
   onSave: (officerId: string, newPin: string) => void
 }
 
-export function ResetPinModal({
-  officer,
-  onClose,
-  onSave,
-}: ResetPinModalProps) {
+export function ResetPinModal({ officer, onClose, onSave }: ResetPinModalProps) {
   const [mounted, setMounted] = useState(false)
   const [pin, setPin] = useState('')
   const [showPin, setShowPin] = useState(true)
@@ -66,11 +55,11 @@ export function ResetPinModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.95)] select-none font-sans"
+        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-xl select-none font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -80,12 +69,8 @@ export function ResetPinModal({
               <KeyRound className="size-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white tracking-tight">
-                Reset Login PIN
-              </h3>
-              <p className="text-xs text-slate-400">
-                4-Digit Authentication PIN
-              </p>
+              <h3 className="text-base font-semibold text-white tracking-tight">Reset Login PIN</h3>
+              <p className="text-xs text-slate-400">4-Digit Authentication PIN</p>
             </div>
           </div>
 
@@ -104,20 +89,18 @@ export function ResetPinModal({
           <div className="rounded-2xl border border-[#22263C] bg-[#121626] p-4 space-y-3">
             <div className="text-xs text-slate-300">
               Generating new login credentials for{' '}
-              <span className="font-bold text-white">{officer.name}</span>{' '}
-              <span className="text-slate-400 font-sans text-[11px]">({officer.phone})</span>.
+              <span className="font-semibold text-white">{officer.name}</span>{' '}
+              <span className="text-slate-400 font-sans text-xs">({officer.phone})</span>.
             </div>
 
             <div className="pt-2">
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  New 4-Digit PIN
-                </label>
+                <label className="text-xs font-semibold text-slate-400">New 4-Digit PIN</label>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleGenerateNew}
-                    className="text-[11px] text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw className="size-3" />
                     <span>Generate</span>
@@ -125,7 +108,7 @@ export function ResetPinModal({
                   <button
                     type="button"
                     onClick={() => setShowPin(!showPin)}
-                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
                   >
                     {showPin ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
                   </button>
@@ -138,7 +121,7 @@ export function ResetPinModal({
                   maxLength={4}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] py-3 text-center font-sans text-2xl font-black tracking-widest text-[#F6D300] focus:outline-hidden focus:border-sky-400 transition-colors"
+                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] py-3 text-center font-sans text-2xl font-semibold text-[#F6D300] focus:outline-hidden focus:border-sky-400 transition-colors"
                 />
               </div>
             </div>
@@ -154,7 +137,7 @@ export function ResetPinModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 text-xs font-semibold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="size-3.5 text-white" />
               <span>Save New PIN</span>

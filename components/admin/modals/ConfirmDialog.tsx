@@ -5,10 +5,10 @@
  *
  * Replaces native window.confirm everywhere in the console so the whole app
  * speaks one language (Google heuristic #4 — consistency and standards):
- *  - safe default focus on Cancel (not the destructive action)
- *  - Escape or backdrop click cancels (user control and freedom)
- *  - role="dialog" + aria-modal + aria-labelledby (assistive tech)
- *  - consequence stated in plain words, not "Are you sure?"
+ * - safe default focus on Cancel (not the destructive action)
+ * - Escape or backdrop click cancels (user control and freedom)
+ * - role="dialog" + aria-modal + aria-labelledby (assistive tech)
+ * - consequence stated in plain words, not "Are you sure?"
  */
 
 import React, { useEffect, useRef } from 'react'
@@ -68,7 +68,7 @@ export function ConfirmDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in"
       onClick={onCancel}
     >
       <div
@@ -87,7 +87,10 @@ export function ConfirmDialog({
               <ShieldAlert className="size-6" aria-hidden />
             </span>
             <div className="min-w-0">
-              <h3 id="confirm-dialog-title" className="text-base font-bold text-white leading-snug">
+              <h3
+                id="confirm-dialog-title"
+                className="text-base font-semibold text-white leading-snug"
+              >
                 {title}
               </h3>
             </div>
@@ -118,14 +121,17 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`h-11 px-5 rounded-xl text-xs font-bold text-white transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 min-w-[140px] ${
+            className={`h-11 px-5 rounded-xl text-xs font-semibold text-white transition cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 min-w-[140px] ${
               danger
                 ? 'bg-[#EF4444] hover:bg-red-500 active:bg-red-700'
                 : 'bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062]'
             }`}
           >
             {busy ? (
-              <span className="size-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden />
+              <span
+                className="size-4 rounded-full border-2 border-white/40 border-t-white animate-spin"
+                aria-hidden
+              />
             ) : null}
             {confirmLabel}
           </button>

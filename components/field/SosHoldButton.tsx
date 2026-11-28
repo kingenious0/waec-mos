@@ -103,7 +103,7 @@ export function SosHoldButton({
       }
       frameRef.current = requestAnimationFrame(step)
     },
-    [complete]
+    [complete],
   )
 
   const start = useCallback(() => {
@@ -196,15 +196,11 @@ export function SosHoldButton({
 
   return (
     <div
-      className={
-        variant === 'floating'
-          ? 'fixed right-4 z-40 lg:hidden'
-          : `relative ${className}`
-      }
+      className={variant === 'floating' ? 'fixed right-4 z-40 lg:hidden' : `relative ${className}`}
       style={
         variant === 'floating'
-          // Sits clear above the fixed mobile action dock (~84px + safe area).
-          ? { bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))' }
+          ? // Sits clear above the fixed mobile action dock (~84px + safe area).
+            { bottom: 'calc(6.5rem + env(safe-area-inset-bottom, 0px))' }
           : undefined
       }
     >
@@ -212,10 +208,8 @@ export function SosHoldButton({
         <div
           role="status"
           aria-live="polite"
-          className={`absolute left-0 right-0 -top-11 z-10 mx-auto w-max max-w-[90vw] rounded-xl px-3 py-2 text-center text-[11px] font-bold shadow-xl ${
-            phase === 'sent'
-              ? 'bg-emerald-600 text-white'
-              : 'bg-amber-500 text-[#1A1204]'
+          className={`absolute left-0 right-0 -top-11 z-10 mx-auto w-max max-w-[90vw] rounded-xl px-3 py-2 text-center text-xs font-medium shadow-lg ${
+            phase === 'sent' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-[#1A1204]'
           }`}
         >
           {feedback}
@@ -239,11 +233,11 @@ export function SosHoldButton({
         style={{ touchAction: 'none' }}
         className={
           variant === 'floating'
-            ? `flex h-16 items-center gap-2.5 rounded-full bg-gradient-to-r from-[#E11D48] to-[#BE123C] pl-3 pr-5 text-white shadow-[0_12px_32px_-10px_rgba(225,29,72,0.9)] ring-2 ring-white/20 transition active:scale-[0.98] motion-reduce:transition-none cursor-pointer select-none ${
-                holding ? 'scale-[0.97] ring-4 ring-red-300/50' : ''
+            ? `flex h-16 items-center gap-3 rounded-full bg-[#BE123C] pl-4 pr-5 text-white ring-1 ring-white/15 transition active:scale-[0.98] motion-reduce:transition-none cursor-pointer select-none ${
+                holding ? 'bg-[#9F1239] ring-2 ring-white/30' : ''
               }`
-            : `flex h-16 w-full items-center gap-3 rounded-2xl border border-red-300/30 bg-gradient-to-r from-[#E11D48] to-[#BE123C] px-4 text-white shadow-[0_12px_32px_-12px_rgba(225,29,72,0.85)] transition active:scale-[0.99] motion-reduce:transition-none cursor-pointer select-none ${
-                holding ? 'scale-[0.99] ring-4 ring-red-300/50' : ''
+            : `flex h-16 w-full items-center gap-3 rounded-2xl border border-rose-200/20 bg-[#BE123C] px-4 text-white transition active:scale-[0.99] motion-reduce:transition-none cursor-pointer select-none ${
+                holding ? 'bg-[#9F1239]' : ''
               }`
         }
       >
@@ -253,14 +247,14 @@ export function SosHoldButton({
         </span>
 
         {variant === 'floating' ? (
-          <span className="text-base font-extrabold tracking-widest">SOS</span>
+          <span className="text-base font-semibold">SOS</span>
         ) : (
           <>
             <span className="min-w-0 flex-1 text-left leading-tight">
-              <span className="block text-sm font-extrabold tracking-wide">EMERGENCY SOS</span>
-              <span className="block text-[11px] font-medium text-white/85">{subLabel}</span>
+              <span className="block text-sm font-semibold">Emergency SOS</span>
+              <span className="block text-xs text-white/85">{subLabel}</span>
             </span>
-            <span className="shrink-0 rounded-lg bg-white/15 px-2 py-1 text-[11px] font-bold tabular-nums">
+            <span className="shrink-0 rounded-lg bg-white/15 px-2 py-1 text-xs font-semibold tabular-nums">
               191
             </span>
           </>

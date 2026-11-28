@@ -71,10 +71,8 @@ export function AdminTopNav({
           </button>
 
           <div className="flex flex-col">
-            <span className="text-xs font-bold tracking-wider text-foreground">
-              M.O.S ADMIN
-            </span>
-            <span className="text-[10px] font-sans font-medium tracking-wider text-sky-400 uppercase">
+            <span className="text-xs font-semibold text-foreground">M.O.S ADMIN</span>
+            <span className="text-xs font-sans font-medium text-sky-400 ">
               {activeTabTitle.toUpperCase()}
             </span>
           </div>
@@ -102,7 +100,7 @@ export function AdminTopNav({
             type="button"
             onClick={onOpenProfile}
             aria-label="Profile"
-            className="size-8 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs hover:border-sky-400 transition-colors cursor-pointer overflow-hidden"
+            className="size-8 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-semibold text-xs hover:border-sky-400 transition-colors cursor-pointer overflow-hidden"
           >
             {session?.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -117,9 +115,7 @@ export function AdminTopNav({
       {/* DESKTOP HEADER VIEW (>= 1024px) */}
       <div className="hidden lg:flex items-center justify-between w-full">
         <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-foreground tracking-tight">
-            {activeTabTitle}
-          </h1>
+          <h1 className="text-sm font-semibold text-foreground tracking-tight">{activeTabTitle}</h1>
         </div>
 
         <div className="flex items-center gap-3">
@@ -132,7 +128,7 @@ export function AdminTopNav({
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full bg-[#111420] border border-border/80 rounded-lg pl-8.5 pr-8 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:border-brand/50 transition-colors"
             />
-            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-sans text-muted-foreground bg-muted/40 rounded border border-border/40 pointer-events-none">
+            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-xs font-sans text-muted-foreground bg-muted/40 rounded border border-border/40 pointer-events-none">
               /
             </kbd>
           </div>
@@ -158,7 +154,7 @@ export function AdminTopNav({
             type="button"
             onClick={onOpenProfile}
             title={displayName}
-            className="size-8 rounded-full bg-[#1A233A] text-sky-400 border border-sky-500/25 flex items-center justify-center font-bold text-xs hover:border-sky-400 transition-colors cursor-pointer overflow-hidden"
+            className="size-8 rounded-full bg-[#1A233A] text-sky-400 border border-sky-500/25 flex items-center justify-center font-semibold text-xs hover:border-sky-400 transition-colors cursor-pointer overflow-hidden"
           >
             {session?.photo ? (
               // eslint-disable-next-line @next/next/no-img-element

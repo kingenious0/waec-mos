@@ -5,13 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
 import { PinInput } from '@/components/auth/PinInput'
-import {
-  AlertCircle,
-  ArrowRight,
-  Check,
-  Eye,
-  EyeOff,
-} from 'lucide-react'
+import { AlertCircle, ArrowRight, Check, Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -42,7 +36,7 @@ export default function LoginPage() {
     try {
       window.localStorage.setItem(
         'waec-sos-alarm',
-        role === 'ADMIN' && sosAlarmArmed ? 'on' : 'off'
+        role === 'ADMIN' && sosAlarmArmed ? 'on' : 'off',
       )
     } catch {
       // Sound simply stays off if storage is blocked.
@@ -147,38 +141,8 @@ export default function LoginPage() {
     }
   }
 
-  const roleSwitch = (
-    <div className="authb-switch" role="group" aria-label="Sign-in type">
-      <button
-        type="button"
-        className="authb-role"
-        data-active={role === 'OFFICER'}
-        aria-pressed={role === 'OFFICER'}
-        onClick={() => {
-          setRole('OFFICER')
-          setErrorMsg('')
-        }}
-      >
-        Field officer
-      </button>
-      <button
-        type="button"
-        className="authb-role"
-        data-active={role === 'ADMIN'}
-        aria-pressed={role === 'ADMIN'}
-        onClick={() => {
-          setRole('ADMIN')
-          setErrorMsg('')
-        }}
-      >
-        Administrator
-      </button>
-    </div>
-  )
-
   return (
     <div className="authb-page">
-      {/* Branding, top-left */}
       <header className="authb-header">
         <WaecMosLogo href="/login" size="md" />
       </header>
@@ -187,17 +151,19 @@ export default function LoginPage() {
         <div className="authb-card">
           {smsStep ? (
             <>
-              <h1 className="authb-title">One more step</h1>
-              <p className="authb-sub">{smsHint || 'We sent a 6-digit code to your registered phone.'}</p>
+              <h1 className="authb-title">Check your phone</h1>
+              <p className="authb-sub">
+                {smsHint || 'We sent a 6-digit code to your registered phone.'}
+              </p>
 
-              <form onSubmit={handleVerifySms} style={{ marginTop: 22 }} className="authb-form">
+              <form onSubmit={handleVerifySms} className="authb-form">
                 {errorMsg && (
-                  <div role="alert" className="authb-error">
+                  <div role="alert" className="authb-error authb-error--form">
                     <AlertCircle className="size-4 shrink-0" aria-hidden />
                     <span>{errorMsg}</span>
                   </div>
                 )}
-                <label htmlFor="sms-code" className="authb-label" style={{ marginBottom: 8, marginTop: errorMsg ? 16 : 0 }}>
+                <label htmlFor="sms-code" className="authb-label authb-stack">
                   6-digit code
                 </label>
                 <input
@@ -214,11 +180,14 @@ export default function LoginPage() {
                     setErrorMsg('')
                   }}
                   placeholder="••••••"
-                  className="authb-input"
-                  style={{ letterSpacing: '0.4em', textAlign: 'center', fontSize: 22, fontWeight: 700, borderRadius: 14, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', minHeight: 56 }}
+                  className="authb-code-input authb-stack--tight"
                 />
 
-                <button type="submit" className="authb-btn" style={{ marginTop: 18 }} disabled={loading || smsCode.length !== 6}>
+                <button
+                  type="submit"
+                  className="authb-btn authb-stack"
+                  disabled={loading || smsCode.length !== 6}
+                >
                   {loading ? (
                     <>
                       <span className="authb-spinner" />
@@ -232,44 +201,70 @@ export default function LoginPage() {
                   )}
                 </button>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14 }}>
+                <div className="authb-inline">
                   <button
                     type="button"
-                    className="authb-link authb-link--quiet"
-                    style={{ textDecoration: 'none' }}
+                    className="authb-textbutton"
                     onClick={() => {
                       setSmsStep(false)
                       setSmsCode('')
                       setErrorMsg('')
                     }}
                   >
-                    ← Back
+                    Back
                   </button>
                   <button
                     type="button"
-                    className="authb-link"
+                    className="authb-link authb-textbutton"
                     onClick={() => setSmsHint('A new code is on the way — check your phone.')}
                   >
-                    Didn’t get it? Send again
+                    Send another code
                   </button>
                 </div>
               </form>
             </>
           ) : (
             <>
-              <h1 className="authb-title">Welcome back</h1>
-              <p className="authb-sub">Sign in to continue.</p>
+              <h1 className="authb-title">Sign in</h1>
+              <p className="authb-sub">
+                Field officers use a phone number and PIN. Administrators use their staff details.
+              </p>
 
-              {roleSwitch}
+              <div className="authb-switch" role="group" aria-label="Sign-in type">
+                <button
+                  type="button"
+                  className="authb-role"
+                  data-active={role === 'OFFICER'}
+                  aria-pressed={role === 'OFFICER'}
+                  onClick={() => {
+                    setRole('OFFICER')
+                    setErrorMsg('')
+                  }}
+                >
+                  Field officer
+                </button>
+                <button
+                  type="button"
+                  className="authb-role"
+                  data-active={role === 'ADMIN'}
+                  aria-pressed={role === 'ADMIN'}
+                  onClick={() => {
+                    setRole('ADMIN')
+                    setErrorMsg('')
+                  }}
+                >
+                  Administrator
+                </button>
+              </div>
 
               {errorMsg && (
-                <div role="alert" className="authb-error" style={{ marginTop: 14 }}>
+                <div role="alert" className="authb-error authb-error--form">
                   <AlertCircle className="size-4 shrink-0" aria-hidden />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
-              <form onSubmit={handleLogin} style={{ marginTop: 16 }} noValidate>
+              <form onSubmit={handleLogin} className="authb-form" noValidate>
                 {role === 'OFFICER' ? (
                   <>
                     <label htmlFor="phone" className="authb-label">
@@ -290,23 +285,20 @@ export default function LoginPage() {
                           setErrorMsg('')
                         }}
                         className="authb-input"
-                        style={{ border: 0, outline: 'none' }}
                       />
                     </div>
 
-                    <div style={{ marginTop: 16 }}>
-                      <PinInput
-                        value={pin}
-                        onChange={(val) => {
-                          setPin(val)
-                          setErrorMsg('')
-                        }}
-                        showPin={showPin}
-                        onToggleShowPin={() => setShowPin(!showPin)}
-                        error={Boolean(errorMsg)}
-                        autoFocus={false}
-                      />
-                    </div>
+                    <PinInput
+                      value={pin}
+                      onChange={(val) => {
+                        setPin(val)
+                        setErrorMsg('')
+                      }}
+                      showPin={showPin}
+                      onToggleShowPin={() => setShowPin(!showPin)}
+                      error={Boolean(errorMsg)}
+                      autoFocus={false}
+                    />
                   </>
                 ) : (
                   <>
@@ -318,28 +310,30 @@ export default function LoginPage() {
                       name="identifier"
                       type="text"
                       autoComplete="username"
-                      placeholder="WAEC-ASH-0101 or name@waec.org"
+                      placeholder="Staff ID or email address"
                       value={identifier}
                       onChange={(e) => {
                         setIdentifier(e.target.value)
                         setErrorMsg('')
                       }}
-                      className="authb-input"
-                      style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', width: '100%', minHeight: 56 }}
+                      className="authb-plain-input"
                     />
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 }}>
-                      <label htmlFor="password" className="authb-label" style={{ marginBottom: 0 }}>
+                    <div className="authb-labelrow">
+                      <label htmlFor="password" className="authb-label">
                         Password
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="authb-link authb-link--quiet"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', minHeight: 30 }}
+                        className="authb-textbutton"
                         aria-pressed={showPassword}
                       >
-                        {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+                        {showPassword ? (
+                          <EyeOff className="size-4" aria-hidden />
+                        ) : (
+                          <Eye className="size-4" aria-hidden />
+                        )}
                         <span>{showPassword ? 'Hide' : 'Show'}</span>
                       </button>
                     </div>
@@ -354,14 +348,12 @@ export default function LoginPage() {
                         setPassword(e.target.value)
                         setErrorMsg('')
                       }}
-                      className="authb-input"
-                      style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', width: '100%', minHeight: 56 }}
+                      className="authb-plain-input"
                     />
                   </>
                 )}
 
-                {/* Keep signed in + forgot PIN */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                <div className="authb-inline">
                   <button
                     type="button"
                     role="checkbox"
@@ -371,9 +363,11 @@ export default function LoginPage() {
                     data-checked={keepSignedIn}
                   >
                     <span className="authb-check-box" aria-hidden>
-                      {keepSignedIn && <Check className="size-4" strokeWidth={3.5} color="#101832" />}
+                      {keepSignedIn && (
+                        <Check className="size-4 authb-check-icon" strokeWidth={3} />
+                      )}
                     </span>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>Keep me signed in</span>
+                    <span className="authb-check-label">Keep me signed in</span>
                   </button>
 
                   <Link href="/forgot-password" className="authb-link">
@@ -387,25 +381,19 @@ export default function LoginPage() {
                     role="checkbox"
                     aria-checked={sosAlarmArmed}
                     onClick={() => setSosAlarmArmed(!sosAlarmArmed)}
-                    className="authb-check"
+                    className="authb-check authb-stack--tight"
                     data-checked={sosAlarmArmed}
-                    style={{ marginTop: 10 }}
                   >
                     <span className="authb-check-box" aria-hidden>
-                      {sosAlarmArmed && <Check className="size-4" strokeWidth={3.5} color="#101832" />}
+                      {sosAlarmArmed && (
+                        <Check className="size-4 authb-check-icon" strokeWidth={3} />
+                      )}
                     </span>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
-                      Turn on SOS alarm sound
-                    </span>
+                    <span className="authb-check-label">Turn on SOS alarm sound</span>
                   </button>
                 )}
 
-                <button
-                  type="submit"
-                  className="authb-btn"
-                  style={{ marginTop: 18 }}
-                  disabled={loading}
-                >
+                <button type="submit" className="authb-btn authb-stack" disabled={loading}>
                   {loading ? (
                     <>
                       <span className="authb-spinner" />
@@ -420,9 +408,11 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <div style={{ textAlign: 'center', marginTop: 18 }}>
-                <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.65)' }}>New here? </span>
-                <Link href="/request-access" className="authb-link">Request access</Link>
+              <div className="authb-inline authb-inline--center">
+                <span className="authb-muted">New here?</span>
+                <Link href="/request-access" className="authb-link">
+                  Request access
+                </Link>
               </div>
             </>
           )}

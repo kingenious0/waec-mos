@@ -131,11 +131,11 @@ export function PreProvisionOfficerModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.95)] select-none font-sans"
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-xl select-none font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header with Title and Close Button */}
@@ -145,7 +145,7 @@ export function PreProvisionOfficerModal({
               <UserPlus className="size-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <h2 className="text-lg font-semibold tracking-tight text-white">
                 Register Field Officer
               </h2>
               <p className="text-xs text-slate-400">
@@ -194,7 +194,7 @@ export function PreProvisionOfficerModal({
                     value={staffId}
                     onChange={(e) => setStaffId(e.target.value)}
                     placeholder="WAEC-ASH-0105"
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs font-sans font-bold text-[#F6D300] placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs font-sans font-semibold text-[#F6D300] placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors"
                   />
                   <Hash className="size-3.5 absolute right-3 top-3 text-slate-500 pointer-events-none" />
                 </div>
@@ -228,9 +228,13 @@ export function PreProvisionOfficerModal({
                   <button
                     type="button"
                     onClick={() => setShowPin(!showPin)}
-                    className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
                   >
-                    {showPin ? <EyeOff className="size-3 text-sky-400" /> : <Eye className="size-3" />}
+                    {showPin ? (
+                      <EyeOff className="size-3 text-sky-400" />
+                    ) : (
+                      <Eye className="size-3" />
+                    )}
                     <span className={showPin ? 'text-sky-400 font-medium' : ''}>
                       {showPin ? 'Hide' : 'Show'}
                     </span>
@@ -244,7 +248,7 @@ export function PreProvisionOfficerModal({
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     placeholder="••••"
-                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-xs font-sans font-bold text-[#F6D300] tracking-widest focus:outline-hidden focus:border-sky-400 transition-colors"
+                    className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-xs font-sans font-semibold text-[#F6D300] focus:outline-hidden focus:border-sky-400 transition-colors"
                   />
                   <button
                     type="button"
@@ -252,15 +256,17 @@ export function PreProvisionOfficerModal({
                     aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
                   >
-                    {showPin ? <EyeOff className="size-4 text-sky-400" /> : <Eye className="size-4" />}
+                    {showPin ? (
+                      <EyeOff className="size-4 text-sky-400" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Region
-                </label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Region</label>
                 <select
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
@@ -332,13 +338,13 @@ export function PreProvisionOfficerModal({
                   <span className="text-xs font-semibold flex items-center gap-1.5">
                     Designate as Group Leader
                   </span>
-                  <span className="text-[11px] text-slate-400 block">
+                  <span className="text-xs text-slate-400 block">
                     Grants supervisory dispatch and group escort coordinator status
                   </span>
                 </div>
               </div>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                className={`text-xs font-semibold px-2 py-0.5 rounded ${
                   isGroupLeader
                     ? 'bg-[#F6D300]/15 text-[#F6D300] border border-[#F6D300]/30'
                     : 'bg-[#1E2538] text-slate-400'
@@ -369,7 +375,7 @@ export function PreProvisionOfficerModal({
 
           {/* Action Buttons: Cancel & Submit */}
           <div className="flex items-center justify-between pt-2">
-            <span className="text-[11px] text-slate-500 hidden sm:inline">
+            <span className="text-xs text-slate-500 hidden sm:inline">
               Instant WAEC database sync
             </span>
 
@@ -383,7 +389,7 @@ export function PreProvisionOfficerModal({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-xs font-semibold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <CheckCircle2 className="size-3.5 text-white" />
                 <span>Save & Register Officer</span>

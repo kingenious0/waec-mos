@@ -1,7 +1,19 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { Phone, Clock, Flag, X, Siren, Check, Camera, Maximize2, Download, AlertTriangle, Pencil } from 'lucide-react'
+import {
+  Phone,
+  Clock,
+  Flag,
+  X,
+  Siren,
+  Check,
+  Camera,
+  Maximize2,
+  Download,
+  AlertTriangle,
+  Pencil,
+} from 'lucide-react'
 import {
   getOfficerUnitCode,
   officerArrivalConfirmed,
@@ -99,11 +111,9 @@ export function OfficerTelematicsDrawer({
       : dist >= 1000
       ? `${(dist / 1000).toFixed(1)}`
       : `${dist}`
-  const distUnit =
-    dist === null || dist === undefined ? 'No ping' : dist >= 1000 ? 'km' : 'm'
+  const distUnit = dist === null || dist === undefined ? 'No ping' : dist >= 1000 ? 'km' : 'm'
 
-  const speedDisplay =
-    typeof officer.speedKmh === 'number' ? String(officer.speedKmh) : '--'
+  const speedDisplay = typeof officer.speedKmh === 'number' ? String(officer.speedKmh) : '--'
 
   const batteryVal = officer.battery
   const batteryDisplay = typeof batteryVal === 'number' ? `${batteryVal}%` : '--%'
@@ -143,7 +153,7 @@ export function OfficerTelematicsDrawer({
   const plannedMismatch = Boolean(
     officer.plannedSchool &&
       officer.arrivalSchool &&
-      normSchool(officer.plannedSchool) !== normSchool(officer.arrivalSchool)
+      normSchool(officer.plannedSchool) !== normSchool(officer.arrivalSchool),
   )
   const checkpoints = officer.checkpoints || []
   const sosAcknowledged = (officer.sosStatus || '').toUpperCase() === 'ACKNOWLEDGED'
@@ -166,7 +176,7 @@ export function OfficerTelematicsDrawer({
         value={proofReason}
         onChange={(e) => setProofReason(e.target.value)}
         aria-label="Why a photo is needed"
-        className="flex-1 min-w-0 h-9 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[11px] text-slate-300 cursor-pointer"
+        className="flex-1 min-w-0 h-9 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-xs text-slate-300 cursor-pointer"
       >
         {PROOF_REQUEST_REASONS.map((r) => (
           <option key={r} value={r}>
@@ -177,7 +187,7 @@ export function OfficerTelematicsDrawer({
       <button
         type="button"
         onClick={() => onRequestPhoto(officer, proofReason)}
-        className="h-9 shrink-0 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 transition cursor-pointer"
+        className="h-9 shrink-0 rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 text-xs font-semibold text-sky-200 hover:bg-sky-500/20 transition cursor-pointer"
       >
         Ask for photo
       </button>
@@ -199,20 +209,20 @@ export function OfficerTelematicsDrawer({
         {isSos && officer.sosIncidentId && (
           <div className="rounded-xl border border-status-sos/50 bg-status-sos/10 p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0 text-status-sos font-sans font-bold text-[11px] tracking-wide">
-                <Siren className="size-4 shrink-0 animate-pulse" />
+              <div className="flex items-center gap-2 min-w-0 text-status-sos font-sans font-semibold text-xs tracking-wide">
+                <Siren className="size-4 shrink-0 " />
                 <span className="truncate">
                   ACTIVE SOS · {officer.sosIncidentNumber || 'DISTRESS'}
                 </span>
               </div>
               {sosAcknowledged && (
-                <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-bold tracking-wider text-slate-300">
+                <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs font-semibold text-slate-300">
                   <Check className="size-3" />
                   ACKNOWLEDGED
                 </span>
               )}
             </div>
-            <p className="text-[11px] leading-snug text-red-100/80">
+            <p className="text-xs leading-snug text-red-100/80">
               {officer.sosDetails || 'Officer triggered the emergency distress beacon.'}
             </p>
             <div className="flex gap-2">
@@ -220,7 +230,7 @@ export function OfficerTelematicsDrawer({
                 type="button"
                 disabled={sosAcknowledged || !onAcknowledgeSos}
                 onClick={() => onAcknowledgeSos?.(officer)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Check className="size-3.5" />
                 {sosAcknowledged ? 'Acknowledged' : 'Acknowledge'}
@@ -228,7 +238,7 @@ export function OfficerTelematicsDrawer({
               <button
                 type="button"
                 onClick={() => onResolveSos?.(officer)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-white text-[11px] font-semibold transition cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] border border-white/10 text-white text-xs font-semibold transition cursor-pointer"
               >
                 <Check className="size-3.5" />
                 Resolve
@@ -241,7 +251,7 @@ export function OfficerTelematicsDrawer({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`size-11 rounded-xl flex items-center justify-center font-sans font-bold text-[13px] border shrink-0 ${
+              className={`size-11 rounded-xl flex items-center justify-center font-sans font-semibold text-[13px] border shrink-0 ${
                 isSos
                   ? 'bg-status-sos/15 text-status-sos border-status-sos/30'
                   : 'bg-indigo-500/10 text-indigo-300 border-indigo-400/25'
@@ -256,12 +266,12 @@ export function OfficerTelematicsDrawer({
                   {officer.name}
                 </span>
                 {officer.isLeader && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+                  <span className="px-1.5 py-0.5 rounded text-xs font-sans font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
                     LEAD
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+              <div className="text-xs text-slate-500 mt-0.5 truncate">
                 <span className="font-mono text-slate-400">{officer.staffId || 'No ID'}</span>
                 {officer.group && <span> · {officer.group}</span>}
               </div>
@@ -270,7 +280,7 @@ export function OfficerTelematicsDrawer({
 
           <div className="flex items-start gap-2 shrink-0">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-sans font-bold tracking-wide whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-sans font-semibold tracking-wide whitespace-nowrap ${
                 isSos
                   ? 'bg-status-sos/10 border-status-sos/40 text-status-sos'
                   : isOnSite
@@ -303,32 +313,26 @@ export function OfficerTelematicsDrawer({
         {/* Live stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
-            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
-              Speed
-            </span>
+            <span className="text-xs font-sans text-muted-foreground ">Speed</span>
             <span className="text-base font-semibold font-sans text-foreground mt-0.5 tabular-nums leading-none">
               {speedDisplay}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans mt-0.5">km/h</span>
+            <span className="text-xs text-muted-foreground font-sans mt-0.5">km/h</span>
           </div>
 
           <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
-            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
-              Range
-            </span>
+            <span className="text-xs font-sans text-muted-foreground ">Range</span>
             <span className="text-base font-semibold font-sans text-amber-400 mt-0.5 tabular-nums leading-none">
               {distLabel}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans mt-0.5">{distUnit}</span>
+            <span className="text-xs text-muted-foreground font-sans mt-0.5">{distUnit}</span>
           </div>
 
           <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
-                Telemetry
-              </span>
+              <span className="text-xs font-sans text-muted-foreground ">Telemetry</span>
               {isTelemetryStale && (
-                <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/15 px-1 py-px text-[8px] font-extrabold tracking-wider text-amber-400">
+                <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/15 px-1 py-px text-[8px] font-semibold text-amber-400">
                   NO UPDATE
                 </span>
               )}
@@ -340,15 +344,13 @@ export function OfficerTelematicsDrawer({
             >
               {teleState}
             </span>
-            <span className="text-[10px] text-muted-foreground font-sans mt-0.5 truncate">
+            <span className="text-xs text-muted-foreground font-sans mt-0.5 truncate">
               {lastPingLine}
             </span>
           </div>
 
           <div className="rounded-xl bg-[#111522] border border-[#22263C] px-2.5 py-2 flex flex-col">
-            <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
-              Battery
-            </span>
+            <span className="text-xs font-sans text-muted-foreground ">Battery</span>
             <span
               className={`text-base font-semibold font-sans mt-0.5 tabular-nums leading-none ${
                 typeof batteryVal !== 'number'
@@ -363,7 +365,7 @@ export function OfficerTelematicsDrawer({
               {batteryDisplay}
             </span>
             <span
-              className={`text-[10px] font-medium mt-0.5 ${
+              className={`text-xs font-medium mt-0.5 ${
                 typeof batteryVal !== 'number'
                   ? 'text-slate-500'
                   : batteryVal <= 20
@@ -396,7 +398,7 @@ export function OfficerTelematicsDrawer({
                   setPickerCenterId(current?.id || '')
                   setSchoolPickerOpen(true)
                 }}
-                className="shrink-0 inline-flex items-center gap-1 h-7 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[10px] font-bold text-slate-300 hover:text-white hover:border-slate-600 transition cursor-pointer"
+                className="shrink-0 inline-flex items-center gap-1 h-7 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition cursor-pointer"
                 title="Move this officer to another school today"
               >
                 <Pencil className="size-3" />
@@ -432,14 +434,14 @@ export function OfficerTelematicsDrawer({
                     setSavingSchool(false)
                   }
                 }}
-                className="h-11 shrink-0 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 px-3.5 text-[11px] font-bold text-white transition cursor-pointer disabled:opacity-50"
+                className="h-11 shrink-0 rounded-lg bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 px-3.5 text-xs font-semibold text-white transition cursor-pointer disabled:opacity-50"
               >
                 {savingSchool ? 'Saving…' : 'Save'}
               </button>
               <button
                 type="button"
                 onClick={() => setSchoolPickerOpen(false)}
-                className="h-11 shrink-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-3 text-[11px] font-bold text-slate-400 hover:text-white transition cursor-pointer"
+                className="h-11 shrink-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-3 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -447,7 +449,7 @@ export function OfficerTelematicsDrawer({
           )}
 
           {plannedMismatch && (
-            <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2 text-[10px] font-semibold leading-snug text-amber-300">
+            <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-2 text-xs font-semibold leading-snug text-amber-300">
               <AlertTriangle className="size-3.5 shrink-0 mt-px" />
               <span>
                 Arrived at {officer.arrivalSchool} instead of {officer.plannedSchool}
@@ -457,10 +459,8 @@ export function OfficerTelematicsDrawer({
 
           <div className="flex items-end justify-between gap-3 mt-2">
             <div className="flex flex-col">
-              <span className="text-[9px] font-sans text-muted-foreground tracking-wider uppercase">
-                Distance from centre
-              </span>
-              <span className="text-2xl font-bold font-sans text-foreground tabular-nums leading-tight">
+              <span className="text-xs font-sans text-muted-foreground ">Distance from centre</span>
+              <span className="text-2xl font-semibold font-sans text-foreground tabular-nums leading-tight">
                 {distLabel}
                 <span className="text-xs font-semibold text-muted-foreground ml-1">
                   {dist === null || dist === undefined ? '' : distUnit}
@@ -468,7 +468,7 @@ export function OfficerTelematicsDrawer({
               </span>
             </div>
             <span
-              className={`shrink-0 inline-flex items-center rounded-full border px-2.5 py-1 text-[9px] font-extrabold tracking-wide whitespace-nowrap ${
+              className={`shrink-0 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold tracking-wide whitespace-nowrap ${
                 typeof dist !== 'number'
                   ? 'border-slate-600/50 bg-slate-500/10 text-slate-400'
                   : withinPerimeter
@@ -484,7 +484,7 @@ export function OfficerTelematicsDrawer({
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] font-sans text-muted-foreground mt-2 pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between text-xs font-sans text-muted-foreground mt-2 pt-2 border-t border-white/5">
             <span className="truncate">
               {isOnSite
                 ? officer.verifiedTime
@@ -494,32 +494,43 @@ export function OfficerTelematicsDrawer({
                 ? 'Live GPS Tracking'
                 : 'Awaiting GPS ping'}
             </span>
-            <span className="text-slate-400 tabular-nums shrink-0 pl-2">Radius {radiusMeters}m</span>
+            <span className="text-slate-400 tabular-nums shrink-0 pl-2">
+              Radius {radiusMeters}m
+            </span>
           </div>
 
           {/* Today's lifecycle — arrival → confirmed → departure */}
           {(officer.todayArrival || officer.todayDeparture) && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] leading-snug border-t border-white/5 pt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs leading-snug border-t border-white/5 pt-2">
               {officer.todayArrival && (
-                <span className={`inline-flex items-center gap-1.5 font-semibold ${
-                  arrivalConfirmed ? 'text-emerald-400' : 'text-amber-300'
-                }`}>
-                  <span className={`size-1.5 rounded-full ${
-                    arrivalConfirmed ? 'bg-emerald-400' : 'bg-amber-400'
-                  }`} />
+                <span
+                  className={`inline-flex items-center gap-1.5 font-semibold ${
+                    arrivalConfirmed ? 'text-emerald-400' : 'text-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      arrivalConfirmed ? 'bg-emerald-400' : 'bg-amber-400'
+                    }`}
+                  />
                   {arrivalConfirmed
                     ? `Arrived ${timeOfDay(officer.todayArrival.at)} · confirmed`
                     : `Arrived ${timeOfDay(officer.todayArrival.at)} (not signed in)`}
                 </span>
               )}
               {officer.todayDeparture && (
-                <span className={`inline-flex items-center gap-1.5 font-semibold ${
-                  officer.todayDeparture.duringPaper ? 'text-rose-400' : 'text-slate-400'
-                }`}>
-                  <span className={`size-1.5 rounded-full ${
-                    officer.todayDeparture.duringPaper ? 'bg-rose-400' : 'bg-slate-500'
-                  }`} />
-                  Left {timeOfDay(officer.todayDeparture.at)}{officer.todayDeparture.duringPaper ? ' (early)' : ''}
+                <span
+                  className={`inline-flex items-center gap-1.5 font-semibold ${
+                    officer.todayDeparture.duringPaper ? 'text-rose-400' : 'text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${
+                      officer.todayDeparture.duringPaper ? 'bg-rose-400' : 'bg-slate-500'
+                    }`}
+                  />
+                  Left {timeOfDay(officer.todayDeparture.at)}
+                  {officer.todayDeparture.duringPaper ? ' (early)' : ''}
                 </span>
               )}
             </div>
@@ -529,12 +540,12 @@ export function OfficerTelematicsDrawer({
         {/* Photo proof — the officer's watermarked shot from the school gate */}
         <div className="rounded-xl bg-[#111522] border border-[#22263C] p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-[9px] font-sans uppercase tracking-wider text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-xs font-sans text-muted-foreground">
               <Camera className="size-3.5 text-slate-500" />
               Photo proof
             </span>
             {photoTimeLabel && (
-              <span className="text-[10px] text-slate-500 tabular-nums">{photoTimeLabel}</span>
+              <span className="text-xs text-slate-500 tabular-nums">{photoTimeLabel}</span>
             )}
           </div>
 
@@ -542,8 +553,8 @@ export function OfficerTelematicsDrawer({
             <>
               <div className="mt-2 rounded-xl border border-dashed border-[#2A3048] bg-[#0A0D17]/60 px-4 py-5 text-center">
                 <Camera className="size-5 text-slate-600 mx-auto mb-1.5" />
-                <p className="text-[11px] font-medium text-slate-400">No photo proof yet</p>
-                <p className="text-[10px] text-slate-600 mt-0.5 leading-snug">
+                <p className="text-xs font-medium text-slate-400">No photo proof yet</p>
+                <p className="text-xs text-slate-600 mt-0.5 leading-snug">
                   Appears after the officer takes one at the school
                 </p>
               </div>
@@ -565,14 +576,14 @@ export function OfficerTelematicsDrawer({
                   onError={handlePhotoError}
                   className="h-40 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                 />
-                <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/70 backdrop-blur-sm border border-white/10 px-1.5 py-1 text-[9px] font-semibold text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/70 border border-white/10 px-1.5 py-1 text-xs font-semibold text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Maximize2 className="size-3" />
                   Enlarge
                 </span>
               </button>
 
               {photoMeta?.watermark && (
-                <p className="mt-1.5 text-[10px] leading-snug text-slate-500 line-clamp-2">
+                <p className="mt-1.5 text-xs leading-snug text-slate-500 line-clamp-2">
                   {photoMeta.watermark}
                 </p>
               )}
@@ -581,7 +592,7 @@ export function OfficerTelematicsDrawer({
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold transition cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold transition cursor-pointer"
                 >
                   <Maximize2 className="size-3.5" />
                   Enlarge
@@ -589,7 +600,7 @@ export function OfficerTelematicsDrawer({
                 <a
                   href={photoUrl}
                   download={`photo-proof-${officer.staffId || 'officer'}.jpg`}
-                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 text-[11px] font-semibold transition"
+                  className="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold transition"
                 >
                   <Download className="size-3.5" />
                   Download
@@ -602,9 +613,7 @@ export function OfficerTelematicsDrawer({
 
         {/* Recent activity */}
         <div className="space-y-2 pt-0.5 flex-1">
-          <span className="text-[10px] font-sans uppercase tracking-wider text-muted-foreground block">
-            Recent Activity
-          </span>
+          <span className="text-xs font-sans text-muted-foreground block">Recent Activity</span>
 
           {checkpoints.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/60 p-3 text-center text-xs text-slate-500">
@@ -617,10 +626,10 @@ export function OfficerTelematicsDrawer({
                 {checkpoints.map((cp) => {
                   const dotColor =
                     cp.tone === 'critical'
-                      ? 'bg-status-sos shadow-[0_0_6px_rgba(244,63,94,0.7)]'
+                      ? 'bg-status-sos '
                       : cp.tone === 'ok'
-                      ? 'bg-status-ok shadow-[0_0_6px_rgba(16,185,129,0.6)]'
-                      : 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.6)]'
+                      ? 'bg-status-ok '
+                      : 'bg-sky-400 '
                   const textTone =
                     cp.tone === 'critical' ? 'text-red-300 font-medium' : 'text-slate-300'
 
@@ -669,7 +678,7 @@ export function OfficerTelematicsDrawer({
       {/* Full-screen photo proof lightbox */}
       {lightboxOpen && !photoFailed && (
         <div
-          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm p-4 sm:p-8"
+          className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-black/90 p-4 sm:p-8"
           role="dialog"
           aria-modal="true"
           aria-label="Photo proof full screen"
@@ -691,7 +700,7 @@ export function OfficerTelematicsDrawer({
           />
           {photoMeta?.watermark && (
             <p
-              className="mt-3 max-w-xl text-center text-[11px] leading-snug text-slate-300"
+              className="mt-3 max-w-xl text-center text-xs leading-snug text-slate-300"
               onClick={(e) => e.stopPropagation()}
             >
               {photoMeta.watermark}
@@ -701,7 +710,7 @@ export function OfficerTelematicsDrawer({
             href={photoUrl}
             download={`photo-proof-${officer.staffId || 'officer'}.jpg`}
             onClick={(e) => e.stopPropagation()}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 px-5 h-11 text-xs font-bold text-white transition cursor-pointer"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 px-5 h-11 text-xs font-semibold text-white transition cursor-pointer"
           >
             <Download className="size-4" />
             Download photo proof

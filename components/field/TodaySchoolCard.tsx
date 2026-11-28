@@ -114,11 +114,11 @@ export function TodaySchoolCard({
       className="w-full rounded-2xl border border-[#22263C] bg-[#11131F] p-3.5 space-y-3"
     >
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <h3 className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
           <School className="size-3.5 text-indigo-400" />
           {rows.length > 1 ? 'My group today' : 'My school today'}
         </h3>
-        {busy && <span className="text-[10px] font-semibold text-slate-500">Saving…</span>}
+        {busy && <span className="text-xs font-semibold text-slate-500">Saving…</span>}
       </div>
 
       <ul className="space-y-2.5">
@@ -126,14 +126,17 @@ export function TodaySchoolCard({
           const currentCenter = m.planned?.centerId || ''
           const reason = reasonByOfficer[m.id] || PRESENT_REASONS[0]
           return (
-            <li key={m.id} className="rounded-xl border border-[#1E2438] bg-[#0D1019] p-2.5 space-y-1.5">
+            <li
+              key={m.id}
+              className="rounded-xl border border-[#1E2438] bg-[#0D1019] p-2.5 space-y-1.5"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-200 truncate">
                     {m.name}
                     {m.isSelf && <span className="text-slate-500 font-medium"> (you)</span>}
                   </p>
-                  <p className="mt-0.5 text-[11px] leading-snug">
+                  <p className="mt-0.5 text-xs leading-snug">
                     <StatusLine member={m} />
                   </p>
                 </div>
@@ -158,7 +161,7 @@ export function TodaySchoolCard({
               </label>
 
               {!m.planned && (
-                <p className="text-[10px] leading-snug text-amber-300/90">
+                <p className="text-xs leading-snug text-amber-300/90">
                   No school picked yet — choose one so your check-in area works.
                 </p>
               )}
@@ -171,7 +174,7 @@ export function TodaySchoolCard({
                       setReasonByOfficer((prev) => ({ ...prev, [m.id]: e.target.value }))
                     }
                     aria-label={`Reason ${m.name} has no GPS proof`}
-                    className="h-9 flex-1 min-w-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[11px] text-slate-300 focus:outline-hidden focus:border-indigo-400 cursor-pointer"
+                    className="h-11 flex-1 min-w-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-xs text-slate-300 focus:outline-hidden focus:border-indigo-400 cursor-pointer"
                   >
                     {PRESENT_REASONS.map((r) => (
                       <option key={r} value={r}>
@@ -183,7 +186,7 @@ export function TodaySchoolCard({
                     type="button"
                     disabled={busy}
                     onClick={() => onMarkPresent(m.id, reason)}
-                    className="h-9 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2.5 text-[11px] font-bold text-slate-200 hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
+                    className="h-11 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-slate-200 hover:bg-white/10 transition cursor-pointer disabled:opacity-50"
                   >
                     Mark present
                   </button>
@@ -198,7 +201,7 @@ export function TodaySchoolCard({
                       setProofReasonByOfficer((prev) => ({ ...prev, [m.id]: e.target.value }))
                     }
                     aria-label={`Why ${m.name} should send a photo`}
-                    className="h-9 flex-1 min-w-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-[11px] text-slate-300 focus:outline-hidden focus:border-sky-400 cursor-pointer"
+                    className="h-11 flex-1 min-w-0 rounded-lg border border-[#2A3048] bg-[#0A0D17] px-2 text-xs text-slate-300 focus:outline-hidden focus:border-sky-400 cursor-pointer"
                   >
                     {PROOF_REQUEST_REASONS.map((r) => (
                       <option key={r} value={r}>
@@ -212,7 +215,7 @@ export function TodaySchoolCard({
                     onClick={() =>
                       onRequestPhoto(m.id, proofReasonByOfficer[m.id] || PROOF_REQUEST_REASONS[0])
                     }
-                    className="h-9 shrink-0 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 text-[11px] font-bold text-sky-200 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
+                    className="h-11 shrink-0 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 text-xs font-semibold text-sky-200 hover:bg-sky-500/20 transition cursor-pointer disabled:opacity-50"
                   >
                     Ask for photo
                   </button>
@@ -223,10 +226,10 @@ export function TodaySchoolCard({
         })}
       </ul>
 
-      <p className="flex items-start gap-1.5 text-[10px] leading-snug text-slate-500">
+      <p className="flex items-start gap-1.5 text-xs leading-snug text-slate-500">
         <TriangleAlert className="size-3 shrink-0 mt-px text-slate-600" />
-        Marking someone present by hand records your name and the reason. HQ sees it as
-        unconfirmed until the officer taps &ldquo;I&apos;m here&rdquo; or sends a photo.
+        Marking someone present by hand records your name and the reason. HQ sees it as unconfirmed
+        until the officer taps &ldquo;I&apos;m here&rdquo; or sends a photo.
       </p>
     </section>
   )

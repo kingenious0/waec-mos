@@ -45,11 +45,11 @@ export function FieldHeader({
       {/* --- MOBILE HEADER (< 1024px) --- */}
       <div className="flex lg:hidden items-center justify-between w-full">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-[#F6D300] flex items-center justify-center font-bold text-black text-base shadow-sm shrink-0">
+          <div className="size-10 rounded-full bg-[#F6D300] flex items-center justify-center font-semibold text-black text-base shadow-sm shrink-0">
             {initials}
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-white tracking-tight leading-snug">
+            <span className="text-sm font-semibold text-white tracking-tight leading-snug">
               {officerName}
             </span>
             <span className="text-xs text-slate-400 font-medium leading-none mt-0.5">
@@ -66,10 +66,10 @@ export function FieldHeader({
                 : 'bg-[#12192A] border-[#1E2942] text-slate-200'
             }`}
           >
-            <span className={`size-2 rounded-full ${isGpsActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-            <span className="font-medium">
-              GPS · {batteryDisplay}
-            </span>
+            <span
+              className={`size-2 rounded-full ${isGpsActive ? 'bg-emerald-400' : 'bg-rose-400'}`}
+            />
+            <span className="font-medium">GPS · {batteryDisplay}</span>
           </div>
 
           <button
@@ -92,22 +92,20 @@ export function FieldHeader({
       {/* --- DESKTOP HEADER (>= 1024px) --- */}
       <div className="hidden lg:flex items-center justify-between w-full">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-[#F6D300] flex items-center justify-center font-bold text-black text-base shadow-sm shrink-0">
+          <div className="size-10 rounded-full bg-[#F6D300] flex items-center justify-center font-semibold text-black text-base shadow-sm shrink-0">
             {initials}
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-bold text-white tracking-tight">
-              WAEC MOS Field
-            </span>
-            <span className="text-xs text-slate-400 font-medium">
-              {zoneName || ''}
-            </span>
+            <span className="text-sm font-semibold text-white tracking-tight">WAEC MOS Field</span>
+            <span className="text-xs text-slate-400 font-medium">{zoneName || ''}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#12192A] border border-[#1E2942] text-xs text-slate-200">
-            <span className={`size-2 rounded-full ${isGpsActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+            <span
+              className={`size-2 rounded-full ${isGpsActive ? 'bg-emerald-400' : 'bg-rose-400'}`}
+            />
             <span className="font-medium">{isGpsActive ? 'GPS active' : 'GPS offline'}</span>
           </div>
 
@@ -122,11 +120,10 @@ export function FieldHeader({
           </div>
 
           <div className="flex flex-col text-right">
-            <span className="text-xs font-bold text-white">
-              {officerName}
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {staffId ? `${staffId} · ` : ''}{groupLabel}
+            <span className="text-xs font-semibold text-white">{officerName}</span>
+            <span className="text-xs text-slate-400">
+              {staffId ? `${staffId} · ` : ''}
+              {groupLabel}
             </span>
           </div>
 
@@ -135,7 +132,7 @@ export function FieldHeader({
             onClick={onOpenProfile}
             title={`View profile for ${officerName}`}
             aria-label="Officer Profile"
-            className="size-10 rounded-full bg-[#1E294B] text-sky-300 font-bold text-xs flex items-center justify-center border border-sky-400/25 hover:border-sky-400 transition cursor-pointer overflow-hidden"
+            className="size-10 rounded-full bg-[#1E294B] text-sky-300 font-semibold text-xs flex items-center justify-center border border-sky-400/25 hover:border-sky-400 transition cursor-pointer overflow-hidden"
           >
             {session?.photo ? (
               // eslint-disable-next-line @next/next/no-img-element

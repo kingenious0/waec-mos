@@ -2,7 +2,16 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
-import { Plus, Minus, Crosshair, Users, Layers, Map as MapIcon, Satellite, Check } from 'lucide-react'
+import {
+  Plus,
+  Minus,
+  Crosshair,
+  Users,
+  Layers,
+  Map as MapIcon,
+  Satellite,
+  Check,
+} from 'lucide-react'
 import { formatRelativeTime, formatTooltipTime } from '@/lib/relative-time'
 import { isOfficerAtCentre, effectiveRadius } from '@/lib/presence'
 
@@ -159,7 +168,9 @@ export function getOfficerUnitCode(officer: Pick<FleetOfficer, 'staffId' | 'name
 /** Strip a leading honorific so only the given + family name renders. */
 const HONORIFICS = /^(?:dr|mr|mrs|ms|eng|prof|rev|wnd|engr|alhaji|alhajiya)\.?(?:\s+)?/i
 function displayNameMinusTitle(name: string): string {
-  return String(name || '').replace(HONORIFICS, '').trim()
+  return String(name || '')
+    .replace(HONORIFICS, '')
+    .trim()
 }
 
 /** Line 1 of the marker label: full name when it fits, otherwise "First L." */
@@ -176,7 +187,10 @@ function markerLineName(name: string): string {
 function lastSeenWhere(o: FleetOfficer): string {
   const hasCentre = Boolean((o.assignedCenter && o.assignedCenter !== 'Unassigned') || o.centerCode)
   if (!hasCentre) return ''
-  const d = typeof o.distanceFromDatum === 'number' && !Number.isNaN(o.distanceFromDatum) ? o.distanceFromDatum : null
+  const d =
+    typeof o.distanceFromDatum === 'number' && !Number.isNaN(o.distanceFromDatum)
+      ? o.distanceFromDatum
+      : null
   if (d === null) return 'at the centre'
   if (d <= effectiveRadius(o.centerRadius)) return 'at the centre'
   return `${Math.max(1, Math.round(d))} m from the centre`
@@ -295,7 +309,7 @@ export default function FleetMap({
         {
           maxZoom: 19,
           attribution: '&copy; Esri, Maxar, Earthstar Geographics',
-        }
+        },
       )
     }
 
@@ -344,10 +358,8 @@ export default function FleetMap({
           // many venues are mixed into this group. Tap the bubble to spread them.
           const centreNames = Array.from(
             new Set(
-              children
-                .map((m) => String(m?.options?.centerName || '').trim())
-                .filter(Boolean)
-            )
+              children.map((m) => String(m?.options?.centerName || '').trim()).filter(Boolean),
+            ),
           ) as string[]
           const venue =
             centreNames.length === 1
@@ -355,16 +367,14 @@ export default function FleetMap({
               : centreNames.length > 1
               ? `${centreNames.length} centres`
               : 'Officers'
-          const badge = escapeHtml(
-            `${venue} · ${count} officer${count === 1 ? '' : 's'}`
-          )
+          const badge = escapeHtml(`${venue} · ${count} officer${count === 1 ? '' : 's'}`)
           const bubble = containsSos
             ? `width:42px;height:42px;border-radius:9999px;background:#B91C1C;border:2px solid #FCA5A5;color:#FFF;box-shadow:0 4px 14px rgba(0,0,0,0.5), 0 0 0 3px rgba(239,68,68,0.35);`
             : `width:42px;height:42px;border-radius:9999px;background:rgba(12,15,23,0.92);border:2px solid rgba(148,163,184,0.45);color:#E2E8F0;box-shadow:0 4px 14px rgba(0,0,0,0.55), 0 0 0 2px rgba(0,0,0,0.35);`
           const html = `<div style="position:relative;width:42px;height:42px;">
-            <div title="Tap to see these officers" style="${bubble}display:flex;align-items:center;justify-content:center;font:800 13px/1 var(--font-sans), system-ui, sans-serif;font-variant-numeric:tabular-nums;">${count}</div>
-            <span style="position:absolute;top:44px;left:50%;transform:translateX(-50%);pointer-events:none;white-space:nowrap;border-radius:9999px;border:1px solid rgba(148,163,184,0.35);background:rgba(12,15,23,0.92);padding:2px 7px;font:700 9px/1.25 var(--font-sans), system-ui, sans-serif;color:#CBD5E1;box-shadow:0 2px 8px rgba(0,0,0,0.45);">${badge}</span>
-          </div>`
+ <div title="Tap to see these officers" style="${bubble}display:flex;align-items:center;justify-content:center;font:800 13px/1 var(--font-sans), system-ui, sans-serif;font-variant-numeric:tabular-nums;">${count}</div>
+ <span style="position:absolute;top:44px;left:50%;transform:translateX(-50%);pointer-events:none;white-space:nowrap;border-radius:9999px;border:1px solid rgba(148,163,184,0.35);background:rgba(12,15,23,0.92);padding:2px 7px;font:700 9px/1.25 var(--font-sans), system-ui, sans-serif;color:#CBD5E1;box-shadow:0 2px 8px rgba(0,0,0,0.45);">${badge}</span>
+ </div>`
           return L.divIcon({
             html,
             className: 'waec-cluster-icon',
@@ -465,10 +475,10 @@ export default function FleetMap({
           const pinIcon = L.divIcon({
             className: 'custom-center-marker',
             html: `<div style="
-              width: 14px; height: 14px; border-radius: 50%;
-              background: #F6D300; border: 2.5px solid #0C0F17;
-              box-shadow: 0 0 0 1px rgba(246,211,0,0.6), 0 2px 6px rgba(0,0,0,0.6);
-            "></div>`,
+ width: 14px; height: 14px; border-radius: 50%;
+ background: #F6D300; border: 2.5px solid #0C0F17;
+ box-shadow: 0 0 0 1px rgba(246,211,0,0.6), 0 2px 6px rgba(0,0,0,0.6);
+ "></div>`,
             iconSize: [14, 14],
             iconAnchor: [7, 7],
           })
@@ -499,17 +509,19 @@ export default function FleetMap({
         const centerIcon = L.divIcon({
           className: 'custom-center-marker',
           html: `
-            <div class="waec-centre-marker" role="button" tabindex="0" title="${escapeHtml(`${center.name} — Centre code ${center.code}`)}" aria-label="${escapeHtml(`${center.name}, centre code ${center.code}`)}">
-              <div class="waec-centre-pin${hasBreach ? ' is-breach' : ''}"></div>
-              <div class="waec-centre-pill${hasBreach ? ' is-breach' : ''}">
-                <span class="waec-centre-pill-dot" aria-hidden="true"></span>
-                <span class="waec-centre-pill-body">
-                  <span class="waec-centre-pill-name">${escapeHtml(center.name)}</span>
-                  <span class="waec-centre-pill-code">Centre code ${escapeHtml(center.code)}</span>
-                </span>
-              </div>
-            </div>
-          `,
+ <div class="waec-centre-marker" role="button" tabindex="0" title="${escapeHtml(
+   `${center.name} — Centre code ${center.code}`,
+ )}" aria-label="${escapeHtml(`${center.name}, centre code ${center.code}`)}">
+ <div class="waec-centre-pin${hasBreach ? ' is-breach' : ''}"></div>
+ <div class="waec-centre-pill${hasBreach ? ' is-breach' : ''}">
+ <span class="waec-centre-pill-dot" aria-hidden="true"></span>
+ <span class="waec-centre-pill-body">
+ <span class="waec-centre-pill-name">${escapeHtml(center.name)}</span>
+ <span class="waec-centre-pill-code">Centre code ${escapeHtml(center.code)}</span>
+ </span>
+ </div>
+ </div>
+ `,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         })
@@ -528,8 +540,7 @@ export default function FleetMap({
   // region (the region most centers belong to — effectively the user's
   // region), never outlier centers or officers. If centers are spread too far
   // apart within that region, tighten onto the densest cluster instead.
-  const getValidCenters = () =>
-    centers.filter((c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng))
+  const getValidCenters = () => centers.filter((c) => !Number.isNaN(c.lat) && !Number.isNaN(c.lng))
 
   const frameDefaultView = async (animate: boolean) => {
     const map = mapInstanceRef.current
@@ -615,133 +626,153 @@ export default function FleetMap({
     const rebuild = () => {
       import('leaflet').then((leafletModule) => {
         if (!officersLayerRef.current) return
-      const L = leafletModule.default
-      const group = officersLayerRef.current
-      group.clearLayers()
+        const L = leafletModule.default
+        const group = officersLayerRef.current
+        group.clearLayers()
 
-      // 16px status dots (24px invisible hit area) with a 2px white ring and a
-      // soft shadow; selected officers grow to 22px with a blue outer ring.
-      // Labels show only on hover/focus/tap, for the selected officer, or for
-      // SOS officers — and never for anyone else while one officer is selected.
-      const mapCenterLng = mapInstanceRef.current?.getCenter()?.lng ?? Infinity
-      const visibleOfficers = officers.filter((officer) => {
-        if (statusFilter === 'onsite') return isOfficerAtCentre(officer)
-        if (statusFilter === 'enroute') return !isOfficerAtCentre(officer) && officer.status !== 'SOS'
-        if (statusFilter === 'sos') return officer.status === 'SOS'
-        return true
-      })
-      const markers: any[] = []
-      visibleOfficers.forEach((officer) => {
-        const isSelected = selectedOfficer?.id === officer.id
-        const isSos = officer.status === 'SOS'
-        const atCentre = isOfficerAtCentre(officer)
-        const stale = isTelemetryStale(officer)
-        const arrivedUnconfirmed = Boolean(officer.todayArrival && !officerArrivalConfirmed(officer))
-        const departedToday = Boolean(officer.todayDeparture)
-        const lineName = markerLineName(officer.name || '')
-        const meta = markerMetaLine(officer)
-        const labelSide = (officer.lng ?? 0) <= mapCenterLng ? 'label-right' : 'label-left'
-        const batteryWord = typeof officer.battery === 'number' ? `${officer.battery}% battery` : 'no battery data'
+        // 16px status dots (24px invisible hit area) with a 2px white ring and a
+        // soft shadow; selected officers grow to 22px with a blue outer ring.
+        // Labels show only on hover/focus/tap, for the selected officer, or for
+        // SOS officers — and never for anyone else while one officer is selected.
+        const mapCenterLng = mapInstanceRef.current?.getCenter()?.lng ?? Infinity
+        const visibleOfficers = officers.filter((officer) => {
+          if (statusFilter === 'onsite') return isOfficerAtCentre(officer)
+          if (statusFilter === 'enroute')
+            return !isOfficerAtCentre(officer) && officer.status !== 'SOS'
+          if (statusFilter === 'sos') return officer.status === 'SOS'
+          return true
+        })
+        const markers: any[] = []
+        visibleOfficers.forEach((officer) => {
+          const isSelected = selectedOfficer?.id === officer.id
+          const isSos = officer.status === 'SOS'
+          const atCentre = isOfficerAtCentre(officer)
+          const stale = isTelemetryStale(officer)
+          const arrivedUnconfirmed = Boolean(
+            officer.todayArrival && !officerArrivalConfirmed(officer),
+          )
+          const departedToday = Boolean(officer.todayDeparture)
+          const lineName = markerLineName(officer.name || '')
+          const meta = markerMetaLine(officer)
+          const labelSide = (officer.lng ?? 0) <= mapCenterLng ? 'label-right' : 'label-left'
+          const batteryWord =
+            typeof officer.battery === 'number' ? `${officer.battery}% battery` : 'no battery data'
 
-        let dotClass = 'waec-officer-dot waec-officer-dot--way'
-        if (isSos) dotClass = 'waec-officer-dot waec-officer-dot--sos'
-        else if (arrivedUnconfirmed) dotClass = 'waec-officer-dot waec-officer-dot--arrived'
-        else if (departedToday || stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
-        else if (atCentre) dotClass = 'waec-officer-dot waec-officer-dot--onsite'
+          let dotClass = 'waec-officer-dot waec-officer-dot--way'
+          if (isSos) dotClass = 'waec-officer-dot waec-officer-dot--sos'
+          else if (arrivedUnconfirmed) dotClass = 'waec-officer-dot waec-officer-dot--arrived'
+          else if (departedToday || stale) dotClass = 'waec-officer-dot waec-officer-dot--stale'
+          else if (atCentre) dotClass = 'waec-officer-dot waec-officer-dot--onsite'
 
-        const sosIcon = isSos
-          ? `<svg viewBox="0 0 24 24" width="9" height="9" aria-hidden="true" focusable="false">
-               <path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="#FFFFFF"></path>
-               <path d="M12 8.4v5.4" stroke="#B91C1C" stroke-width="1.9" stroke-linecap="round"></path>
-               <circle cx="12" cy="17.1" r="1.15" fill="#B91C1C"></circle>
-             </svg>`
-          : ''
+          const sosIcon = isSos
+            ? `<svg viewBox="0 0 24 24" width="9" height="9" aria-hidden="true" focusable="false">
+ <path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="#FFFFFF"></path>
+ <path d="M12 8.4v5.4" stroke="#B91C1C" stroke-width="1.9" stroke-linecap="round"></path>
+ <circle cx="12" cy="17.1" r="1.15" fill="#B91C1C"></circle>
+ </svg>`
+            : ''
 
-        const isStale = isTelemetryStale(officer)
-        const metaClass = isSos
-          ? 'waec-officer-label-meta waec-officer-label-meta--sos'
-          : arrivedUnconfirmed
+          const isStale = isTelemetryStale(officer)
+          const metaClass = isSos
+            ? 'waec-officer-label-meta waec-officer-label-meta--sos'
+            : arrivedUnconfirmed
             ? 'waec-officer-label-meta waec-officer-label-meta--arrived'
             : isStale
-              ? 'waec-officer-label-meta waec-officer-label-meta--stale'
-              : 'waec-officer-label-meta'
-        const metaIcon = arrivedUnconfirmed && !isSos
-          ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
-          : isSos
-            ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;"><path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="currentColor"></path></svg>'
-            : isStale
+            ? 'waec-officer-label-meta waec-officer-label-meta--stale'
+            : 'waec-officer-label-meta'
+          const metaIcon =
+            arrivedUnconfirmed && !isSos
+              ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
+              : isSos
+              ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;"><path d="M12 3.2 2.6 20.3h18.8L12 3.2z" fill="currentColor"></path></svg>'
+              : isStale
               ? '<svg viewBox="0 0 24 24" width="10" height="10" aria-hidden="true" focusable="false" style="display:inline;margin-right:4px;vertical-align:baseline;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
               : ''
 
-        const markerHtml = `
-          <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${isSos ? ' is-sos' : ''}${isStale && !isSos ? ' is-stale' : ''} ${labelSide}" title="Last update ${escapeHtml(formatTooltipTime(officer.lastPingAt))}" aria-label="${escapeHtml(`${lineName}, ${meta}, ${batteryWord}`)}">
-            ${isSos ? '<span class="waec-officer-ping waec-officer-ping--reduced" aria-hidden="true"></span>' : ''}
-            <span class="${dotClass}" aria-hidden="true">${sosIcon}</span>
-            <span class="waec-officer-label" role="status">
-              <span class="waec-officer-label-name">${escapeHtml(lineName)}</span>
-              <span class="${metaClass}">${metaIcon}${escapeHtml(meta)}</span>
-            </span>
-          </div>
-        `
+          const markerHtml = `
+ <div role="button" tabindex="0" class="waec-officer-marker${isSelected ? ' is-selected' : ''}${
+            isSos ? ' is-sos' : ''
+          }${isStale && !isSos ? ' is-stale' : ''} ${labelSide}" title="Last update ${escapeHtml(
+            formatTooltipTime(officer.lastPingAt),
+          )}" aria-label="${escapeHtml(`${lineName}, ${meta}, ${batteryWord}`)}">
+ ${
+   isSos
+     ? '<span class="waec-officer-ping waec-officer-ping--reduced" aria-hidden="true"></span>'
+     : ''
+ }
+ <span class="${dotClass}" aria-hidden="true">${sosIcon}</span>
+ <span class="waec-officer-label" role="status">
+ <span class="waec-officer-label-name">${escapeHtml(lineName)}</span>
+ <span class="${metaClass}">${metaIcon}${escapeHtml(meta)}</span>
+ </span>
+ </div>
+ `
 
-        const icon = L.divIcon({
-          className: 'waec-officer-marker-icon',
-          html: markerHtml,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        })
-
-        const marker = L.marker([officer.lat, officer.lng], {
-          icon,
-          keyboard: false,
-          sos: isSos,
-          // Used by the co-location cluster badge ("Prempeh College · 3 officers").
-          centerName: officer.plannedSchool || officer.assignedCenter || '',
-        } as any)
-        marker.on('click', () => onSelectOfficer(officer))
-        marker.on('add', () => {
-          const el = marker.getElement()
-          if (!el) return
-          el.setAttribute('aria-label', (el.querySelector('[aria-label]') as HTMLElement | null)?.getAttribute('aria-label') || '')
-          el.addEventListener('keydown', (e: KeyboardEvent) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              onSelectOfficer(officer)
-            }
+          const icon = L.divIcon({
+            className: 'waec-officer-marker-icon',
+            html: markerHtml,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
           })
-        })
-        markers.push(marker)
-      })
 
-      group.addLayers(markers)
-
-      // Corridor trail for the selected officer
-      const trail = trailLayerRef.current
-      if (trail) {
-        trail.clearLayers()
-        if (selectedOfficer) {
-          const matchingCenter =
-            centers.find(
-              (c) => c.code === selectedOfficer.centerCode || c.name === selectedOfficer.assignedCenter
-            ) || centers[0]
-
-          if (matchingCenter) {
-            L.polyline(
-              [
-                [selectedOfficer.lat, selectedOfficer.lng],
-                [matchingCenter.lat, matchingCenter.lng],
-              ],
-              {
-                color: selectedOfficer.status === 'SOS' ? '#ef4444' : '#bef264',
-                weight: 2.5,
-                opacity: 0.85,
-                dashArray: '6, 8',
+          const marker = L.marker([officer.lat, officer.lng], {
+            icon,
+            keyboard: false,
+            sos: isSos,
+            // Used by the co-location cluster badge ("Prempeh College · 3 officers").
+            centerName: officer.plannedSchool || officer.assignedCenter || '',
+          } as any)
+          marker.on('click', () => onSelectOfficer(officer))
+          marker.on('add', () => {
+            const el = marker.getElement()
+            if (!el) return
+            el.setAttribute(
+              'aria-label',
+              (el.querySelector('[aria-label]') as HTMLElement | null)?.getAttribute(
+                'aria-label',
+              ) || '',
+            )
+            el.addEventListener('keydown', (e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelectOfficer(officer)
               }
-            ).addTo(trail)
+            })
+          })
+          markers.push(marker)
+        })
+
+        group.addLayers(markers)
+
+        // Corridor trail for the selected officer
+        const trail = trailLayerRef.current
+        if (trail) {
+          trail.clearLayers()
+          if (selectedOfficer) {
+            const matchingCenter =
+              centers.find(
+                (c) =>
+                  c.code === selectedOfficer.centerCode ||
+                  c.name === selectedOfficer.assignedCenter,
+              ) || centers[0]
+
+            if (matchingCenter) {
+              L.polyline(
+                [
+                  [selectedOfficer.lat, selectedOfficer.lng],
+                  [matchingCenter.lat, matchingCenter.lng],
+                ],
+                {
+                  color: selectedOfficer.status === 'SOS' ? '#ef4444' : '#bef264',
+                  weight: 2.5,
+                  opacity: 0.85,
+                  dashArray: '6, 8',
+                },
+              ).addTo(trail)
+            }
           }
         }
-      }
-    })
+      })
     }
 
     // The ref always holds the LATEST closure, even when a rebuild is deferred.
@@ -755,10 +786,9 @@ export default function FleetMap({
     const checksum =
       officers
         .map((o) =>
-          [o.id, o.lat?.toFixed(5), o.lng?.toFixed(5), o.status, o.lastPingAt, o.battery].join(':')
+          [o.id, o.lat?.toFixed(5), o.lng?.toFixed(5), o.status, o.lastPingAt, o.battery].join(':'),
         )
-        .join('|') +
-      `|${selectedOfficer?.id ?? ''}|${statusFilter}|${centers.length}`
+        .join('|') + `|${selectedOfficer?.id ?? ''}|${statusFilter}|${centers.length}`
     if (checksumRef.current === checksum) return
     checksumRef.current = checksum
 
@@ -832,7 +862,8 @@ export default function FleetMap({
     assigned: officers.length,
     arrived: officers.filter((o) => Boolean(o.todayArrival)).length,
     confirmed: officers.filter((o) => Boolean(o.todayArrival) && officerArrivalConfirmed(o)).length,
-    unconfirmed: officers.filter((o) => Boolean(o.todayArrival) && !officerArrivalConfirmed(o)).length,
+    unconfirmed: officers.filter((o) => Boolean(o.todayArrival) && !officerArrivalConfirmed(o))
+      .length,
     enRoute: 0,
   }
   const arrivedPct =
@@ -845,9 +876,9 @@ export default function FleetMap({
       onClick={() => setDayPanelOpen((v) => !v)}
       aria-expanded={dayPanelOpen}
       aria-label={`${daySummary.arrived} of ${daySummary.assigned} officers arrived — open today's list`}
-      className="flex w-full flex-wrap items-center justify-center gap-x-2.5 gap-y-1 px-3.5 py-2 rounded-full bg-[#0C0F17]/92 border border-[#22263C] backdrop-blur-md shadow-2xl font-sans cursor-pointer hover:border-slate-600 transition"
+      className="flex w-full flex-wrap items-center justify-center gap-x-2.5 gap-y-1 px-3.5 py-2 rounded-full bg-[#0C0F17]/92 border border-[#22263C] shadow-2xl font-sans cursor-pointer hover:border-slate-600 transition"
     >
-      <span className="text-[11px] font-bold text-white whitespace-nowrap">
+      <span className="text-xs font-semibold text-white whitespace-nowrap">
         {daySummary.arrived} of {daySummary.assigned} arrived
       </span>
       <span className="h-1.5 w-16 sm:w-24 rounded-full bg-white/10 overflow-hidden shrink-0">
@@ -856,11 +887,11 @@ export default function FleetMap({
           style={{ width: `${arrivedPct}%` }}
         />
       </span>
-      <span className="text-[10px] font-semibold text-slate-400 whitespace-nowrap">
+      <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">
         {daySummary.confirmed} confirmed
       </span>
       {exceptions.length > 0 && (
-        <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-200 whitespace-nowrap">
+        <span className="rounded-full border border-amber-400/40 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-200 whitespace-nowrap">
           {exceptions.length} to check
         </span>
       )}
@@ -868,12 +899,12 @@ export default function FleetMap({
   )
 
   const dayPanel = dayPanelOpen ? (
-    <div className="absolute top-full mt-2 left-0 lg:left-1/2 lg:-translate-x-1/2 z-30 w-[min(360px,calc(100vw-24px))] max-h-64 overflow-y-auto rounded-xl bg-[#0C0F17]/97 border border-[#22263C] backdrop-blur-md shadow-2xl p-2 space-y-1.5">
-      <span className="block px-1.5 pb-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">
+    <div className="absolute top-full mt-2 left-0 lg:left-1/2 lg:-translate-x-1/2 z-30 w-[min(360px,calc(100vw-24px))] max-h-64 overflow-y-auto rounded-xl bg-[#0C0F17]/97 border border-[#22263C] shadow-2xl p-2 space-y-1.5">
+      <span className="block px-1.5 pb-0.5 text-xs font-semibold text-slate-500">
         Needs attention today
       </span>
       {exceptions.length === 0 ? (
-        <p className="px-1.5 py-2 text-[11px] font-medium text-slate-400">
+        <p className="px-1.5 py-2 text-xs font-medium text-slate-400">
           Nothing needs attention right now.
         </p>
       ) : (
@@ -894,7 +925,7 @@ export default function FleetMap({
                   ex.tone === 'critical' ? 'bg-rose-500' : 'bg-amber-400'
                 }`}
               />
-              <span className="text-[11px] leading-snug font-medium text-slate-200">{ex.message}</span>
+              <span className="text-xs leading-snug font-medium text-slate-200">{ex.message}</span>
             </span>
           </button>
         ))
@@ -903,7 +934,11 @@ export default function FleetMap({
   ) : null
 
   return (
-    <div className={`relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans ${selectedOfficer ? 'map-has-selection' : ''} ${zoomLow ? 'map-zoom-low' : 'map-zoom-high'}`}>
+    <div
+      className={`relative size-full min-h-[300px] overflow-hidden bg-[#090A0F] select-none font-sans ${
+        selectedOfficer ? 'map-has-selection' : ''
+      } ${zoomLow ? 'map-zoom-low' : 'map-zoom-high'}`}
+    >
       <div ref={mapContainerRef} className="size-full z-0" />
 
       {/* Mobile status filter chips */}
@@ -912,7 +947,12 @@ export default function FleetMap({
           [
             { id: 'all', label: `All ${officers.length}` },
             { id: 'onsite', label: `At centre ${officers.filter(isOfficerAtCentre).length}` },
-            { id: 'enroute', label: `On the way ${officers.filter((o) => !isOfficerAtCentre(o) && o.status !== 'SOS').length}` },
+            {
+              id: 'enroute',
+              label: `On the way ${
+                officers.filter((o) => !isOfficerAtCentre(o) && o.status !== 'SOS').length
+              }`,
+            },
             { id: 'sos', label: `SOS ${officers.filter((o) => o.status === 'SOS').length}` },
           ] as const
         ).map((chip) => {
@@ -952,7 +992,7 @@ export default function FleetMap({
       </div>
 
       {/* Day arrivals line — mobile, under the filter chips. Steps aside for an
-          active SOS banner, which owns that space when an emergency is live. */}
+ active SOS banner, which owns that space when an emergency is live. */}
       {!hasActiveSos && (
         <div className="lg:hidden absolute top-[60px] left-3 right-3 z-20 pointer-events-auto flex flex-col">
           {dayPanelOpen && (
@@ -970,23 +1010,21 @@ export default function FleetMap({
 
       {/* Top-Left Floating Zone Status Pill — desktop only */}
       <div className="hidden lg:block absolute top-3.5 left-3.5 sm:top-4 sm:left-4 z-10 pointer-events-auto">
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-xl text-xs font-sans">
-          <span className="size-2 rounded-full bg-emerald-400 shrink-0 shadow-[0_0_8px_#34d399] animate-pulse" />
-          <span className="font-semibold text-white tracking-tight">
-            {activeSectorName}
-          </span>
+        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] shadow-xl text-xs font-sans">
+          <span className="size-2 rounded-full bg-emerald-400 shrink-0 " />
+          <span className="font-semibold text-white tracking-tight">{activeSectorName}</span>
         </div>
       </div>
 
       {/* Top-Right Map / Satellite Switcher — desktop only (mobile uses Layers) */}
       <div className="hidden lg:block absolute top-3.5 right-3.5 sm:top-4 sm:right-4 z-10 pointer-events-auto">
-        <div className="flex items-center rounded-full bg-[#0C0F17]/90 border border-[#22263C] p-1 backdrop-blur-md shadow-xl text-xs font-sans">
+        <div className="flex items-center rounded-full bg-[#0C0F17]/90 border border-[#22263C] p-1 shadow-xl text-xs font-sans">
           <button
             type="button"
             onClick={() => setMapMode('map')}
             className={`px-3 py-1 rounded-full text-xs transition cursor-pointer ${
               mapMode === 'map'
-                ? 'bg-[#1E2B7B] text-white font-bold shadow-xs'
+                ? 'bg-[#1E2B7B] text-white font-semibold shadow-xs'
                 : 'text-slate-400 hover:text-white font-medium'
             }`}
           >
@@ -997,7 +1035,7 @@ export default function FleetMap({
             onClick={() => setMapMode('satellite')}
             className={`px-3 py-1 rounded-full text-xs transition cursor-pointer ${
               mapMode === 'satellite'
-                ? 'bg-[#1E2B7B] text-white font-bold shadow-xs'
+                ? 'bg-[#1E2B7B] text-white font-semibold shadow-xs'
                 : 'text-slate-400 hover:text-white font-medium'
             }`}
           >
@@ -1017,10 +1055,8 @@ export default function FleetMap({
           />
         )}
         {legendOpen && (
-          <div className="absolute bottom-full left-0 mb-2 z-20 flex flex-col gap-1.5 rounded-xl bg-[#0C0F17]/95 border border-[#22263C] px-3 py-2.5 backdrop-blur-md shadow-2xl font-sans w-52">
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-0.5">
-              Map Legend
-            </span>
+          <div className="absolute bottom-full left-0 mb-2 z-20 flex flex-col gap-1.5 rounded-xl bg-[#0C0F17]/95 border border-[#22263C] px-3 py-2.5 shadow-2xl font-sans w-52">
+            <span className="text-xs font-semibold text-slate-500 mb-0.5">Map Legend</span>
             <LegendItem color="#10B981" label="Officer on site" />
             <LegendItem color="#F59E0B" label="Arrived — not signed in" />
             <LegendItem color="#38bdf8" label="Officer en route" />
@@ -1028,8 +1064,8 @@ export default function FleetMap({
             <LegendStaleItem />
             <LegendItem color="#F6D300" label="Selected officer" />
             <LegendItem color="#38bdf8" label="Check-in area (radius)" dashed />
-            <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300 whitespace-nowrap">
-              <span className="size-4 shrink-0 rounded-full border border-sky-400/50 bg-[#0C0F17] flex items-center justify-center text-[8px] font-extrabold text-sky-300">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-300 whitespace-nowrap">
+              <span className="size-4 shrink-0 rounded-full border border-sky-400/50 bg-[#0C0F17] flex items-center justify-center text-[8px] font-semibold text-sky-300">
                 5
               </span>
               <span>Clustered officers</span>
@@ -1040,7 +1076,7 @@ export default function FleetMap({
           type="button"
           onClick={() => setLegendOpen((v) => !v)}
           aria-expanded={legendOpen}
-          className="relative z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-xl text-[11px] font-sans font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition cursor-pointer"
+          className="relative z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0C0F17]/90 border border-[#22263C] shadow-xl text-xs font-sans font-semibold text-slate-300 hover:text-white hover:border-slate-600 transition cursor-pointer"
         >
           <span className="flex items-center gap-1">
             <span className="size-1.5 rounded-full bg-emerald-400" />
@@ -1053,26 +1089,26 @@ export default function FleetMap({
       </div>
 
       {/* Bottom-Center "centers outside view" chip — appears only when some
-          centers are parked outside the tight default framing */}
+ centers are parked outside the tight default framing */}
       {viewStats.total > 0 && viewStats.visible < viewStats.total && (
         <div className="hidden md:block absolute bottom-6 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
           <button
             type="button"
             onClick={handleShowAllCenters}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-sky-500/30 backdrop-blur-md shadow-xl text-[11px] font-sans cursor-pointer hover:border-sky-400/60 hover:bg-[#0C0F17] transition"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0C0F17]/90 border border-sky-500/30 shadow-xl text-xs font-sans cursor-pointer hover:border-sky-400/60 hover:bg-[#0C0F17] transition"
           >
-            <span className="size-1.5 rounded-full bg-sky-400 shrink-0 shadow-[0_0_6px_#38bdf8]" />
+            <span className="size-1.5 rounded-full bg-sky-400 shrink-0 " />
             <span className="text-slate-300 font-medium whitespace-nowrap">
               {viewStats.visible} of {viewStats.total} centers in view
             </span>
-            <span className="text-sky-400 font-bold whitespace-nowrap">Show all</span>
+            <span className="text-sky-400 font-semibold whitespace-nowrap">Show all</span>
           </button>
         </div>
       )}
 
       {/* Bottom-Right Vertical Floating Tool Cluster */}
       <div className="absolute bottom-6 right-3.5 sm:bottom-6 sm:right-4 z-10 flex flex-col items-center gap-2 pointer-events-auto">
-        <div className="hidden lg:flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] backdrop-blur-md shadow-2xl overflow-hidden divide-y divide-[#22263C]">
+        <div className="hidden lg:flex flex-col rounded-xl bg-[#0C0F17]/90 border border-[#22263C] shadow-2xl overflow-hidden divide-y divide-[#22263C]">
           <button
             type="button"
             onClick={handleZoomIn}
@@ -1137,7 +1173,7 @@ export default function FleetMap({
             aria-label="Map layers"
             title="Map layers"
             aria-expanded={layersOpen}
-            className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+            className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center shadow-2xl transition cursor-pointer"
           >
             <Layers className="size-4.5" />
           </button>
@@ -1147,7 +1183,7 @@ export default function FleetMap({
           type="button"
           onClick={handleFitAllOfficers}
           aria-label="Fit all officers"
-          className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+          className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center shadow-2xl transition cursor-pointer"
           title="Fit all officers"
         >
           <Users className="size-4.5" />
@@ -1157,7 +1193,7 @@ export default function FleetMap({
           type="button"
           onClick={handleResetView}
           aria-label="Center view"
-          className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center backdrop-blur-md shadow-2xl transition cursor-pointer"
+          className="size-11 rounded-xl bg-[#0C0F17]/90 border border-[#22263C] text-slate-300 hover:text-white hover:bg-white/5 active:bg-white/10 flex items-center justify-center shadow-2xl transition cursor-pointer"
           title="Recenter Map"
         >
           <Crosshair className="size-4.5" />
@@ -1167,17 +1203,9 @@ export default function FleetMap({
   )
 }
 
-function LegendItem({
-  color,
-  label,
-  dashed,
-}: {
-  color: string
-  label: string
-  dashed?: boolean
-}) {
+function LegendItem({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300 whitespace-nowrap">
+    <div className="flex items-center gap-2 text-xs font-medium text-slate-300 whitespace-nowrap">
       {dashed ? (
         <span
           className="size-3 shrink-0 rounded-full border-2 border-dashed"
@@ -1196,9 +1224,9 @@ function LegendItem({
 
 function LegendSosItem() {
   return (
-    <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300 whitespace-nowrap">
+    <div className="flex items-center gap-2 text-xs font-medium text-slate-300 whitespace-nowrap">
       <span className="relative flex size-2.5 shrink-0 items-center justify-center">
-        <span className="absolute inline-flex size-full rounded-full bg-status-sos opacity-60 animate-ping" />
+        <span className="absolute inline-flex size-full rounded-full bg-status-sos opacity-60 " />
         <span className="relative inline-flex size-2.5 rounded-full border border-white/70 bg-status-sos" />
       </span>
       <span>SOS emergency</span>
@@ -1208,7 +1236,7 @@ function LegendSosItem() {
 
 function LegendStaleItem() {
   return (
-    <div className="flex items-center gap-2 text-[10px] font-medium text-slate-300 whitespace-nowrap">
+    <div className="flex items-center gap-2 text-xs font-medium text-slate-300 whitespace-nowrap">
       <span
         className="size-2.5 shrink-0 rounded-full border-2 border-slate-400 bg-transparent"
         title="Telemetry older than 5 minutes"

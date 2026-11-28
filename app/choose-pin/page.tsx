@@ -66,8 +66,8 @@ export default function ChoosePinPage() {
 
   if (!ready) {
     return (
-      <div className="authb-page" style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <Loader2 className="size-6 animate-spin text-white/60" aria-hidden />
+      <div className="authb-loading">
+        <Loader2 className="size-6 animate-spin" aria-hidden />
       </div>
     )
   }
@@ -80,39 +80,82 @@ export default function ChoosePinPage() {
       <main className="authb-main">
         <div className="authb-card">
           <h1 className="authb-title">Choose your own PIN</h1>
-          <p className="authb-sub">You signed in with a PIN from your controller. Pick a new one that only you know.</p>
+          <p className="authb-sub">
+            You signed in with a PIN from your controller. Pick a new one that only you know.
+          </p>
 
           {errorMsg && (
-            <div role="alert" className="authb-error" style={{ marginTop: 14 }}>
+            <div role="alert" className="authb-error authb-error--form">
               <AlertCircle className="size-4 shrink-0" aria-hidden />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ marginTop: 16 }} noValidate>
+          <form onSubmit={handleSubmit} className="authb-form" noValidate>
             <div className="authb-labelrow">
-              <label htmlFor="pin1-input" className="authb-label" style={{ marginBottom: 6 }}>New 4-digit PIN</label>
-              <button type="button" className="authb-link authb-link--quiet" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 30 }} onClick={() => setShow1(!show1)} aria-pressed={show1}>
+              <label htmlFor="pin1-input" className="authb-label">
+                New 4-digit PIN
+              </label>
+              <button
+                type="button"
+                className="authb-textbutton"
+                onClick={() => setShow1(!show1)}
+                aria-pressed={show1}
+              >
                 <span>{show1 ? 'Hide' : 'Show'}</span>
               </button>
             </div>
-            <PinRow id="pin1-input" value={pin1} onChange={(v) => { setPin1(v); setErrorMsg('') }} show={show1} />
+            <PinRow
+              id="pin1-input"
+              value={pin1}
+              onChange={(v) => {
+                setPin1(v)
+                setErrorMsg('')
+              }}
+              show={show1}
+            />
 
-            <div className="authb-labelrow" style={{ marginTop: 12 }}>
-              <label htmlFor="pin2-input" className="authb-label" style={{ marginBottom: 6 }}>Type it again</label>
-              <button type="button" className="authb-link authb-link--quiet" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 30 }} onClick={() => setShow2(!show2)} aria-pressed={show2}>
+            <div className="authb-labelrow">
+              <label htmlFor="pin2-input" className="authb-label">
+                Type it again
+              </label>
+              <button
+                type="button"
+                className="authb-textbutton"
+                onClick={() => setShow2(!show2)}
+                aria-pressed={show2}
+              >
                 <span>{show2 ? 'Hide' : 'Show'}</span>
               </button>
             </div>
-            <PinRow id="pin2-input" value={pin2} onChange={(v) => { setPin2(v); setErrorMsg('') }} show={show2} />
+            <PinRow
+              id="pin2-input"
+              value={pin2}
+              onChange={(v) => {
+                setPin2(v)
+                setErrorMsg('')
+              }}
+              show={show2}
+            />
 
-            <div className="authb-hint" style={{ marginTop: 16 }}>
-              <ShieldCheck className="size-5 shrink-0 text-amber-300" aria-hidden />
-              <p style={{ margin: 0 }}>Do not use 1234, 0000, or your birth year. Do not tell anyone your PIN.</p>
+            <div className="authb-hint authb-stack">
+              <ShieldCheck className="size-5 shrink-0" aria-hidden />
+              <p>Do not use 1234, 0000, or your birth year. Do not tell anyone your PIN.</p>
             </div>
 
-            <button type="submit" className="authb-btn" style={{ marginTop: 16 }} disabled={loading || pin1.length !== 4 || pin2.length !== 4}>
-              {loading ? (<><Loader2 className="size-5 animate-spin" aria-hidden /><span>Saving…</span></>) : <span>Save my new PIN</span>}
+            <button
+              type="submit"
+              className="authb-btn authb-stack"
+              disabled={loading || pin1.length !== 4 || pin2.length !== 4}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="size-5 animate-spin" aria-hidden />
+                  <span>Saving…</span>
+                </>
+              ) : (
+                <span>Save my new PIN</span>
+              )}
             </button>
           </form>
         </div>
@@ -138,11 +181,16 @@ function PinRow({
   const ref = useRef<HTMLInputElement>(null)
   const digits = [value[0] || '', value[1] || '', value[2] || '', value[3] || '']
   return (
-    <div className="authb-pin-wrap" onClick={() => ref.current?.focus()} role="group" aria-label="4-digit PIN boxes">
+    <div
+      className="authb-pin-wrap"
+      onClick={() => ref.current?.focus()}
+      role="group"
+      aria-label="4-digit PIN boxes"
+    >
       <div className="authb-pin-grid" aria-hidden>
         {digits.map((d, i) => (
           <div key={i} id={`${id}-box-${i}`} className="authb-pin-box">
-            {d ? (show ? d : '•') : <span className="size-2.5 rounded-full border border-white/25" />}
+            {d ? show ? d : '•' : <span className="authb-pin-empty" />}
           </div>
         ))}
       </div>

@@ -9,6 +9,7 @@ A calm, dense, trustworthy operations console for people who must spot a distres
 Reference density: Linear, Vercel dashboard, Stripe. Not a sci-fi terminal.
 
 Three principles:
+
 1. **Quiet by default, loud only for danger.** Most of the screen is neutral. Red appears only for SOS and critical incidents.
 2. **Scan, don't read.** Name, status, battery, time. Max 2 lines per roster row.
 3. **Every state is designed.** Loading, empty, error, and "all clear" are first-class screens.
@@ -20,7 +21,7 @@ Identity: WAEC deep navy + slate + a restrained yellow. Yellow is a brand accent
 - Use only `components/ui/*` (shadcn). Need a new primitive? Add it via shadcn, never hand-roll a styled `div` button, card, badge, input, tabs or dialog.
 - No inline hex/rgb/oklch values in components. Use semantic tokens (`bg-card`, `text-muted-foreground`, `text-status-sos`).
 - No arbitrary Tailwind values (`w-[437px]`, `text-[11px]`, `tracking-[0.2em]`) except map and chart sizing.
-- No gradients, glows, glassmorphism, neon borders, or animated backgrounds **outside the four auth pages (see §2.0).**
+- No gradients, glows, glassmorphism, neon borders, or animated backgrounds anywhere. All screens use the same solid navy surface system.
 - No uppercase + letter-spaced labels except the sidebar section label and table headers (`text-xs uppercase tracking-wide`).
 - No all-monospace UI. Mono is for data only (section 4).
 - No bracketed text tags like `[ON-SITE 07:54 GMT]`. Use `StatusBadge`.
@@ -28,22 +29,14 @@ Identity: WAEC deep navy + slate + a restrained yellow. Yellow is a brand accent
 - One border radius family: `--radius` (0.625rem). Cards `rounded-lg`, controls `rounded-md`, pills `rounded-full`.
 - Spacing on a 4px grid only (`p-2/3/4/6`, `gap-2/3/4/6`).
 
-## 2.0 Glass is page-specific, never ambient
+## 2.0 One solid surface system
 
-The frosted-glass style (translucent cards over the navy→violet gradient,
-`backdrop-filter` blur) is allowed ONLY on:
-
-- `/login`
-- `/request-access`
-- `/forgot-password`
-- `/choose-pin`
-
-Every other screen uses **solid surfaces** — no `backdrop-filter`, no gradient
-behind content, no ambient blur. Small blur is allowed only on floating map
-chips and modal backdrops, and only behind a
-`prefers-reduced-transparency` / no-support fallback to a solid colour.
-Auth screens may set `backdrop-filter` and gradients freely, but never leak
-them into shared components consumed by the rest of the console.
+Auth and recovery screens are part of the same console as the field and admin
+views: flat navy canvas, one raised panel, one `#3b57f0` primary action, and
+no decorative blur. There is no glass, hue gradient, glow, blob, or fake live
+state exception. Small blur is allowed only on floating map chips and modal
+backdrops, and only behind a `prefers-reduced-transparency` / no-support
+fallback to a solid colour.
 
 ### 2.1 Shared tokens for every non-auth screen
 
@@ -53,8 +46,7 @@ Everything aligns to ONE family — not restyled, just aligned:
   Yellow (`#F6D300` / `--brand`) is WAEC brand only — never a primary action.
 - Inter only. 12–16 px border radius. 44–48 px touch targets on buttons and rows.
 - Plain-language wording everywhere. No technical terms on screen.
-- If auth pages need a blur, keep it small and behind a solid fallback —
-  never on content heavy scroll containers.
+- Proof of work comes from the database, never from invented counts, demo people or sample credentials.
 
 ## 3. Colour tokens
 
@@ -62,51 +54,54 @@ Everything aligns to ONE family — not restyled, just aligned:
 
 Neutral scale (navy-tinted, hue 265):
 
-| Token | Value | Use |
-|---|---|---|
-| `--background` | `oklch(0.16 0.02 265)` | App canvas |
-| `--card` | `oklch(0.20 0.02 265)` | Panels, roster, stats |
-| `--popover` | `oklch(0.22 0.02 265)` | Menus, tooltips, dialogs |
-| `--muted` | `oklch(0.25 0.02 265)` | Hover fills, skeletons |
-| `--border` | `oklch(1 0 0 / 9%)` | All dividers and outlines |
-| `--foreground` | `oklch(0.96 0.01 265)` | Primary text |
-| `--muted-foreground` | `oklch(0.70 0.02 265)` | Secondary text (AA on card) |
-| `--primary` | `#3b57f0` (oklch-minted equivalents may be used) | Selected nav, primary button, focus ring — the only blue used for interaction |
-| `--brand` | `oklch(0.84 0.16 90)` | WAEC yellow: logo mark and one header accent only |
+| Token                | Value                                            | Use                                                                           |
+| -------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `--background`       | `oklch(0.16 0.02 265)`                           | App canvas                                                                    |
+| `--card`             | `oklch(0.20 0.02 265)`                           | Panels, roster, stats                                                         |
+| `--popover`          | `oklch(0.22 0.02 265)`                           | Menus, tooltips, dialogs                                                      |
+| `--muted`            | `oklch(0.25 0.02 265)`                           | Hover fills, skeletons                                                        |
+| `--border`           | `oklch(1 0 0 / 9%)`                              | All dividers and outlines                                                     |
+| `--foreground`       | `oklch(0.96 0.01 265)`                           | Primary text                                                                  |
+| `--muted-foreground` | `oklch(0.70 0.02 265)`                           | Secondary text (AA on card)                                                   |
+| `--primary`          | `#3b57f0` (oklch-minted equivalents may be used) | Selected nav, primary button, focus ring — the only blue used for interaction |
+| `--brand`            | `oklch(0.84 0.16 90)`                            | WAEC yellow: logo mark and one header accent only                             |
 
 Status tokens (add to `@theme inline`, expose as `bg-status-*`, `text-status-*`):
 
-| Token | Value | Meaning |
-|---|---|---|
-| `--status-sos` | `oklch(0.64 0.23 25)` | Active SOS, critical incident. Nothing else is ever red |
-| `--status-ok` | `oklch(0.74 0.16 155)` | Verified on-site |
-| `--status-warn` | `oklch(0.80 0.15 80)` | En route, pending, overdue |
-| `--status-idle` | `oklch(0.65 0.02 265)` | Offline, off duty, not started |
+| Token           | Value                  | Meaning                                                 |
+| --------------- | ---------------------- | ------------------------------------------------------- |
+| `--status-sos`  | `oklch(0.64 0.23 25)`  | Active SOS, critical incident. Nothing else is ever red |
+| `--status-ok`   | `oklch(0.74 0.16 155)` | Verified on-site                                        |
+| `--status-warn` | `oklch(0.80 0.15 80)`  | En route, pending, overdue                              |
+| `--status-idle` | `oklch(0.65 0.02 265)` | Offline, off duty, not started                          |
 
 Rules:
+
 - Each status has a 3-step recipe: text `status-*`, background `status-* / 12%`, border `status-* / 30%`.
 - Colour is never the only signal. Every status pairs colour with an icon or label text.
 - Primary blue is for interaction (selected, focus, links). Never use it for status.
 - Chart palette: `--chart-1..5` map to ok, warn, primary, sos, idle.
 
 ## 3.1 Map marker colours
+
 Same status tokens: ok (inside geofence), warn (outside geofence), sos (distress, pulsing ring), idle (offline). Geofence circle: 1px `primary` stroke, 8% fill, no dashes.
 
 ## 4. Typography
 
 Load with `next/font` in `app/layout.tsx`:
+
 - **Inter** → `--font-sans`, all UI text and data (Inter only, no monospace anywhere in the project).
 - JetBrains Mono is removed from the project.
 - Use `tabular-nums` on all numbers (battery %, timestamps, distances, codes) so columns do not jitter on live updates.
 
-| Role | Class |
-|---|---|
-| Page title | `text-xl font-semibold` |
-| Panel title | `text-sm font-semibold` |
-| Body / row primary | `text-sm font-medium` |
-| Secondary / meta | `text-xs text-muted-foreground` |
-| Stat value | `text-2xl font-semibold tabular-nums` |
-| Section label | `text-xs font-medium uppercase tracking-wide text-muted-foreground` |
+| Role               | Class                                                               |
+| ------------------ | ------------------------------------------------------------------- |
+| Page title         | `text-xl font-semibold`                                             |
+| Panel title        | `text-sm font-semibold`                                             |
+| Body / row primary | `text-sm font-medium`                                               |
+| Secondary / meta   | `text-xs text-muted-foreground`                                     |
+| Stat value         | `text-2xl font-semibold tabular-nums`                               |
+| Section label      | `text-xs font-medium uppercase tracking-wide text-muted-foreground` |
 
 Never go below `text-xs` (12px). Max two font weights per screen (500, 600).
 
@@ -132,26 +127,33 @@ Desktop console (≥1280px) is a 3-zone grid, full viewport height, no page scro
 ## 6. Component specs
 
 ### Header (56px)
+
 Left: logo mark (yellow) + "MOS Command" (`text-sm font-semibold`) + muted region name "Ashanti Regional Hub". Centre: only when active, a single SOS alert pill. Right: gateway status (dot + "Online"), user menu (avatar + name + role in a dropdown, with Sign out inside it).
 Remove: version badge from the header (move to the footer or settings), the separate "Sign Out" button.
 
 ### Sidebar
+
 Items: icon + label `text-sm`, 36px height, selected = `bg-primary/15 text-primary`, hover = `bg-muted`. The Incident Logs unread dot becomes a count `Badge` in `status-sos`. Footer card "Shift operations": 3 lines max.
 
 ### Stats strip
+
 Four equal columns (`grid grid-cols-4`), each: label `text-xs muted`, value `text-2xl mono`. Deployed, On-site, En route, SOS. Only the SOS value turns red, and only when `> 0`. The on-site percentage is a small muted suffix, not a second large number.
 
 ### Region / center filter chips
+
 shadcn `ToggleGroup` or `Tabs`, `h-8`, count in muted text. Horizontal scroll if overflowing, never wrap.
 
 ### Roster panel
+
 Search `Input` with icon, then `Tabs`: All / On-site / Pending / SOS with counts. Groups are collapsible with `Collapsible`; group header shows name, "3/5 on-site" and an SOS badge if any member is in distress. SOS groups sort to the top.
 
 ### Roster row (`OfficerRow`)
+
 ```
 [Avatar 32]  Kofi Mensah  ★                  84% 🔋  [call] [locate]
              Prempeh College · ● On-site · 07:54
 ```
+
 - Line 1: name `text-sm font-medium`, leader shown as a small `Star` icon with tooltip, not text.
 - Line 2: centre name, then `StatusBadge`. All `text-xs`.
 - Battery: mono, `text-muted-foreground`; below 20% turns `status-warn`, below 10% `status-sos`.
@@ -160,28 +162,32 @@ Search `Input` with icon, then `Tabs`: All / On-site / Pending / SOS with counts
 - Row height consistent at 64px. No per-row borders; use a single `divide-y`.
 
 ### StatusBadge (build once in `components/shared/status-badge.tsx`)
+
 Props: `status: 'ON_SITE' | 'EN_ROUTE' | 'PENDING' | 'SOS' | 'OFFLINE'`, optional `detail` (time or distance).
 Renders: `Badge variant="outline"`, `h-5`, dot or icon + label, detail in mono. Example: `● On-site · 07:54`, `● 450 m away`, `▲ SOS`.
 All status UI in the app uses this component.
 
 ### Buttons
+
 `default` = primary (one per view). `secondary` for neutral. `ghost` for icon and row actions. `destructive` only for irreversible actions (revoke, suspend) and always behind a confirm `Dialog`.
 
 ### Tables (users, incidents, audit logs)
+
 shadcn `Table`, 44px rows, sticky header, sortable columns, mono for IDs and timestamps, row hover `bg-muted/50`. Paginate at 25. Provide a filter bar above, never inside the header row.
 
 ### Forms and dialogs
+
 Label above input, helper text `text-xs muted`, error text `status-sos` with an icon. Primary action bottom-right. Escape closes. Focus trapped.
 
 ## 7. States (required for every list, map, stat, chart)
 
-| State | Pattern |
-|---|---|
-| Loading | `Skeleton` matching final layout (roster: 6 rows; stats: 4 blocks; map: dark surface + centred spinner) |
-| Empty | Icon, one-line title, one-line hint, optional action. e.g. "No active SOS · All officers are reporting normally" |
-| Error | Inline `Alert` with the failed resource, a Retry button, and the HTTP/error code in mono |
-| Stale | If telemetry is older than 60s show "Last updated 2 min ago" in `status-warn`; older than 5 min mark the officer Offline |
-| Offline/gateway down | Header status turns `status-warn`, with a banner "Live updates paused. Showing last known positions" |
+| State                | Pattern                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Loading              | `Skeleton` matching final layout (roster: 6 rows; stats: 4 blocks; map: dark surface + centred spinner)                  |
+| Empty                | Icon, one-line title, one-line hint, optional action. e.g. "No active SOS · All officers are reporting normally"         |
+| Error                | Inline `Alert` with the failed resource, a Retry button, and the HTTP/error code in mono                                 |
+| Stale                | If telemetry is older than 60s show "Last updated 2 min ago" in `status-warn`; older than 5 min mark the officer Offline |
+| Offline/gateway down | Header status turns `status-warn`, with a banner "Live updates paused. Showing last known positions"                     |
 
 ## 8. Data rules (no mock data)
 

@@ -92,7 +92,7 @@ const inputClass =
   'w-full h-11 rounded-xl border border-[#2A3048] bg-[#0A0D17] px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:border-indigo-400 disabled:opacity-50'
 
 const buttonClass =
-  'inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl px-3.5 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+  'inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl px-3.5 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
 
 /**
  * Admin's single screen for the real WAEC workflow:
@@ -103,7 +103,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
     (message: string) => {
       if (onFeedback) onFeedback(message)
     },
-    [onFeedback]
+    [onFeedback],
   )
 
   const [date, setDate] = useState(() => todayGmt())
@@ -159,7 +159,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
     key: string,
     url: string,
     init: RequestInit,
-    successMessage: string
+    successMessage: string,
   ) => {
     setBusy(key)
     setError('')
@@ -198,7 +198,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
           leaderOfficerId: draft.leaderOfficerId || null,
         }),
       },
-      `${draft.name.trim()} created.`
+      `${draft.name.trim()} created.`,
     )
     if (ok) {
       setDraft({ name: '', regionId: '', leaderOfficerId: '' })
@@ -224,7 +224,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
           leaderOfficerId: editDraft.leaderOfficerId || null,
         }),
       },
-      `${group.name} updated.`
+      `${group.name} updated.`,
     )
     if (ok) setEditingId(null)
   }
@@ -232,7 +232,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
   const deleteGroup = async (group: FieldGroup) => {
     if (
       !window.confirm(
-        `Remove ${group.name}? Its officers will be released and this group's school plan will be cleared.`
+        `Remove ${group.name}? Its officers will be released and this group's school plan will be cleared.`,
       )
     ) {
       return
@@ -241,14 +241,14 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
       `delete-${group.id}`,
       `/api/field/groups?id=${encodeURIComponent(group.id)}`,
       { method: 'DELETE' },
-      `${group.name} removed.`
+      `${group.name} removed.`,
     )
   }
 
   const changeMember = async (
     group: FieldGroup,
     officerId: string,
-    action: 'add' | 'remove' | 'make-leader'
+    action: 'add' | 'remove' | 'make-leader',
   ) => {
     await runMutation(
       `member-${officerId}`,
@@ -262,7 +262,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
         ? 'Group leader updated.'
         : action === 'remove'
         ? 'Officer removed from the group.'
-        : 'Officer added to the group.'
+        : 'Officer added to the group.',
     )
     if (action === 'add') {
       setAddByGroup((prev) => ({ ...prev, [group.id]: '' }))
@@ -287,7 +287,9 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
           date,
         }),
       },
-      officerId ? 'School saved for this officer.' : `All ${group.members.length} officers assigned.`
+      officerId
+        ? 'School saved for this officer.'
+        : `All ${group.members.length} officers assigned.`,
     )
   }
 
@@ -295,10 +297,10 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
     await runMutation(
       `clear-${officerId}`,
       `/api/field/groups/assignments?groupId=${encodeURIComponent(
-        group.id
+        group.id,
       )}&officerId=${encodeURIComponent(officerId)}&date=${encodeURIComponent(date)}`,
       { method: 'DELETE' },
-      'School cleared for this day.'
+      'School cleared for this day.',
     )
   }
 
@@ -316,7 +318,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-400">Group name</span>
+            <span className="mb-1 block text-xs font-semibold text-slate-400">Group name</span>
             <input
               required
               value={value.name}
@@ -327,7 +329,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-[11px] font-semibold text-slate-400">Region</span>
+            <span className="mb-1 block text-xs font-semibold text-slate-400">Region</span>
             <select
               required
               value={value.regionId}
@@ -344,7 +346,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
           </label>
         </div>
         <label className="block">
-          <span className="mb-1 block text-[11px] font-semibold text-slate-400">
+          <span className="mb-1 block text-xs font-semibold text-slate-400">
             Group leader <span className="font-normal text-slate-500">(optional)</span>
           </span>
           <select
@@ -369,7 +371,11 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
             disabled={busy !== null}
             className={`${buttonClass} bg-[#3b57f0] text-white hover:bg-[#4b65ff]`}
           >
-            {busy !== null ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+            {busy !== null ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Check className="size-4" />
+            )}
             {mode === 'create' ? 'Create group' : 'Save changes'}
           </button>
           <button
@@ -393,7 +399,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
       <div className="mx-auto w-full max-w-7xl p-4 lg:p-6 pb-28 lg:pb-8 space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-white">Field groups</h2>
+            <h2 className="text-lg font-semibold text-white">Field groups</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-400 max-w-2xl">
               Set up the way teams work in the field: one group covers one region, a leader looks
               after the group, and each officer gets their own school for the day.
@@ -431,12 +437,12 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
               key={step}
               className="rounded-xl border border-[#22263C] bg-[#11131F] p-3 flex gap-3"
             >
-              <span className="size-6 shrink-0 rounded-full bg-[#1E2B7B]/60 text-indigo-200 text-xs font-bold flex items-center justify-center">
+              <span className="size-6 shrink-0 rounded-full bg-[#1E2B7B]/60 text-indigo-200 text-xs font-semibold flex items-center justify-center">
                 {step}
               </span>
               <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-200">{title}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{detail}</p>
+                <p className="text-xs font-semibold text-slate-200">{title}</p>
+                <p className="mt-0.5 text-xs leading-snug text-slate-500">{detail}</p>
               </div>
             </div>
           ))}
@@ -445,7 +451,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#22263C] bg-[#11131F] px-3.5 py-3">
           <CalendarDays className="size-4 text-indigo-400 shrink-0" />
           <label className="flex items-center gap-2 min-h-[44px]">
-            <span className="text-[11px] font-semibold text-slate-400">Showing schools for</span>
+            <span className="text-xs font-semibold text-slate-400">Showing schools for</span>
             <input
               type="date"
               value={date}
@@ -453,7 +459,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
               className="h-11 rounded-xl border border-[#2A3048] bg-[#0A0D17] px-3 text-sm text-slate-100 focus:outline-hidden focus:border-indigo-400"
             />
           </label>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-xs text-slate-500">
             Ghana uses GMT. Changes save straight away.
           </span>
         </div>
@@ -487,7 +493,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
               const availableOfficers = officers.filter(
                 (o) =>
                   !group.members.some((m) => m.id === o.id) &&
-                  (!o.regionId || o.regionId === group.regionId)
+                  (!o.regionId || o.regionId === group.regionId),
               )
               return (
                 <section
@@ -497,13 +503,13 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-sm font-bold text-white truncate">{group.name}</h3>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-200">
+                        <h3 className="text-sm font-semibold text-white truncate">{group.name}</h3>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-xs font-semibold text-indigo-200">
                           <MapPin className="size-3" />
                           {group.regionName || regionName(group.regionId)}
                         </span>
                       </div>
-                      <p className="mt-1 text-[11px] text-slate-400">
+                      <p className="mt-1 text-xs text-slate-400">
                         <span className="font-semibold text-slate-200">{group.members.length}</span>{' '}
                         {group.members.length === 1 ? 'officer' : 'officers'} · Leader:{' '}
                         <span className="font-semibold text-slate-200">
@@ -541,11 +547,9 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                   {editingId === group.id && renderGroupForm('edit', group)}
 
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Officers in this group
-                    </p>
+                    <p className="text-xs font-semibold text-slate-500">Officers in this group</p>
                     {group.members.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-[#22263C] px-3 py-3 text-[11px] text-slate-500">
+                      <p className="rounded-xl border border-dashed border-[#22263C] px-3 py-3 text-xs text-slate-500">
                         No officers added yet.
                       </p>
                     ) : (
@@ -562,7 +566,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                                   <Crown className="inline size-3 ml-1 text-amber-300" />
                                 )}
                               </span>
-                              <span className="block text-[10px] text-slate-500 truncate">
+                              <span className="block text-xs text-slate-500 truncate">
                                 {member.phone || member.staffId || 'No contact on file'}
                               </span>
                             </span>
@@ -571,7 +575,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                                 type="button"
                                 disabled={busy !== null}
                                 onClick={() => void changeMember(group, member.id, 'make-leader')}
-                                className="min-h-[36px] rounded-lg border border-amber-500/25 bg-amber-500/5 px-2 text-[10px] font-bold text-amber-200 hover:bg-amber-500/15 disabled:opacity-50 cursor-pointer"
+                                className="min-h-[36px] rounded-lg border border-amber-500/25 bg-amber-500/5 px-2 text-xs font-semibold text-amber-200 hover:bg-amber-500/15 disabled:opacity-50 cursor-pointer"
                               >
                                 Make leader
                               </button>
@@ -609,9 +613,7 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                       <button
                         type="button"
                         disabled={busy !== null || !addByGroup[group.id]}
-                        onClick={() =>
-                          void changeMember(group, addByGroup[group.id], 'add')
-                        }
+                        onClick={() => void changeMember(group, addByGroup[group.id], 'add')}
                         className={`${buttonClass} border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10`}
                       >
                         <UserRoundCheck className="size-4" />
@@ -621,11 +623,9 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                   </div>
 
                   <div className="space-y-2 border-t border-[#1E2438] pt-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Schools for {date}
-                    </p>
+                    <p className="text-xs font-semibold text-slate-500">Schools for {date}</p>
                     {groupCenters.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-[#22263C] px-3 py-3 text-[11px] text-amber-300/90">
+                      <p className="rounded-xl border border-dashed border-[#22263C] px-3 py-3 text-xs text-amber-300/90">
                         No centres in this region yet. Register a centre in{' '}
                         {group.regionName || regionName(group.regionId)} first.
                       </p>
@@ -663,26 +663,28 @@ export function FieldGroupsPanel({ onFeedback }: FieldGroupsPanelProps) {
                         </div>
 
                         {group.members.length === 0 ? (
-                          <p className="px-1 text-[11px] text-slate-500">
+                          <p className="px-1 text-xs text-slate-500">
                             Add officers above before assigning schools.
                           </p>
                         ) : (
                           <ul className="space-y-2">
                             {group.members.map((member) => {
                               const assigned = group.assignments.find(
-                                (a) => a.officerId === member.id
+                                (a) => a.officerId === member.id,
                               )
                               const key = `${group.id}:${member.id}`
-                              const selected =
-                                centerByRow[key] ?? assigned?.centerId ?? ''
+                              const selected = centerByRow[key] ?? assigned?.centerId ?? ''
                               return (
-                                <li key={member.id} className="rounded-xl border border-[#1E2438] bg-[#0D1019] p-2.5 space-y-1.5">
+                                <li
+                                  key={member.id}
+                                  className="rounded-xl border border-[#1E2438] bg-[#0D1019] p-2.5 space-y-1.5"
+                                >
                                   <div className="flex items-center justify-between gap-2">
-                                    <p className="text-[11px] font-semibold text-slate-300 truncate">
+                                    <p className="text-xs font-semibold text-slate-300 truncate">
                                       {member.name}
                                     </p>
                                     {assigned && (
-                                      <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-emerald-400">
+                                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-400">
                                         <Check className="size-3" />
                                         Saved
                                       </span>

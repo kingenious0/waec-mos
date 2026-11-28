@@ -95,14 +95,14 @@ export function NotificationsPopover({
     <div
       ref={containerRef}
       onMouseDown={(e) => e.stopPropagation()}
-      className="absolute right-2 sm:right-4 top-13 z-50 w-[calc(100vw-1rem)] sm:w-[410px] max-w-[420px] rounded-2xl border border-[#22263C] bg-[#0E1019] text-zinc-100 shadow-2xl shadow-black/90 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150 overflow-hidden font-sans select-none"
+      className="absolute right-2 sm:right-4 top-13 z-50 w-[calc(100vw-1rem)] sm:w-[410px] max-w-[420px] rounded-2xl border border-[#22263C] bg-[#0E1019] text-zinc-100 shadow-2xl shadow-black/90 animate-in fade-in zoom-in-95 duration-150 overflow-hidden font-sans select-none"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-[#1A1F33]">
         <div className="flex items-center gap-2">
-          <span className="font-bold text-sm text-white tracking-tight">Notifications</span>
+          <span className="font-semibold text-sm text-white tracking-tight">Notifications</span>
           {unreadCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-status-sos/20 text-status-sos text-[10px] font-bold">
+            <span className="px-1.5 py-0.5 rounded-full bg-status-sos/20 text-status-sos text-xs font-semibold">
               {unreadCount} new
             </span>
           )}
@@ -111,14 +111,14 @@ export function NotificationsPopover({
           type="button"
           disabled={markingRead || unreadCount === 0}
           onClick={handleMarkAllAsRead}
-          className="text-[11px] font-medium text-slate-300 hover:text-white disabled:opacity-40 px-2.5 py-1 rounded-lg border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 transition cursor-pointer"
+          className="text-xs font-medium text-slate-300 hover:text-white disabled:opacity-40 px-2.5 py-1 rounded-lg border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 transition cursor-pointer"
         >
           {markingRead ? 'Updating...' : 'Mark all as read'}
         </button>
       </div>
 
       {/* Filter Pills */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[#1A1F33]/80 overflow-x-auto text-[11px] scrollbar-none">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[#1A1F33]/80 overflow-x-auto text-xs scrollbar-none">
         <button
           type="button"
           onClick={() => setFilter('all')}
@@ -198,17 +198,17 @@ export function NotificationsPopover({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold tracking-wide">
+                    <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-semibold tracking-wide">
                       Critical SOS
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">{notif.time}</span>
+                    <span className="text-xs font-mono text-slate-400">{notif.time}</span>
                   </div>
 
                   <div className="mt-2">
-                    <div className="text-xs font-bold text-white tracking-tight leading-snug">
+                    <div className="text-xs font-semibold text-white tracking-tight leading-snug">
                       {notif.title}
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                    <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
                       <span>{notif.subtitle}</span>
                     </div>
                   </div>
@@ -242,8 +242,7 @@ export function NotificationsPopover({
               )
             }
 
-            const dotColor =
-              notif.type === 'success' ? 'bg-emerald-400' : 'bg-amber-400'
+            const dotColor = notif.type === 'success' ? 'bg-emerald-400' : 'bg-amber-400'
 
             return (
               <div
@@ -264,12 +263,10 @@ export function NotificationsPopover({
                     <div className="text-xs font-semibold text-slate-200 tracking-tight">
                       {notif.title}
                     </div>
-                    <div className="text-[11px] text-slate-400 truncate mt-0.5">
-                      {notif.subtitle}
-                    </div>
+                    <div className="text-xs text-slate-400 truncate mt-0.5">{notif.subtitle}</div>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono text-slate-500 shrink-0 ml-2 mt-0.5">
+                <span className="text-xs font-mono text-slate-500 shrink-0 ml-2 mt-0.5">
                   {notif.time}
                 </span>
               </div>

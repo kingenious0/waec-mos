@@ -26,31 +26,21 @@ export function PaperTiles({ assignment }: PaperTilesProps) {
     <div className="w-full grid grid-cols-2 gap-3 select-none font-sans">
       {/* Tile 1: Today's Paper */}
       <div className="rounded-2xl bg-[#0F121E] border border-[#1C2337] p-4 flex flex-col justify-between shadow-sm">
-        <span className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">
-          Today's Paper
-        </span>
+        <span className="text-xs font-medium text-slate-400">Today's Paper</span>
         <div className="mt-1.5">
-          <h4 className="text-[13px] font-bold text-white leading-snug">
-            {assignment.title}
-          </h4>
-          <p className="text-[12px] text-slate-400 mt-1 tabular-nums">
-            {assignment.timeRange}
-          </p>
+          <h4 className="text-sm font-semibold text-white leading-snug">{assignment.title}</h4>
+          <p className="text-xs text-slate-400 mt-1 tabular-nums">{assignment.timeRange}</p>
         </div>
       </div>
 
       {/* Tile 2: Arrive By */}
       <div className="rounded-2xl bg-[#0F121E] border border-[#1C2337] p-4 flex flex-col justify-between shadow-sm">
-        <span className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">
-          Arrive By
-        </span>
+        <span className="text-xs font-medium text-slate-400">Arrive By</span>
         <div className="mt-1.5">
-          <div className="text-base font-bold text-emerald-400 tabular-nums leading-none">
+          <div className="text-base font-semibold text-emerald-400 tabular-nums leading-none">
             {assignment.arriveBy}
           </div>
-          <p className="text-[11px] text-slate-400 mt-1 tabular-nums">
-            {assignment.collectBy}
-          </p>
+          <p className="text-xs text-slate-400 mt-1 tabular-nums">{assignment.collectBy}</p>
         </div>
       </div>
     </div>

@@ -47,21 +47,17 @@ export function StatusCard({
             <CheckCircle2 className="size-6 text-emerald-400" />
           </div>
           <div>
-            <div className="text-[15px] font-bold text-emerald-400 leading-snug">
+            <div className="text-base font-semibold text-emerald-400 leading-snug">
               Checked in at {checkInTime}
             </div>
-            <div className="text-[13px] text-slate-400 mt-0.5">
+            <div className="text-sm text-slate-400 mt-0.5">
               Verified on duty · Inside {geofenceRadius} m check-in area
             </div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-lg font-bold text-white tabular-nums">
-            {elapsedFormatted}
-          </div>
-          <div className="text-[10px] text-slate-400 uppercase tracking-wide">
-            Shift elapsed
-          </div>
+          <div className="text-lg font-semibold text-white tabular-nums">{elapsedFormatted}</div>
+          <div className="text-xs text-slate-400">Shift elapsed</div>
         </div>
       </div>
     )
@@ -78,10 +74,8 @@ export function StatusCard({
           <AlertCircle className="size-6 text-red-400" />
         </div>
         <div className="flex-1">
-          <div className="text-[15px] font-bold text-red-400">
-            Allow location to check in
-          </div>
-          <p className="text-[13px] text-slate-300 mt-1 leading-relaxed">
+          <div className="text-base font-semibold text-red-400">Allow location to check in</div>
+          <p className="text-sm text-slate-300 mt-1 leading-relaxed">
             WAEC needs your phone&apos;s location to confirm you reached the centre. Choose
             &ldquo;Precise location&rdquo; for WAEC Field, then try again.
           </p>
@@ -121,12 +115,10 @@ export function StatusCard({
           <AlertCircle className="size-6 text-amber-400" />
         </div>
         <div className="flex-1">
-          <div className="text-[15px] font-bold text-amber-300">
-            Location is switched off
-          </div>
-          <p className="text-[13px] text-slate-300 mt-1 leading-relaxed">
-            Turn on Location on this phone, then come back. WAEC cannot confirm where you are
-            while it is off.
+          <div className="text-base font-semibold text-amber-300">Location is switched off</div>
+          <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+            Turn on Location on this phone, then come back. WAEC cannot confirm where you are while
+            it is off.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {onOpenLocationSettings && (
@@ -165,10 +157,8 @@ export function StatusCard({
           <Loader2 className="size-6 text-sky-400 animate-spin" />
         </div>
         <div>
-          <div className="text-[15px] font-bold text-sky-400">
-            Acquiring satellite signal...
-          </div>
-          <div className="text-[13px] text-slate-400 mt-0.5">
+          <div className="text-base font-semibold text-sky-400">Acquiring satellite signal...</div>
+          <div className="text-sm text-slate-400 mt-0.5">
             Hold device near open sky for optimal accuracy
           </div>
         </div>
@@ -188,10 +178,10 @@ export function StatusCard({
           <MapPin className="size-5 text-slate-400" />
         </div>
         <div>
-          <div className="text-[15px] font-bold text-slate-200">
+          <div className="text-base font-semibold text-slate-200">
             No Examination Centre Assigned
           </div>
-          <div className="text-[13px] text-slate-400 mt-0.5">
+          <div className="text-sm text-slate-400 mt-0.5">
             Contact Regional Command to assign a center before check-in
           </div>
         </div>
@@ -207,9 +197,7 @@ export function StatusCard({
       role="status"
       aria-live="polite"
       className={`w-full rounded-2xl p-4 flex items-center justify-between text-zinc-100 shadow-md select-none transition-colors ${
-        isInside
-          ? 'bg-[#0E1522] border border-[#16293E]'
-          : 'bg-[#151216] border border-[#2D211F]'
+        isInside ? 'bg-[#0E1522] border border-[#16293E]' : 'bg-[#151216] border border-[#2D211F]'
       }`}
     >
       {/* Left Icon + Text */}
@@ -230,13 +218,13 @@ export function StatusCard({
 
         <div className="min-w-0">
           <h2
-            className={`text-[15px] font-bold leading-snug tracking-tight ${
+            className={`text-base font-semibold leading-snug tracking-tight ${
               isInside ? 'text-emerald-400' : 'text-amber-400'
             }`}
           >
             {isInside ? "You're at the centre" : "You're outside the check-in area"}
           </h2>
-          <p className="text-[13px] text-slate-400 mt-0.5 truncate">
+          <p className="text-sm text-slate-400 mt-0.5 truncate">
             {isInside
               ? `Inside the ${geofenceRadius} m check-in area`
               : `Move within ${geofenceRadius} m to check in`}
@@ -247,7 +235,7 @@ export function StatusCard({
       {/* Right Distance Stat */}
       <div className="text-right shrink-0 ml-3">
         <div
-          className={`text-2xl font-bold tabular-nums leading-none ${
+          className={`text-2xl font-semibold tabular-nums leading-none ${
             isInside ? 'text-emerald-400' : 'text-amber-400'
           }`}
         >
@@ -255,9 +243,7 @@ export function StatusCard({
             ? `${(distanceMeters / 1000).toFixed(1)} km`
             : `${distanceMeters} m`}
         </div>
-        <div className="text-[11px] text-slate-400 mt-1 font-medium">
-          from centre
-        </div>
+        <div className="text-xs text-slate-400 mt-1 font-medium">from centre</div>
       </div>
     </div>
   )

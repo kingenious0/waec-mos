@@ -5,14 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
 import { NationalOperationsShowcase } from '@/components/auth/NationalOperationsShowcase'
-import {
-  ArrowRight,
-  ArrowLeft,
-  CheckCircle2,
-  AlertCircle,
-  Shield,
-  Sparkles,
-} from 'lucide-react'
+import { ArrowRight, ArrowLeft, CheckCircle2, AlertCircle, Shield } from 'lucide-react'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -47,7 +40,7 @@ export default function SignupPage() {
       } else {
         setErrorMsg(
           data.error ||
-            'No deployment record was found for this phone number. Please contact your Zonal Coordinator or Regional Controller.'
+            'No deployment record was found for this phone number. Please contact your Zonal Coordinator or Regional Controller.',
         )
       }
     } catch {
@@ -57,217 +50,117 @@ export default function SignupPage() {
     }
   }
 
-  const handleQuickCheck = (testPhone: string) => {
-    const formatted = testPhone.replace('+233', '').replace(/\s+/g, '')
-    setPhoneQuery(formatted)
-    setErrorMsg('')
-  }
-
   return (
-    <div className="grid min-h-screen lg:grid-cols-2 bg-[#080B16] text-zinc-100 selection:bg-[#375DFB] selection:text-white">
-      {/* LEFT COLUMN: ROSTER VERIFICATION */}
-      <div className="flex flex-col justify-between p-6 sm:p-10 lg:p-16 max-w-xl mx-auto w-full">
-        {/* Header Branding */}
-        <header className="flex items-center justify-between">
+    <div className="signup-shell">
+      <div className="signup-main-panel">
+        <header className="signup-header">
           <WaecMosLogo href="/login" size="md" />
-
-          <Link
-            href="/login"
-            className="text-xs font-semibold text-zinc-400 hover:text-white transition flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5"
-          >
-            <ArrowLeft className="size-3.5" />
+          <Link href="/login" className="signup-back">
+            <ArrowLeft className="size-4" aria-hidden />
             <span>Sign in</span>
           </Link>
         </header>
 
-        {/* Main Content Area */}
-        <main className="py-8 sm:py-10">
-          <div className="space-y-6">
-            {/* Title & Description */}
-            <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                Check roster status
-              </h1>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Examination personnel are pre-registered by Council Headquarters. Enter your phone number to verify your deployment and assigned duty station.
-              </p>
+        <main className="signup-content">
+          <h1 className="authb-title">Check roster status</h1>
+          <p className="authb-sub">
+            Examination personnel are registered by Council Headquarters. Enter your phone number to
+            confirm your deployment.
+          </p>
+
+          {errorMsg && (
+            <div role="alert" className="signup-error signup-error--form">
+              <AlertCircle className="size-4 shrink-0" aria-hidden />
+              <span>{errorMsg}</span>
             </div>
+          )}
 
-            {/* Error Banner */}
-            {errorMsg && (
-              <div
-                role="alert"
-                className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 text-xs text-red-300 flex items-start gap-2.5 animate-in fade-in duration-200"
-              >
-                <AlertCircle className="size-4 shrink-0 text-red-400 mt-0.5" />
-                <span className="leading-relaxed">{errorMsg}</span>
-              </div>
-            )}
-
-            {/* Verification Form or Verified Result Card */}
-            {!result ? (
-              <form onSubmit={handleCheckStatus} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="phone" className="text-xs font-medium text-zinc-300">
-                    Phone number
-                  </label>
-                  <div className="flex items-center rounded-xl bg-[#0D1224] border border-white/10 focus-within:border-[#375DFB] focus-within:ring-1 focus-within:ring-[#375DFB] focus-within:bg-[#121833] transition overflow-hidden">
-                    <span className="px-3.5 py-3 text-xs sm:text-sm font-semibold text-zinc-200 border-r border-white/10 select-none shrink-0 tracking-wide">
-                      GH +233
-                    </span>
-                    <input
-                      id="phone"
-                      type="tel"
-                      inputMode="tel"
-                      value={phoneQuery}
-                      onChange={(e) => {
-                        setPhoneQuery(e.target.value)
-                        setErrorMsg('')
-                      }}
-                      placeholder="24 000 0000"
-                      autoComplete="tel"
-                      className="w-full px-3.5 py-3 bg-transparent text-white placeholder:text-zinc-500 text-sm sm:text-base focus:outline-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={checking}
-                  className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] active:bg-[#2043E0] text-white font-semibold text-sm sm:text-base shadow-lg shadow-[#375DFB]/25 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-                >
-                  {checking ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Checking central registry...</span>
-                    </span>
-                  ) : (
-                    <>
-                      <span>Check roster status</span>
-                      <ArrowRight className="size-4" />
-                    </>
-                  )}
-                </button>
-              </form>
-            ) : (
-              /* Roster Confirmed Card */
-              <div className="rounded-2xl bg-[#0D1224] border border-emerald-500/30 p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200 shadow-xl">
-                <div className="flex items-start gap-3.5">
-                  <div className="size-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                    <CheckCircle2 className="size-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                      Roster confirmed
-                    </div>
-                    <div className="text-lg font-bold text-white mt-0.5">
-                      Your number is on the roster
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-xs text-zinc-400 leading-relaxed rounded-xl bg-[#141A2E]/70 border border-white/5 p-3.5">
-                  This phone number is registered for examination duty. Sign in with your PIN, or contact your Regional Controller if you have not received your PIN yet.
-                </p>
-
-                <div className="space-y-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => router.push('/login')}
-                    className="w-full h-12 rounded-xl bg-[#375DFB] hover:bg-[#2B50EF] text-white font-semibold text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#375DFB]/25"
-                  >
-                    <span>Proceed to Sign In</span>
-                    <ArrowRight className="size-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setResult(null)
-                      setPhoneQuery('')
+          {!result ? (
+            <form onSubmit={handleCheckStatus} className="signup-form" noValidate>
+              <div>
+                <label htmlFor="phone" className="signup-label">
+                  Phone number
+                </label>
+                <div className="signup-inputwrap">
+                  <span className="signup-prefix">GH +233</span>
+                  <input
+                    id="phone"
+                    type="tel"
+                    inputMode="tel"
+                    value={phoneQuery}
+                    onChange={(e) => {
+                      setPhoneQuery(e.target.value)
+                      setErrorMsg('')
                     }}
-                    className="w-full py-2 text-xs text-zinc-400 hover:text-white transition"
-                  >
-                    Verify another number
-                  </button>
+                    placeholder="24 000 0000"
+                    autoComplete="tel"
+                    className="signup-input"
+                    required
+                  />
                 </div>
               </div>
-            )}
 
-            {/* Official WAEC Security Notice Box */}
-            <div className="p-3.5 sm:p-4 rounded-xl bg-[#141824] border border-amber-500/20 text-xs text-zinc-300 flex items-start gap-3">
-              <Shield className="size-4 text-[#FACC15] shrink-0 mt-0.5" />
-              <p className="leading-relaxed">
-                Official WAEC devices only. Your location is shared while you are on duty.
+              <button type="submit" className="signup-btn" disabled={checking}>
+                {checking ? (
+                  <>
+                    <span className="authb-spinner" />
+                    <span>Checking central registry…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Check roster status</span>
+                    <ArrowRight className="size-4" aria-hidden />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            <div className="signup-result-card">
+              <span className="authb-status-icon" aria-hidden>
+                <CheckCircle2 className="size-6" />
+              </span>
+              <h2 className="signup-result-title">Your number is on the roster</h2>
+              <p className="signup-result-note">
+                This phone number is registered for examination duty. Sign in with your PIN, or
+                contact your Regional Controller if you have not received your PIN yet.
               </p>
-            </div>
-
-            {/* Return to Sign in link */}
-            <div className="pt-1 text-center">
-              <p className="text-xs text-zinc-400">
-                Already know your PIN?{' '}
-                <Link
-                  href="/login"
-                  className="font-semibold text-[#8B9FFB] hover:text-white hover:underline transition"
+              <div className="signup-actions">
+                <button type="button" onClick={() => router.push('/login')} className="signup-btn">
+                  <span>Go to sign in</span>
+                  <ArrowRight className="size-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResult(null)
+                    setPhoneQuery('')
+                  }}
+                  className="signup-quietbutton"
                 >
-                  Return to sign in
-                </Link>
-              </p>
-            </div>
-
-            {/* Quick Demo Credentials Autofill Helper */}
-            {!result && (
-              <div className="pt-2">
-                <div className="p-3 rounded-xl bg-[#101426]/70 border border-white/5 space-y-2">
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400">
-                    <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
-                      <Sparkles className="size-3 text-[#F6C90E]" />
-                      <span>Registered Sample Personnel</span>
-                    </span>
-                    <span className="text-[10px] text-zinc-500">Click to test</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickCheck('0244101001')}
-                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
-                    >
-                      <div className="font-semibold text-white text-[11px] truncate">
-                        Kofi Mensah
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        Prempeh College Center A
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleQuickCheck('0244101002')}
-                      className="p-2 rounded-lg bg-[#141A2E] hover:bg-[#1B233D] border border-white/10 text-left transition cursor-pointer"
-                    >
-                      <div className="font-semibold text-white text-[11px] truncate">
-                        Akua Owusu
-                      </div>
-                      <div className="text-[10px] text-zinc-400 font-mono">
-                        Prempeh College Center A
-                      </div>
-                    </button>
-                  </div>
-                </div>
+                  Verify another number
+                </button>
               </div>
-            )}
+            </div>
+          )}
+
+          <div className="signup-security-note">
+            <Shield className="size-5" aria-hidden />
+            <p>Official WAEC devices only. Your location is shared while you are on duty.</p>
           </div>
+
+          <p className="signup-return">
+            Already know your PIN?{' '}
+            <Link href="/login" className="authb-link">
+              Return to sign in
+            </Link>
+          </p>
         </main>
 
-        {/* Footer */}
-        <footer className="pt-6 border-t border-white/5 text-xs text-zinc-500">
+        <footer className="signup-footer">
           <p>© The West African Examinations Council</p>
         </footer>
       </div>
 
-      {/* RIGHT COLUMN: NATIONAL OPERATIONS GRID SHOWCASE */}
       <NationalOperationsShowcase />
     </div>
   )

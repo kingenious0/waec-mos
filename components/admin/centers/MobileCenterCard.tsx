@@ -40,7 +40,7 @@ export function MobileCenterCard({
   return (
     <div className="relative rounded-2xl border border-[#22263C] bg-[#0E111D] p-4 space-y-3.5">
       <div className="flex items-start gap-3">
-        <div className="size-12 shrink-0 rounded-xl bg-[#1E2B7B] border border-white/10 flex items-center justify-center text-lg font-extrabold tabular-nums text-white">
+        <div className="size-12 shrink-0 rounded-xl bg-[#1E2B7B] border border-white/10 flex items-center justify-center text-lg font-semibold tabular-nums text-white">
           {String(index).padStart(2, '0')}
         </div>
 
@@ -50,7 +50,7 @@ export function MobileCenterCard({
               {center.name}
             </h3>
             <span
-              className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold whitespace-nowrap ${
+              className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                 openIncidents > 0
                   ? 'border-amber-500/35 bg-amber-500/10 text-amber-300'
                   : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400'
@@ -64,7 +64,7 @@ export function MobileCenterCard({
               {openIncidents > 0 ? 'Needs attention' : 'All clear'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             Centre code{' '}
             <span className="font-semibold text-slate-300 tabular-nums">{center.code}</span>
             {district ? <> · {district}</> : ''}
@@ -76,9 +76,9 @@ export function MobileCenterCard({
       <p className="text-xs text-slate-400 border-t border-[#1E243A] pt-3">
         <span className="font-semibold text-white tabular-nums">{assigned}</span>{' '}
         {assigned === 1 ? 'officer' : 'officers'} assigned ·{' '}
-        <span className="font-semibold text-white tabular-nums">{atCentreCount}</span> at the
-        centre · <span className="font-semibold text-white tabular-nums">{radius}&nbsp;m</span>{' '}
-        check-in area
+        <span className="font-semibold text-white tabular-nums">{atCentreCount}</span> at the centre
+        · <span className="font-semibold text-white tabular-nums">{radius}&nbsp;m</span> check-in
+        area
       </p>
 
       {/* Actions */}
@@ -86,7 +86,7 @@ export function MobileCenterCard({
         <button
           type="button"
           onClick={() => onFocus(center)}
-          className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] hover:text-white text-slate-200 text-xs font-bold transition cursor-pointer"
+          className="flex-1 h-12 flex items-center justify-center gap-2 rounded-2xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] hover:text-white text-slate-200 text-xs font-semibold transition cursor-pointer"
         >
           <MapPin className="size-4 shrink-0" />
           Show on map

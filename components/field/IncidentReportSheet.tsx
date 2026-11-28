@@ -73,7 +73,7 @@ export function IncidentReportSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06070C]/90 p-0 backdrop-blur sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06070C]/90 p-0 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
@@ -83,7 +83,7 @@ export function IncidentReportSheet({
         <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
           <div className="flex items-center gap-2.5">
             <ClipboardList className="size-5 text-sky-300" />
-            <h2 className="text-base font-extrabold text-white">Report an issue</h2>
+            <h2 className="text-base font-semibold text-white">Report an issue</h2>
           </div>
           <button
             type="button"
@@ -102,9 +102,7 @@ export function IncidentReportSheet({
           </p>
 
           <div>
-            <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-zinc-400">
-              What is it about?
-            </p>
+            <p className="mb-2 text-xs font-medium text-zinc-400">What is it about?</p>
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((item) => (
                 <button
@@ -112,7 +110,7 @@ export function IncidentReportSheet({
                   type="button"
                   onClick={() => setCategory(item)}
                   aria-pressed={category === item}
-                  className={`min-h-[42px] rounded-xl px-3 text-xs font-bold transition cursor-pointer ${
+                  className={`min-h-[44px] rounded-xl px-3 text-xs font-medium transition cursor-pointer ${
                     category === item
                       ? 'bg-[#3B57F0] text-white ring-2 ring-blue-300/40'
                       : 'border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10'
@@ -125,9 +123,7 @@ export function IncidentReportSheet({
           </div>
 
           <label className="block">
-            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-zinc-400">
-              What happened?
-            </span>
+            <span className="mb-1.5 block text-xs font-medium text-zinc-400">What happened?</span>
             <textarea
               value={description}
               onChange={(event) => {
@@ -146,14 +142,14 @@ export function IncidentReportSheet({
             type="button"
             disabled={busy}
             onClick={() => void submit()}
-            className="min-h-[52px] w-full rounded-xl bg-[#3B57F0] text-sm font-extrabold text-white transition hover:bg-[#314BD6] disabled:opacity-60 cursor-pointer"
+            className="min-h-[52px] w-full rounded-xl bg-[#3B57F0] text-sm font-semibold text-white transition hover:bg-[#314BD6] disabled:opacity-60 cursor-pointer"
           >
             {busy ? 'Sending…' : 'Send report to Command'}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] w-full text-xs font-bold text-zinc-400 transition hover:text-zinc-200 cursor-pointer"
+            className="min-h-[44px] w-full text-xs font-medium text-zinc-400 transition hover:text-zinc-200 cursor-pointer"
           >
             Cancel
           </button>

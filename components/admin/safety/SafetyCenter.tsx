@@ -45,7 +45,11 @@ interface LockdownStatus {
 export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCenterProps) {
   const [settings, setSettings] = useState<SystemSettingsConfig>(DEFAULT_SYSTEM_SETTINGS)
   const [oddities, setOddities] = useState<OddityItem[]>([])
-  const [lockdown, setLockdown] = useState<LockdownStatus>({ active: false, enabledBy: null, enabledAt: null })
+  const [lockdown, setLockdown] = useState<LockdownStatus>({
+    active: false,
+    enabledBy: null,
+    enabledAt: null,
+  })
   const [loading, setLoading] = useState(true)
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [showLockConfirm, setShowLockConfirm] = useState(false)
@@ -71,7 +75,11 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
       }
       if (lockdownRes.ok) {
         const data = await lockdownRes.json()
-        setLockdown({ active: Boolean(data.active), enabledBy: data.enabledBy ?? null, enabledAt: data.enabledAt ?? null })
+        setLockdown({
+          active: Boolean(data.active),
+          enabledBy: data.enabledBy ?? null,
+          enabledAt: data.enabledAt ?? null,
+        })
       }
     } catch (err) {
       console.error('Failed to load safety center', err)
@@ -156,7 +164,7 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
       key: 'locationOnlyOnDuty',
       icon: MapPin,
       title: 'Location only on duty',
-      desc: 'We only share an officer\'s location while they are on duty.',
+      desc: "We only share an officer's location while they are on duty.",
       state: settings.locationOnlyOnDuty,
       locked: false,
       onToggle: () => toggle('locationOnlyOnDuty', !settings.locationOnlyOnDuty),
@@ -210,7 +218,11 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
           body: JSON.stringify({ action: 'lock' }),
         })
         if (res.ok) {
-          setLockdown({ active: true, enabledBy: session?.userId || null, enabledAt: new Date().toISOString() })
+          setLockdown({
+            active: true,
+            enabledBy: session?.userId || null,
+            enabledAt: new Date().toISOString(),
+          })
           onFeedback?.('System locked. Everyone was signed out.')
         }
       }
@@ -226,7 +238,7 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
     return (
       <div className="flex-1 p-6 space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 rounded-2xl bg-[#0E111D] animate-pulse" />
+          <div key={i} className="h-24 rounded-2xl bg-[#0E111D] " />
         ))}
       </div>
     )
@@ -239,14 +251,20 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
         <div className="mb-5 rounded-2xl border border-[#EF4444]/40 bg-[#1A0D12] px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <ShieldAlert className="size-5 text-[#EF4444] shrink-0" />
           <div className="flex-1 text-xs text-red-200">
-            <strong className="text-red-100">System is locked.</strong> Only administrators can sign in.
-            {lockdown.enabledAt && <span className="text-red-300/80"> Locked {new Date(lockdown.enabledAt).toLocaleString()}</span>}
+            <strong className="text-red-100">System is locked.</strong> Only administrators can sign
+            in.
+            {lockdown.enabledAt && (
+              <span className="text-red-300/80">
+                {' '}
+                Locked {new Date(lockdown.enabledAt).toLocaleString()}
+              </span>
+            )}
           </div>
           {isAdmin && (
             <button
               type="button"
               onClick={() => setShowLockConfirm(true)}
-              className="h-10 px-4 rounded-xl bg-[#EF4444] hover:bg-red-500 text-white text-xs font-bold transition cursor-pointer shrink-0"
+              className="h-10 px-4 rounded-xl bg-[#EF4444] hover:bg-red-500 text-white text-xs font-semibold transition cursor-pointer shrink-0"
             >
               Lift lockdown
             </button>
@@ -260,7 +278,7 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
           <ShieldCheck className="size-8 text-emerald-400" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
+          <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
             Your system is {activeCount >= 5 ? 'mostly safe' : 'needs attention'}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
@@ -287,10 +305,10 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
         {/* SAFETY CHECKS */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0C0F17] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#1A1F33] flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-              Safety checks
-            </h3>
-            <span className="text-[11px] text-slate-500 tabular-nums">{activeCount}/{safetyChecks.length}</span>
+            <h3 className="text-xs font-semibold text-slate-500">Safety checks</h3>
+            <span className="text-xs text-slate-500 tabular-nums">
+              {activeCount}/{safetyChecks.length}
+            </span>
           </div>
           <div className="divide-y divide-[#161C2E]">
             {safetyChecks.map((check) => {
@@ -304,15 +322,18 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-white">{check.title}</span>
                       {check.badge && (
-                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-400">
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-amber-400">
                           {check.badge}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{check.desc}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-snug">{check.desc}</p>
                   </div>
                   {check.locked ? (
-                    <div className="size-11 shrink-0 flex items-center justify-center rounded-full border border-[#22263C] bg-[#11131F] text-slate-500" title="Always on">
+                    <div
+                      className="size-11 shrink-0 flex items-center justify-center rounded-full border border-[#22263C] bg-[#11131F] text-slate-500"
+                      title="Always on"
+                    >
                       <Lock className="size-4" />
                     </div>
                   ) : (
@@ -342,10 +363,8 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
         {/* THINGS THAT LOOKED ODD */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0C0F17] overflow-hidden flex flex-col">
           <div className="px-5 py-4 border-b border-[#1A1F33] flex items-center justify-between">
-            <h3 className="text-xs font-bold tracking-wider text-slate-500">
-              Things that looked odd
-            </h3>
-            <span className="inline-flex items-center rounded-full border border-[#22263C] bg-[#11131F] px-2 py-0.5 text-[10px] font-semibold text-slate-400">
+            <h3 className="text-xs font-semibold text-slate-500">Things that looked odd</h3>
+            <span className="inline-flex items-center rounded-full border border-[#22263C] bg-[#11131F] px-2 py-0.5 text-xs font-semibold text-slate-400">
               {oddities.length} to review
             </span>
           </div>
@@ -355,7 +374,9 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
               <div className="px-5 py-8 text-center">
                 <CheckCircle2 className="size-8 text-emerald-500 mx-auto mb-2" />
                 <p className="text-sm font-semibold text-slate-300">Nothing looks off</p>
-                <p className="text-xs text-slate-500 mt-1">Strange sign-ins or wrong-PIN patterns will show up here.</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Strange sign-ins or wrong-PIN patterns will show up here.
+                </p>
               </div>
             ) : (
               oddities.map((item) => (
@@ -364,24 +385,29 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
                     <AlertTriangle className="size-5 text-amber-400 shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-white">{item.title}</div>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{item.detail}</p>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-snug">{item.detail}</p>
                       {item.time && (
-                        <p className="text-[10px] text-slate-500 mt-1.5 tabular-nums">
-                          {new Date(item.time).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        <p className="text-xs text-slate-500 mt-1.5 tabular-nums">
+                          {new Date(item.time).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </p>
                       )}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-2.5">
                         <button
                           type="button"
                           onClick={() => reviewOddity(item, 'it_was_me')}
-                          className="h-11 sm:h-9 flex-1 px-3.5 rounded-xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] text-xs sm:text-[11px] font-semibold text-slate-200 hover:text-white transition cursor-pointer"
+                          className="h-11 sm:h-9 flex-1 px-3.5 rounded-xl border border-[#22263C] bg-[#11131F] hover:bg-[#181D2E] text-xs font-semibold text-slate-200 hover:text-white transition cursor-pointer"
                         >
                           It was me
                         </button>
                         <button
                           type="button"
                           onClick={() => reviewOddity(item, 'block')}
-                          className="h-11 sm:h-9 flex-1 px-3.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-xs sm:text-[11px] font-semibold text-rose-300 transition cursor-pointer"
+                          className="h-11 sm:h-9 flex-1 px-3.5 rounded-xl border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 text-xs font-semibold text-rose-300 transition cursor-pointer"
                         >
                           Block account
                         </button>
@@ -399,7 +425,9 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
               onClick={onOpenHistory}
               className="px-5 py-3 border-t border-[#1A1F33] flex items-center justify-between text-left hover:bg-white/[0.02] transition cursor-pointer"
             >
-              <span className="text-xs font-semibold text-indigo-300">See everything that happened</span>
+              <span className="text-xs font-semibold text-indigo-300">
+                See everything that happened
+              </span>
               <ChevronRight className="size-4 text-slate-500" />
             </button>
           )}
@@ -408,22 +436,30 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
         {/* WHO CAN DO WHAT */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0C0F17] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#1A1F33]">
-            <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-              Who can do what
-            </h3>
+            <h3 className="text-xs font-semibold text-slate-500">Who can do what</h3>
           </div>
           <div className="divide-y divide-[#161C2E]">
-            <AccessRow icon={<Users className="size-5 text-slate-400" />} title="Officer" desc="Check in and send an SOS." />
-            <AccessRow icon={<Landmark className="size-5 text-slate-400" />} title="Controller" desc="See officers and centres. Call officers." />
-            <AccessRow icon={<Building2 className="size-5 text-slate-400" />} title="Admin" desc="Everything, including adding people and changing safety." />
+            <AccessRow
+              icon={<Users className="size-5 text-slate-400" />}
+              title="Officer"
+              desc="Check in and send an SOS."
+            />
+            <AccessRow
+              icon={<Landmark className="size-5 text-slate-400" />}
+              title="Controller"
+              desc="See officers and centres. Call officers."
+            />
+            <AccessRow
+              icon={<Building2 className="size-5 text-slate-400" />}
+              title="Admin"
+              desc="Everything, including adding people and changing safety."
+            />
           </div>
         </section>
 
         {/* LOCK EVERYTHING */}
-        <section className="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-[#14090F] to-[#0C0F17] p-5 sm:p-6 flex flex-col">
-          <h3 className="text-xs font-bold uppercase tracking-[0.16em] text-rose-400">
-            Think someone got in?
-          </h3>
+        <section className="rounded-2xl border border-rose-500/30 bg-[#14090F] p-5 sm:p-6 flex flex-col">
+          <h3 className="text-xs font-semibold text-rose-400">Think someone got in?</h3>
           <p className="text-sm text-red-100/80 mt-2 leading-relaxed">
             This signs everyone out and stops all sign-ins until you open it again.
           </p>
@@ -431,7 +467,7 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
             <button
               type="button"
               onClick={() => setShowLockConfirm(true)}
-              className="w-full h-14 rounded-2xl border border-rose-500/50 bg-rose-500/15 hover:bg-rose-500/25 active:scale-[0.99] text-rose-300 font-bold text-sm transition cursor-pointer flex items-center justify-center gap-2.5"
+              className="w-full h-14 rounded-2xl border border-rose-500/50 bg-rose-500/15 hover:bg-rose-500/25 active:scale-[0.99] text-rose-300 font-semibold text-sm transition cursor-pointer flex items-center justify-center gap-2.5"
             >
               <ShieldAlert className="size-5" />
               {lockdown.active ? 'Lift the lock' : 'Lock everything now'}
@@ -442,10 +478,10 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
 
       {/* Confirm dialog */}
       {showLockConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-md rounded-3xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 ">
+          <div className="w-full max-w-md rounded-2xl border border-rose-500/40 bg-[#0F121E] p-6 shadow-2xl">
             <ShieldAlert className="size-12 text-rose-400 mx-auto" />
-            <h3 className="mt-4 text-lg font-bold text-white text-center">
+            <h3 className="mt-4 text-lg font-semibold text-white text-center">
               {lockdown.active ? 'Lift the lock?' : 'Lock everything?'}
             </h3>
             <p className="mt-2 text-sm text-slate-300 text-center leading-relaxed">
@@ -465,7 +501,7 @@ export function SafetyCenter({ session, onOpenHistory, onFeedback }: SafetyCente
                 type="button"
                 onClick={handleLockdown}
                 disabled={isLocking}
-                className="flex-1 h-12 rounded-xl bg-[#EF4444] hover:bg-red-500 text-white text-sm font-bold transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 h-12 rounded-xl bg-[#EF4444] hover:bg-red-500 text-white text-sm font-semibold transition cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {isLocking ? (
                   <RefreshCw className="size-4 animate-spin" />
@@ -490,7 +526,7 @@ function AccessRow({ icon, title, desc }: { icon: React.ReactNode; title: string
       </div>
       <div className="min-w-0">
         <div className="text-sm font-semibold text-white">{title}</div>
-        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{desc}</p>
+        <p className="text-xs text-slate-400 mt-0.5 leading-snug">{desc}</p>
       </div>
     </div>
   )

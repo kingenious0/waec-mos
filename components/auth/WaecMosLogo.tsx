@@ -17,13 +17,13 @@ export function WaecMosLogo({ href = '/login', className = '', size = 'md' }: Wa
   }
 
   const titleSizes = {
-    sm: 'text-sm font-bold',
-    md: 'text-base font-bold',
-    lg: 'text-lg font-bold',
+    sm: 'text-sm font-semibold',
+    md: 'text-base font-semibold',
+    lg: 'text-lg font-semibold',
   }
 
   const subtitleSizes = {
-    sm: 'text-[11px]',
+    sm: 'text-xs',
     md: 'text-xs',
     lg: 'text-sm',
   }
@@ -41,9 +41,7 @@ export function WaecMosLogo({ href = '/login', className = '', size = 'md' }: Wa
       />
 
       <div className="leading-tight">
-        <div className={`${titleSizes[size]} text-white tracking-tight`}>
-          WAEC MOS
-        </div>
+        <div className={`${titleSizes[size]} text-white tracking-tight`}>WAEC MOS</div>
         <div className={`${subtitleSizes[size]} text-white/70 font-normal tracking-normal`}>
           Monitoring and Operations
         </div>

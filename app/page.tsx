@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { Loader2 } from 'lucide-react'
+import { WaecMosLogo } from '@/components/auth/WaecMosLogo'
 import { getClientSession, clearLegacyClientState } from '@/lib/auth/session'
 
 export default function RootPage() {
@@ -30,23 +31,14 @@ export default function RootPage() {
   }, [router])
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#090B14] text-white font-sans">
-      <div className="flex flex-col items-center gap-4">
-        <div className="size-16 rounded-2xl border border-white/10 bg-[#0E1326] p-2 flex items-center justify-center shadow-xl animate-pulse">
-          <Image
-            src="/images/waec-logo.jpg"
-            alt="WAEC Crest"
-            width={48}
-            height={48}
-            className="size-full object-cover rounded-xl"
-            priority
-          />
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="size-4 border-2 border-[#1E2B7B] border-t-[#F6D300] rounded-full animate-spin" />
-          <span className="text-sm font-semibold text-zinc-300">Loading WAEC MOS...</span>
-        </div>
-      </div>
+    <div className="authb-page">
+      <header className="authb-header">
+        <WaecMosLogo href="/login" size="md" />
+      </header>
+      <main className="authb-loading">
+        <Loader2 className="size-6 animate-spin" aria-hidden />
+        <span className="authb-muted">Opening WAEC MOS…</span>
+      </main>
     </div>
   )
 }

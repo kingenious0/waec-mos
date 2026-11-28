@@ -34,7 +34,7 @@ export function CheckInButton({
               setConfirmingCheckout(false)
               onCheckOut?.()
             }}
-            className="flex-1 h-[60px] rounded-xl font-bold text-xs tracking-wide flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-lg transition cursor-pointer select-none"
+            className="flex-1 h-[60px] rounded-xl font-semibold text-xs tracking-wide flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-lg transition cursor-pointer select-none"
           >
             <AlertCircle className="size-4" />
             <span>Confirm End Shift</span>
@@ -54,7 +54,7 @@ export function CheckInButton({
       <button
         type="button"
         onClick={() => setConfirmingCheckout(true)}
-        className="w-full h-[60px] rounded-xl font-bold text-sm tracking-wide flex items-center justify-center gap-2 bg-[#12192A] hover:bg-[#18223B] border border-emerald-500/30 text-emerald-400 transition cursor-pointer select-none shadow-md"
+        className="w-full h-[60px] rounded-xl font-semibold text-sm tracking-wide flex items-center justify-center gap-2 bg-[#12192A] hover:bg-[#18223B] border border-emerald-500/30 text-emerald-400 transition cursor-pointer select-none shadow-md"
       >
         <Check className="size-5 text-emerald-400" />
         <span>Duty active · Tap to conclude shift</span>
@@ -87,7 +87,7 @@ export function CheckInButton({
     <button
       type="button"
       onClick={onCheckIn}
-      className="w-full h-[60px] rounded-xl font-bold text-sm tracking-wide flex items-center justify-center gap-2 bg-[#3B57F0] hover:bg-[#314BD6] active:scale-[0.99] text-white shadow-lg shadow-[#3B57F0]/30 transition cursor-pointer select-none"
+      className="w-full h-[60px] rounded-xl font-semibold text-sm tracking-wide flex items-center justify-center gap-2 bg-[#3B57F0] hover:bg-[#314BD6] active:scale-[0.99] text-white shadow-lg shadow-[#3B57F0]/30 transition cursor-pointer select-none"
     >
       <span>Check in</span>
       <ArrowRight className="size-4" />

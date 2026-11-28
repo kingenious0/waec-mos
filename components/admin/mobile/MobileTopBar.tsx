@@ -65,12 +65,12 @@ export function MobileTopBar({
   return (
     <header className="lg:hidden h-[60px] shrink-0 border-b border-[#22263C] bg-[#0B0D14] px-4 flex items-center justify-between gap-3 select-none z-20 relative">
       <div className="flex items-center gap-2.5 min-w-0">
-        <h1 className="text-lg font-bold text-white tracking-tight whitespace-nowrap">
+        <h1 className="text-lg font-semibold text-white tracking-tight whitespace-nowrap">
           {title}
         </h1>
         {badge && (
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold whitespace-nowrap ${
               badge.tone === 'ok'
                 ? 'border-status-ok/30 bg-status-ok/10 text-status-ok'
                 : 'border-[#22263C] bg-[#11131F] text-slate-400'
@@ -104,7 +104,7 @@ export function MobileTopBar({
             onClick={() => setIsAvatarMenuOpen((v) => !v)}
             aria-label="Account menu"
             aria-expanded={isAvatarMenuOpen}
-            className="size-10 rounded-full bg-[#1E2B7B] text-white border border-white/10 flex items-center justify-center font-bold text-xs hover:border-indigo-400/60 transition cursor-pointer overflow-hidden"
+            className="size-10 rounded-full bg-[#1E2B7B] text-white border border-white/10 flex items-center justify-center font-semibold text-xs hover:border-indigo-400/60 transition cursor-pointer overflow-hidden"
           >
             {session?.photo ? (
               // eslint-disable-next-line @next/next/no-img-element

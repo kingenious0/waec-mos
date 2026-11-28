@@ -30,7 +30,7 @@ interface MobileBottomNavProps {
       | 'settings'
       | 'safety'
       | 'timetable'
-      | 'groups'
+      | 'groups',
   ) => void
   sosCount: number
 }
@@ -40,11 +40,7 @@ interface MobileBottomNavProps {
  * Four tabs; active tab gets a soft primary pill behind the icon.
  * Includes the iOS safe-area inset.
  */
-export function MobileBottomNav({
-  activeTab,
-  onSelectTab,
-  sosCount,
-}: MobileBottomNavProps) {
+export function MobileBottomNav({ activeTab, onSelectTab, sosCount }: MobileBottomNavProps) {
   const tabs = [
     {
       id: 'map' as const,
@@ -115,7 +111,7 @@ export function MobileBottomNav({
               )}
             </span>
             <span
-              className={`text-[11px] tracking-tight ${
+              className={`text-xs tracking-tight ${
                 isActive ? 'text-indigo-300 font-semibold' : 'text-slate-500'
               }`}
             >

@@ -39,34 +39,26 @@ export function PinInput({
   }
 
   return (
-    <div className="space-y-2">
-      {/* Label and Show/Hide toggle */}
-      <div className="flex items-center justify-between gap-4">
-        <label htmlFor={`${id}-0`} className="authb-label" style={{ marginBottom: 0 }}>
+    <div className="authb-stack">
+      <div className="authb-labelrow">
+        <label htmlFor={`${id}-0`} className="authb-label">
           4-digit PIN
         </label>
         <button
           type="button"
           onClick={onToggleShowPin}
-          className="authb-link"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', minHeight: 30 }}
+          className="authb-textbutton"
           aria-pressed={showPin}
         >
           {showPin ? (
-            <>
-              <EyeOff className="size-4" aria-hidden />
-              <span>Hide</span>
-            </>
+            <EyeOff className="size-4" aria-hidden />
           ) : (
-            <>
-              <Eye className="size-4" aria-hidden />
-              <span>Show</span>
-            </>
+            <Eye className="size-4" aria-hidden />
           )}
+          <span>{showPin ? 'Hide' : 'Show'}</span>
         </button>
       </div>
 
-      {/* Boxes + the one real input sitting on top, invisible */}
       <div
         className="authb-pin-wrap"
         data-focus={focused}
@@ -80,7 +72,7 @@ export function PinInput({
             const d = digits[index]
             return (
               <div key={index} className="authb-pin-box" id={`${id}-0-${index}`}>
-                {d ? (showPin ? d : '•') : <span className="size-2.5 rounded-full border border-white/25" />}
+                {d ? showPin ? d : '•' : <span className="authb-pin-empty" />}
               </div>
             )
           })}

@@ -131,7 +131,7 @@ export default function ProfilePage() {
   const isAdmin =
     !!profile &&
     ['SUPER_ADMIN', 'ADMIN', 'REGIONAL_COORD', 'SUPERVISOR'].includes(
-      (profile.role || '').toUpperCase()
+      (profile.role || '').toUpperCase(),
     )
 
   const startEditing = () => {
@@ -182,7 +182,8 @@ export default function ProfilePage() {
     if (!draft.firstName.trim()) return 'Enter your first name.'
     if (!draft.lastName.trim()) return 'Enter your last name.'
     if (!ghanaPhoneOk(draft.phone)) return 'Enter a Ghana phone number (e.g. 024 000 0000).'
-    if (draft.email.trim() && !EMAIL_RE.test(draft.email.trim())) return 'Enter a valid email address.'
+    if (draft.email.trim() && !EMAIL_RE.test(draft.email.trim()))
+      return 'Enter a valid email address.'
     if (draft.bio.trim().length > 500) return 'About is too long (max 500 characters).'
     return ''
   }
@@ -332,7 +333,7 @@ export default function ProfilePage() {
             <div className="size-12 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto">
               <AlertTriangle className="size-6 text-amber-400" />
             </div>
-            <h1 className="text-base font-bold text-white">Couldn’t load your profile</h1>
+            <h1 className="text-base font-semibold text-white">Couldn’t load your profile</h1>
             <p className="text-xs text-slate-400">
               Check your connection and try again. Your data is safe.
             </p>
@@ -370,7 +371,7 @@ export default function ProfilePage() {
 
   const statusChip = (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
         isActive
           ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
           : 'border-rose-500/30 bg-rose-500/10 text-rose-400'
@@ -382,7 +383,7 @@ export default function ProfilePage() {
   )
 
   const staffChip = profile.staffId ? (
-    <span className="inline-flex items-center rounded-full border border-[#22263C] bg-[#161B2E] px-3 py-1 text-[11px] font-mono font-semibold text-slate-300">
+    <span className="inline-flex items-center rounded-full border border-[#22263C] bg-[#161B2E] px-3 py-1 text-xs font-mono font-semibold text-slate-300">
       {profile.staffId}
     </span>
   ) : null
@@ -403,7 +404,11 @@ export default function ProfilePage() {
 
   const avatarBlock = (sizeClass: string, initialsClass: string) => (
     <div
-      className={`${sizeClass} rounded-full bg-[#1E2B7B] border border-white/10 flex items-center justify-center overflow-hidden relative ${isEditing ? 'cursor-pointer ring-2 ring-transparent hover:ring-[#3b57f0]/60 transition-shadow' : ''}`}
+      className={`${sizeClass} rounded-full bg-[#1E2B7B] border border-white/10 flex items-center justify-center overflow-hidden relative ${
+        isEditing
+          ? 'cursor-pointer ring-2 ring-transparent hover:ring-[#3b57f0]/60 transition-shadow'
+          : ''
+      }`}
       onClick={() => isEditing && fileRef.current?.click()}
       role={isEditing ? 'button' : undefined}
       aria-label={isEditing ? 'Change profile photo' : undefined}
@@ -423,7 +428,7 @@ export default function ProfilePage() {
         <span className={initialsClass}>{initials}</span>
       )}
       {isEditing && (
-        <span className="absolute bottom-0 inset-x-0 h-9 bg-black/60 flex items-center justify-center gap-1 text-[10px] font-semibold text-white">
+        <span className="absolute bottom-0 inset-x-0 h-9 bg-black/60 flex items-center justify-center gap-1 text-xs font-semibold text-white">
           <Camera className="size-3.5" /> Change photo
         </span>
       )}
@@ -441,7 +446,10 @@ export default function ProfilePage() {
   )
 
   const saveErrorNote = saveError && (
-    <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-2.5 text-xs text-rose-300 flex items-start gap-2">
+    <div
+      role="alert"
+      className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-2.5 text-xs text-rose-300 flex items-start gap-2"
+    >
       <AlertTriangle className="size-4 shrink-0 mt-0.5" />
       <span>{saveError}</span>
     </div>
@@ -459,7 +467,7 @@ export default function ProfilePage() {
         >
           <ChevronLeft className="size-6" />
         </button>
-        <h1 className="text-base font-bold text-white tracking-tight absolute left-1/2 -translate-x-1/2">
+        <h1 className="text-base font-semibold text-white absolute left-1/2 -translate-x-1/2">
           {isEditing ? 'Edit profile' : 'Profile'}
         </h1>
         {!isEditing && (
@@ -479,8 +487,8 @@ export default function ProfilePage() {
 
         {/* Identity */}
         <div className="flex flex-col items-center text-center pt-1">
-          {avatarBlock('size-24', 'text-3xl font-bold text-white')}
-          <h2 className="mt-4 text-xl font-bold text-white leading-tight">{displayName}</h2>
+          {avatarBlock('size-24', 'text-3xl font-semibold text-white')}
+          <h2 className="mt-4 text-xl font-semibold text-white leading-tight">{displayName}</h2>
           <p className="mt-1 text-xs text-slate-400">{roleLabel}</p>
           <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
             {statusChip}
@@ -490,20 +498,55 @@ export default function ProfilePage() {
 
         {/* Personal details — edit or read */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0E111D] overflow-hidden">
-          <h3 className="px-4 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-            Personal details
-          </h3>
+          <h3 className="px-4 pt-4 text-xs font-medium text-slate-500">Personal details</h3>
           <div className="px-4 py-4">
             {isEditing ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2.5">
-                  <Field label="Title (optional)" value={draft.title} onChange={(v) => setDraft((d) => ({ ...d, title: v }))} placeholder="Dr." />
-                  <Field label="First name" value={draft.firstName} onChange={(v) => setDraft((d) => ({ ...d, firstName: v }))} placeholder="James" autoComplete="given-name" />
+                  <Field
+                    label="Title (optional)"
+                    value={draft.title}
+                    onChange={(v) => setDraft((d) => ({ ...d, title: v }))}
+                    placeholder="Dr."
+                  />
+                  <Field
+                    label="First name"
+                    value={draft.firstName}
+                    onChange={(v) => setDraft((d) => ({ ...d, firstName: v }))}
+                    placeholder="James"
+                    autoComplete="given-name"
+                  />
                 </div>
-                <Field label="Last name" value={draft.lastName} onChange={(v) => setDraft((d) => ({ ...d, lastName: v }))} placeholder="Addo" autoComplete="family-name" />
-                <Field label="Phone number" value={draft.phone} onChange={(v) => setDraft((d) => ({ ...d, phone: v }))} placeholder="024 000 0000" inputMode="tel" autoComplete="tel" />
-                <Field label="Email" value={draft.email} onChange={(v) => setDraft((d) => ({ ...d, email: v }))} placeholder="name@waec.org" inputMode="email" autoComplete="email" />
-                <TextArea label="About (optional)" value={draft.bio} onChange={(v) => setDraft((d) => ({ ...d, bio: v.slice(0, 500) }))} placeholder="A sentence about your work…" maxLength={500} />
+                <Field
+                  label="Last name"
+                  value={draft.lastName}
+                  onChange={(v) => setDraft((d) => ({ ...d, lastName: v }))}
+                  placeholder="Addo"
+                  autoComplete="family-name"
+                />
+                <Field
+                  label="Phone number"
+                  value={draft.phone}
+                  onChange={(v) => setDraft((d) => ({ ...d, phone: v }))}
+                  placeholder="024 000 0000"
+                  inputMode="tel"
+                  autoComplete="tel"
+                />
+                <Field
+                  label="Email"
+                  value={draft.email}
+                  onChange={(v) => setDraft((d) => ({ ...d, email: v }))}
+                  placeholder="name@waec.org"
+                  inputMode="email"
+                  autoComplete="email"
+                />
+                <TextArea
+                  label="About (optional)"
+                  value={draft.bio}
+                  onChange={(v) => setDraft((d) => ({ ...d, bio: v.slice(0, 500) }))}
+                  placeholder="A sentence about your work…"
+                  maxLength={500}
+                />
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-x-4 gap-y-4">
@@ -511,8 +554,12 @@ export default function ProfilePage() {
                 <ProfileField label="First name" value={profile.firstName || '—'} />
                 <ProfileField label="Last name" value={profile.lastName || '—'} />
                 <ProfileField label="Phone" value={phoneDisplay} />
-                <div className="col-span-2"><ProfileField label="Email" value={profile.email} /></div>
-                <div className="col-span-2"><ProfileField label="About" value={profile.bio || '—'} /></div>
+                <div className="col-span-2">
+                  <ProfileField label="Email" value={profile.email} />
+                </div>
+                <div className="col-span-2">
+                  <ProfileField label="About" value={profile.bio || '—'} />
+                </div>
               </div>
             )}
           </div>
@@ -521,25 +568,29 @@ export default function ProfilePage() {
         {/* Assignment */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0E111D] overflow-hidden">
           <div className="px-4 pt-4 flex items-center justify-between gap-2">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-              Assignment
-            </h3>
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+            <h3 className="text-xs font-medium text-slate-500">Assignment</h3>
+            <span className="flex items-center gap-1 text-xs font-medium text-slate-500">
               <ShieldCheck className="size-3.5" />
               Managed by HQ
             </span>
           </div>
           <div className="divide-y divide-[#1E243A] mt-2">
-            <ProfileRow icon={<ShieldCheck className="size-5 text-slate-400" />} label="Role" value={roleLabel} />
-            <ProfileRow icon={<MapPin className="size-5 text-slate-400" />} label="Command region" value={region} />
+            <ProfileRow
+              icon={<ShieldCheck className="size-5 text-slate-400" />}
+              label="Role"
+              value={roleLabel}
+            />
+            <ProfileRow
+              icon={<MapPin className="size-5 text-slate-400" />}
+              label="Command region"
+              value={region}
+            />
           </div>
         </section>
 
         {/* Security */}
         <section className="rounded-2xl border border-[#22263C] bg-[#0E111D] overflow-hidden">
-          <h3 className="px-4 pt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
-            Security
-          </h3>
+          <h3 className="px-4 pt-4 text-xs font-medium text-slate-500">Security</h3>
           <div className="mt-2">
             {isAdmin ? (
               <div className="w-full flex items-center gap-3 px-4 py-3.5">
@@ -547,21 +598,28 @@ export default function ProfilePage() {
                   <ShieldCheck className="size-5 text-slate-400" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] text-slate-500">Password &amp; sign-in</span>
-                  <span className="block text-sm font-semibold text-white mt-0.5">Managed by HQ</span>
+                  <span className="block text-xs text-slate-500">Password &amp; sign-in</span>
+                  <span className="block text-sm font-semibold text-white mt-0.5">
+                    Managed by HQ
+                  </span>
                 </span>
               </div>
             ) : (
               <button
                 type="button"
-                onClick={() => { setPinError(''); setPin1(''); setPin2(''); setPinOpen(true) }}
+                onClick={() => {
+                  setPinError('')
+                  setPin1('')
+                  setPin2('')
+                  setPinOpen(true)
+                }}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03] transition cursor-pointer"
               >
                 <span className="size-11 shrink-0 rounded-xl border border-[#22263C] bg-[#11131F] flex items-center justify-center">
                   <KeyRound className="size-5 text-slate-400" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] text-slate-500">Change PIN</span>
+                  <span className="block text-xs text-slate-500">Change PIN</span>
                   <span className="block text-sm font-semibold text-white mt-0.5">{pinLine}</span>
                 </span>
                 <ChevronRight className="size-5 shrink-0 text-slate-500" />
@@ -583,7 +641,7 @@ export default function ProfilePage() {
 
       {/* Fixed Cancel / Save bar while editing */}
       {isEditing && (
-        <div className="fixed bottom-0 inset-x-0 z-40 border-t border-[#22263C] bg-[#0B0D14]/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t border-[#22263C] bg-[#0B0D14] px-4 py-3 flex items-center gap-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
           <button
             type="button"
             onClick={cancelEditing}
@@ -597,7 +655,13 @@ export default function ProfilePage() {
             disabled={!isDirty || saving}
             className="h-12 flex-1 rounded-xl bg-[#3b57f0] hover:bg-[#3250dd] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold text-white transition cursor-pointer flex items-center justify-center gap-2"
           >
-            {saving ? (<><Loader2 className="size-4 animate-spin" /> Saving…</>) : 'Save changes'}
+            {saving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Saving…
+              </>
+            ) : (
+              'Save changes'
+            )}
           </button>
         </div>
       )}
@@ -618,12 +682,14 @@ export default function ProfilePage() {
           >
             <ChevronLeft className="size-5" />
           </button>
-          <h1 className="text-lg font-bold text-white tracking-tight">{isEditing ? 'Edit profile' : 'Profile'}</h1>
+          <h1 className="text-lg font-semibold text-white">
+            {isEditing ? 'Edit profile' : 'Profile'}
+          </h1>
         </div>
         <button
           type="button"
           onClick={handleSignOut}
-          className="h-11 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 hover:bg-rose-900/30 px-4 text-rose-400 hover:text-rose-300 text-sm font-bold transition cursor-pointer"
+          className="h-11 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 hover:bg-rose-900/30 px-4 text-rose-400 hover:text-rose-300 text-sm font-semibold transition cursor-pointer"
         >
           <LogOut className="size-4" />
           Sign out
@@ -633,16 +699,16 @@ export default function ProfilePage() {
       <main className="flex-1 overflow-y-auto p-8 lg:p-10">
         <div className="max-w-6xl mx-auto grid grid-cols-[380px_1fr] gap-6 items-start">
           {/* Identity card */}
-          <div className="rounded-3xl border border-[#22263C] bg-[#0E111D] p-8 flex flex-col items-center text-center shadow-2xl h-fit">
-            {avatarBlock('size-36', 'text-5xl font-bold text-white')}
-            <h2 className="mt-5 text-2xl font-bold text-white leading-tight">{displayName}</h2>
+          <div className="rounded-2xl border border-[#22263C] bg-[#0E111D] p-8 flex flex-col items-center text-center shadow-2xl h-fit">
+            {avatarBlock('size-36', 'text-5xl font-semibold text-white')}
+            <h2 className="mt-5 text-2xl font-semibold text-white leading-tight">{displayName}</h2>
             <p className="mt-1.5 text-sm text-slate-400">{roleLabel}</p>
             <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
               {statusChip}
               {staffChip}
             </div>
             {isEditing ? (
-              <p className="mt-4 text-[11px] text-slate-500">Tap your photo to change it.</p>
+              <p className="mt-4 text-xs text-slate-500">Tap your photo to change it.</p>
             ) : (
               <button
                 type="button"
@@ -658,16 +724,31 @@ export default function ProfilePage() {
           {/* Right column */}
           <div className="space-y-6">
             {/* Personal details */}
-            <section className="rounded-3xl border border-[#22263C] bg-[#0E111D] p-6 shadow-xl">
+            <section className="rounded-2xl border border-[#22263C] bg-[#0E111D] p-6 shadow-xl">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-white">Personal details</h3>
                 {isEditing ? (
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={cancelEditing} className="h-10 px-4 rounded-xl border border-[#22263C] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={cancelEditing}
+                      className="h-10 px-4 rounded-xl border border-[#22263C] text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+                    >
                       Cancel
                     </button>
-                    <button type="button" onClick={handleSave} disabled={!isDirty || saving} className="h-10 px-4 rounded-xl bg-[#3b57f0] hover:bg-[#3250dd] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-white transition cursor-pointer flex items-center gap-2">
-                      {saving ? (<><Loader2 className="size-4 animate-spin" /> Saving…</>) : 'Save changes'}
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={!isDirty || saving}
+                      className="h-10 px-4 rounded-xl bg-[#3b57f0] hover:bg-[#3250dd] disabled:opacity-50 disabled:cursor-not-allowed text-xs font-semibold text-white transition cursor-pointer flex items-center gap-2"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" /> Saving…
+                        </>
+                      ) : (
+                        'Save changes'
+                      )}
                     </button>
                   </div>
                 ) : (
@@ -683,12 +764,53 @@ export default function ProfilePage() {
               {saveErrorNote && <div className="mt-4">{saveErrorNote}</div>}
               {isEditing ? (
                 <div className="grid grid-cols-2 gap-4 mt-5">
-                  <Field label="Title (optional)" value={draft.title} onChange={(v) => setDraft((d) => ({ ...d, title: v }))} placeholder="Dr." />
-                  <Field label="First name" value={draft.firstName} onChange={(v) => setDraft((d) => ({ ...d, firstName: v }))} placeholder="James" autoComplete="given-name" />
-                  <Field label="Last name" value={draft.lastName} onChange={(v) => setDraft((d) => ({ ...d, lastName: v }))} placeholder="Addo" autoComplete="family-name" />
-                  <Field label="Phone" value={draft.phone} onChange={(v) => setDraft((d) => ({ ...d, phone: v }))} placeholder="024 000 0000" inputMode="tel" autoComplete="tel" />
-                  <div className="col-span-2"><Field label="Email" value={draft.email} onChange={(v) => setDraft((d) => ({ ...d, email: v }))} placeholder="name@waec.org" inputMode="email" autoComplete="email" /></div>
-                  <div className="col-span-2"><TextArea label="About (optional)" value={draft.bio} onChange={(v) => setDraft((d) => ({ ...d, bio: v.slice(0, 500) }))} placeholder="A sentence about your work…" maxLength={500} /></div>
+                  <Field
+                    label="Title (optional)"
+                    value={draft.title}
+                    onChange={(v) => setDraft((d) => ({ ...d, title: v }))}
+                    placeholder="Dr."
+                  />
+                  <Field
+                    label="First name"
+                    value={draft.firstName}
+                    onChange={(v) => setDraft((d) => ({ ...d, firstName: v }))}
+                    placeholder="James"
+                    autoComplete="given-name"
+                  />
+                  <Field
+                    label="Last name"
+                    value={draft.lastName}
+                    onChange={(v) => setDraft((d) => ({ ...d, lastName: v }))}
+                    placeholder="Addo"
+                    autoComplete="family-name"
+                  />
+                  <Field
+                    label="Phone"
+                    value={draft.phone}
+                    onChange={(v) => setDraft((d) => ({ ...d, phone: v }))}
+                    placeholder="024 000 0000"
+                    inputMode="tel"
+                    autoComplete="tel"
+                  />
+                  <div className="col-span-2">
+                    <Field
+                      label="Email"
+                      value={draft.email}
+                      onChange={(v) => setDraft((d) => ({ ...d, email: v }))}
+                      placeholder="name@waec.org"
+                      inputMode="email"
+                      autoComplete="email"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <TextArea
+                      label="About (optional)"
+                      value={draft.bio}
+                      onChange={(v) => setDraft((d) => ({ ...d, bio: v.slice(0, 500) }))}
+                      placeholder="A sentence about your work…"
+                      maxLength={500}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5 mt-5">
@@ -707,10 +829,10 @@ export default function ProfilePage() {
             </section>
 
             {/* Assignment */}
-            <section className="rounded-3xl border border-[#22263C] bg-[#0E111D] p-6 shadow-xl">
+            <section className="rounded-2xl border border-[#22263C] bg-[#0E111D] p-6 shadow-xl">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-white">Assignment</h3>
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
                   <ShieldCheck className="size-4" />
                   Managed by HQ
                 </span>
@@ -723,7 +845,7 @@ export default function ProfilePage() {
             </section>
 
             {/* Security */}
-            <section className="rounded-3xl border border-[#22263C] bg-[#0E111D] p-6 shadow-xl">
+            <section className="rounded-2xl border border-[#22263C] bg-[#0E111D] p-6 shadow-xl">
               <h3 className="text-base font-semibold text-white">Security</h3>
               {isAdmin ? (
                 <div className="mt-4 flex items-center gap-3 rounded-2xl px-2 py-3">
@@ -731,21 +853,28 @@ export default function ProfilePage() {
                     <ShieldCheck className="size-5 text-slate-400" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] text-slate-500">Password &amp; sign-in</span>
-                    <span className="block text-sm font-semibold text-white mt-0.5">Managed by HQ</span>
+                    <span className="block text-xs text-slate-500">Password &amp; sign-in</span>
+                    <span className="block text-sm font-semibold text-white mt-0.5">
+                      Managed by HQ
+                    </span>
                   </span>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => { setPinError(''); setPin1(''); setPin2(''); setPinOpen(true) }}
+                  onClick={() => {
+                    setPinError('')
+                    setPin1('')
+                    setPin2('')
+                    setPinOpen(true)
+                  }}
                   className="mt-4 w-full flex items-center gap-3 rounded-2xl px-2 py-3 hover:bg-white/[0.03] transition text-left cursor-pointer"
                 >
                   <span className="size-11 shrink-0 rounded-xl border border-[#22263C] bg-[#11131F] flex items-center justify-center">
                     <KeyRound className="size-5 text-slate-400" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] text-slate-500">PIN</span>
+                    <span className="block text-xs text-slate-500">PIN</span>
                     <span className="block text-sm font-semibold text-white mt-0.5">{pinLine}</span>
                   </span>
                   <span className="h-9 px-4 flex items-center rounded-xl border border-[#22263C] bg-[#161B2E] text-xs font-semibold text-slate-200">
@@ -769,22 +898,44 @@ export default function ProfilePage() {
 
       {/* Change-PIN dialog (field officers) */}
       {pinOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="change-pin-title">
+        <div
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="change-pin-title"
+        >
           <div className="w-full max-w-md rounded-2xl border border-[#22263C] bg-[#0E111D] p-5 space-y-4">
             <div className="flex items-start justify-between gap-3">
-              <h3 id="change-pin-title" className="text-base font-bold text-white">Choose a new PIN</h3>
-              <button type="button" onClick={() => setPinOpen(false)} aria-label="Close" className="size-9 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
+              <h3 id="change-pin-title" className="text-base font-semibold text-white">
+                Choose a new PIN
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPinOpen(false)}
+                aria-label="Close"
+                className="size-9 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+              >
                 <ChevronRight className="size-5 rotate-180" />
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">Pick 4 digits only you know. Avoid 1234, 1111, 0000, or your birth year.</p>
+            <p className="text-xs text-slate-500">
+              Pick 4 digits only you know. Avoid 1234, 1111, 0000, or your birth year.
+            </p>
             {pinError && (
-              <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-3 py-2 text-xs text-rose-300">
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-500/30 bg-rose-950/40 px-3 py-2 text-xs text-rose-300"
+              >
                 {pinError}
               </div>
             )}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1.5" htmlFor="new-pin-1">New PIN</label>
+              <label
+                className="block text-xs font-semibold text-slate-400 mb-1.5"
+                htmlFor="new-pin-1"
+              >
+                New PIN
+              </label>
               <input
                 id="new-pin-1"
                 type="password"
@@ -792,14 +943,22 @@ export default function ProfilePage() {
                 pattern="[0-9]*"
                 maxLength={4}
                 value={pin1}
-                onChange={(e) => { setPin1(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError('') }}
+                onChange={(e) => {
+                  setPin1(e.target.value.replace(/\D/g, '').slice(0, 4))
+                  setPinError('')
+                }}
                 placeholder="••••"
                 autoComplete="off"
                 className="w-full h-12 rounded-xl border border-[#22263C] bg-[#0A0D17] px-4 text-center text-2xl tracking-[0.5em] text-white placeholder:text-slate-600 focus:outline-hidden focus:border-[#3b57f0]"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1.5" htmlFor="new-pin-2">Type it again</label>
+              <label
+                className="block text-xs font-semibold text-slate-400 mb-1.5"
+                htmlFor="new-pin-2"
+              >
+                Type it again
+              </label>
               <input
                 id="new-pin-2"
                 type="password"
@@ -807,7 +966,10 @@ export default function ProfilePage() {
                 pattern="[0-9]*"
                 maxLength={4}
                 value={pin2}
-                onChange={(e) => { setPin2(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError('') }}
+                onChange={(e) => {
+                  setPin2(e.target.value.replace(/\D/g, '').slice(0, 4))
+                  setPinError('')
+                }}
                 placeholder="••••"
                 autoComplete="off"
                 className="w-full h-12 rounded-xl border border-[#22263C] bg-[#0A0D17] px-4 text-center text-2xl tracking-[0.5em] text-white placeholder:text-slate-600 focus:outline-hidden focus:border-[#3b57f0]"
@@ -819,7 +981,13 @@ export default function ProfilePage() {
               disabled={pinBusy || pin1.length !== 4 || pin2.length !== 4}
               className="w-full h-12 rounded-xl bg-[#3b57f0] hover:bg-[#3250dd] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition cursor-pointer flex items-center justify-center gap-2"
             >
-              {pinBusy ? (<><Loader2 className="size-4 animate-spin" /> Saving…</>) : 'Save my new PIN'}
+              {pinBusy ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                'Save my new PIN'
+              )}
             </button>
           </div>
         </div>
@@ -843,7 +1011,7 @@ function ProfileTopBar({ onBack }: { onBack: () => void }) {
       >
         <ChevronLeft className="size-6" />
       </button>
-      <h1 className="text-base font-bold text-white tracking-tight absolute left-1/2 -translate-x-1/2">
+      <h1 className="text-base font-semibold text-white absolute left-1/2 -translate-x-1/2">
         Profile
       </h1>
     </header>
@@ -865,7 +1033,7 @@ function ProfileRow({
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[11px] text-slate-500">{label}</span>
+        <span className="block text-xs text-slate-500">{label}</span>
         <span className="block text-sm font-semibold text-white mt-0.5 break-all">{value}</span>
       </span>
     </div>
@@ -875,7 +1043,7 @@ function ProfileRow({
 function ProfileField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <span className="block text-[11px] text-slate-500">{label}</span>
+      <span className="block text-xs text-slate-500">{label}</span>
       <span className="block text-sm font-semibold text-white mt-1 leading-snug">{value}</span>
     </div>
   )
@@ -899,7 +1067,7 @@ function Field({
   const id = `field-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
   return (
     <div>
-      <label htmlFor={id} className="block text-[11px] text-slate-500 mb-1.5">
+      <label htmlFor={id} className="block text-xs text-slate-500 mb-1.5">
         {label}
       </label>
       <input
@@ -933,11 +1101,13 @@ function TextArea({
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label htmlFor={id} className="text-[11px] text-slate-500">
+        <label htmlFor={id} className="text-xs text-slate-500">
           {label}
         </label>
         {typeof maxLength === 'number' && (
-          <span className="text-[10px] text-slate-600 tabular-nums">{value.length}/{maxLength}</span>
+          <span className="text-xs text-slate-600 tabular-nums">
+            {value.length}/{maxLength}
+          </span>
         )}
       </div>
       <textarea
@@ -957,18 +1127,18 @@ function ProfileSkeleton() {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-5">
       <div className="flex items-center gap-4 pt-1">
-        <div className="size-24 rounded-full bg-[#1A1F33] animate-pulse" />
+        <div className="size-24 rounded-full bg-[#1A1F33]" />
         <div className="space-y-2">
-          <div className="h-5 w-44 rounded bg-[#1A1F33] animate-pulse" />
-          <div className="h-3 w-28 rounded bg-[#161C2E] animate-pulse" />
-          <div className="h-6 w-36 rounded-full bg-[#161C2E] animate-pulse" />
+          <div className="h-5 w-44 rounded bg-[#1A1F33]" />
+          <div className="h-3 w-28 rounded bg-[#161C2E]" />
+          <div className="h-6 w-36 rounded-full bg-[#161C2E]" />
         </div>
       </div>
       {[0, 1, 2].map((i) => (
         <div key={i} className="rounded-2xl border border-[#22263C] bg-[#0E111D] p-4 space-y-3">
-          <div className="h-3 w-24 rounded bg-[#1A1F33] animate-pulse" />
-          <div className="h-11 rounded-xl bg-[#161C2E] animate-pulse" />
-          <div className="h-11 rounded-xl bg-[#161C2E] animate-pulse" />
+          <div className="h-3 w-24 rounded bg-[#1A1F33]" />
+          <div className="h-11 rounded-xl bg-[#161C2E]" />
+          <div className="h-11 rounded-xl bg-[#161C2E]" />
         </div>
       ))}
     </div>

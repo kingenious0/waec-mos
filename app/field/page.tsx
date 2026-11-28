@@ -17,10 +17,7 @@ import { SosHoldButton } from '@/components/field/SosHoldButton'
 import { ReportButton } from '@/components/field/ReportButton'
 import { IncidentReportSheet } from '@/components/field/IncidentReportSheet'
 import { OfflineBanner } from '@/components/field/OfflineBanner'
-import {
-  TodaySchoolCard,
-  type TeamMemberPlan,
-} from '@/components/field/TodaySchoolCard'
+import { TodaySchoolCard, type TeamMemberPlan } from '@/components/field/TodaySchoolCard'
 import { isFeatureEnabled } from '@/lib/features'
 import { UNCONFIRMED_GRACE_MS } from '@/lib/field/exceptions'
 import { impliedSpeedKmh } from '@/lib/field/geo'
@@ -58,9 +55,7 @@ const FieldMap = dynamic(() => import('@/components/field/FieldMap'), {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5 px-0.5">
-      <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-        {children}
-      </span>
+      <span className="shrink-0 text-xs font-medium text-slate-500">{children}</span>
       <span className="h-px flex-1 bg-[#161B2B]" aria-hidden="true" />
     </div>
   )
@@ -93,7 +88,12 @@ interface FieldAssignmentState {
   isDeployed: boolean
   nextPaper: { date: string; paperName: string; startTime: string | null } | null
   today: {
-    arrival: { at: string; phoneTime?: string | null; accuracyTier: string | null; confirmed: boolean } | null
+    arrival: {
+      at: string
+      phoneTime?: string | null
+      accuracyTier: string | null
+      confirmed: boolean
+    } | null
     departure: { at: string; phoneTime?: string | null; duringPaper: boolean } | null
   } | null
 }
@@ -258,8 +258,8 @@ export default function FieldPage() {
               ? Math.round(
                   impliedSpeedKmh(
                     { lat: previous.lat, lng: previous.lng, atMs: previous.atMs },
-                    { lat: fix.latitude, lng: fix.longitude, atMs: fix.timestamp }
-                  ) ?? 0
+                    { lat: fix.latitude, lng: fix.longitude, atMs: fix.timestamp },
+                  ) ?? 0,
                 )
               : 0
             lastNativeFixRef.current = {
@@ -312,14 +312,19 @@ export default function FieldPage() {
           typeof rawSpeed === 'number' && !Number.isNaN(rawSpeed) && rawSpeed > 0
             ? Math.round(rawSpeed * 3.6)
             : 0
-        applyFix(pos.coords.latitude, pos.coords.longitude, Math.round(pos.coords.accuracy), speedKmh)
+        applyFix(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          Math.round(pos.coords.accuracy),
+          speedKmh,
+        )
       },
       (err) => {
         console.warn('Geolocation access error:', err.message)
         setDeviceGpsActive(false)
         setGpsStatus('denied')
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 },
     )
 
     return () => navigator.geolocation.clearWatch(watchId)
@@ -355,7 +360,9 @@ export default function FieldPage() {
           lng: pos.coords.longitude,
           accuracy: Math.round(pos.coords.accuracy),
           speedKmh:
-            typeof pos.coords.speed === 'number' && !Number.isNaN(pos.coords.speed) && pos.coords.speed > 0
+            typeof pos.coords.speed === 'number' &&
+            !Number.isNaN(pos.coords.speed) &&
+            pos.coords.speed > 0
               ? Math.round(pos.coords.speed * 3.6)
               : 0,
         })
@@ -365,7 +372,7 @@ export default function FieldPage() {
         setGpsStatus('denied')
         showToast('error', 'Location access blocked. Enable browser GPS permissions to check in.')
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     )
   }
 
@@ -392,7 +399,7 @@ export default function FieldPage() {
       if (!silent) setIsAssignmentLoading(true)
       try {
         const url = `/api/field/duty?officerId=${encodeURIComponent(
-          session.userId
+          session.userId,
         )}&staffId=${encodeURIComponent(session.staffId || '')}`
         const res = await fetch(url)
         if (!res.ok) return
@@ -446,7 +453,7 @@ export default function FieldPage() {
           if (data.isCheckedIn && data.checkInTimeIso) {
             const elapsed = Math.max(
               0,
-              Math.floor((Date.now() - Date.parse(data.checkInTimeIso)) / 1000)
+              Math.floor((Date.now() - Date.parse(data.checkInTimeIso)) / 1000),
             )
             setShiftSeconds(Number.isNaN(elapsed) ? 0 : elapsed)
           } else {
@@ -468,7 +475,7 @@ export default function FieldPage() {
         if (!silent) setIsAssignmentLoading(false)
       }
     },
-    [session?.userId, session?.staffId]
+    [session?.userId, session?.staffId],
   )
 
   useEffect(() => {
@@ -488,7 +495,7 @@ export default function FieldPage() {
       if (!res.ok) return
       const data = await res.json()
       const all: { id: string; name: string; region?: string | null }[] = Array.isArray(
-        data.centers
+        data.centers,
       )
         ? data.centers.map((c: any) => ({
             id: c.id,
@@ -533,7 +540,7 @@ export default function FieldPage() {
       if (!res.ok) return
       const data = await res.json()
       const pending = (Array.isArray(data.requests) ? data.requests : []).find(
-        (r: PhotoRequestState) => r.status === 'PENDING' && r.officerId === session.userId
+        (r: PhotoRequestState) => r.status === 'PENDING' && r.officerId === session.userId,
       )
       setPhotoRequest(pending || null)
     } catch {
@@ -574,7 +581,7 @@ export default function FieldPage() {
         setTeamBusy(false)
       }
     },
-    [teamBusy, fetchAssignment, fetchTeam, showToast]
+    [teamBusy, fetchAssignment, fetchTeam, showToast],
   )
 
   // A leader can record why a teammate has no GPS proof. HQ still sees it as
@@ -604,7 +611,7 @@ export default function FieldPage() {
         setTeamBusy(false)
       }
     },
-    [teamBusy, fetchTeam, fetchAssignment, showToast]
+    [teamBusy, fetchTeam, fetchAssignment, showToast],
   )
 
   // Group leader's rare exception tool: ask one teammate for one photo.
@@ -628,7 +635,7 @@ export default function FieldPage() {
           'success',
           data.alreadyPending
             ? 'That officer already has a photo request waiting.'
-            : 'Photo request sent. The officer will see it in their app.'
+            : 'Photo request sent. The officer will see it in their app.',
         )
       } catch {
         showToast('error', 'Connection error while asking for the photo.')
@@ -636,7 +643,7 @@ export default function FieldPage() {
         setTeamBusy(false)
       }
     },
-    [teamBusy, showToast]
+    [teamBusy, showToast],
   )
 
   // ---- Offline arrival queue -------------------------------------------------
@@ -663,7 +670,7 @@ export default function FieldPage() {
         setQueuedArrivalCount((prev) => prev + 1)
       }
     },
-    [readQueuedArrivals]
+    [readQueuedArrivals],
   )
 
   const flushQueuedArrivals = useCallback(async () => {
@@ -700,7 +707,10 @@ export default function FieldPage() {
     }
     setQueuedArrivalCount(remaining.length)
     if (delivered > 0) {
-      showToast('success', `${delivered} offline check-in update${delivered > 1 ? 's' : ''} sent to Regional Command.`)
+      showToast(
+        'success',
+        `${delivered} offline check-in update${delivered > 1 ? 's' : ''} sent to Regional Command.`,
+      )
       void fetchAssignment(true)
     }
   }, [fetchAssignment, readQueuedArrivals, showToast])
@@ -794,10 +804,9 @@ export default function FieldPage() {
     const hrs = Math.floor(totalSec / 3600)
     const mins = Math.floor((totalSec % 3600) / 60)
     const secs = totalSec % 60
-    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(
-      2,
-      '0'
-    )}`
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(
+      secs,
+    ).padStart(2, '0')}`
   }
 
   const activeVenue: FieldVenue | null = assignment.venue
@@ -843,7 +852,7 @@ export default function FieldPage() {
         liveCoords.lat,
         liveCoords.lng,
         activeVenue.lat,
-        activeVenue.lng
+        activeVenue.lng,
       )
       isInside = distanceMeters <= geofenceRadius
     }
@@ -878,7 +887,14 @@ export default function FieldPage() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOffline, liveCoords?.lat, liveCoords?.lng, liveCoords?.accuracy, distanceMeters, queueArrival]
+    [
+      isOffline,
+      liveCoords?.lat,
+      liveCoords?.lng,
+      liveCoords?.accuracy,
+      distanceMeters,
+      queueArrival,
+    ],
   )
 
   useEffect(() => {
@@ -985,24 +1001,21 @@ export default function FieldPage() {
   const [evidenceBusy, setEvidenceBusy] = useState(false)
   const fulfillAfterUploadRef = useRef<string | null>(null)
 
-  const fulfillPhotoRequest = useCallback(
-    async (requestId: string) => {
-      try {
-        const res = await fetch('/api/field/photo-request', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ action: 'fulfill', requestId }),
-        })
-        if (!res.ok) return false
-        setPhotoRequest(null)
-        return true
-      } catch {
-        return false
-      }
-    },
-    []
-  )
+  const fulfillPhotoRequest = useCallback(async (requestId: string) => {
+    try {
+      const res = await fetch('/api/field/photo-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'fulfill', requestId }),
+      })
+      if (!res.ok) return false
+      setPhotoRequest(null)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
   const handleEvidencePick = useCallback(
     async (file: File | undefined) => {
@@ -1101,7 +1114,7 @@ export default function FieldPage() {
             sent ? 'success' : 'error',
             sent
               ? 'Photo proof sent to Regional Command.'
-              : 'Photo saved. Could not mark the request as answered — try again.'
+              : 'Photo saved. Could not mark the request as answered — try again.',
           )
         } else {
           showToast('success', 'Photo proof saved with watermark.')
@@ -1113,7 +1126,16 @@ export default function FieldPage() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session, centerVenue, centerZone, centerRegion, centerCode, officerName, showToast, fulfillPhotoRequest]
+    [
+      session,
+      centerVenue,
+      centerZone,
+      centerRegion,
+      centerCode,
+      officerName,
+      showToast,
+      fulfillPhotoRequest,
+    ],
   )
 
   const handleCheckIn = async () => {
@@ -1259,7 +1281,7 @@ export default function FieldPage() {
       officerName,
       isOffline,
       showToast,
-    ]
+    ],
   )
 
   const handleTriggerSos = async () => {
@@ -1302,7 +1324,7 @@ export default function FieldPage() {
       effectiveUserLat,
       effectiveUserLng,
       showToast,
-    ]
+    ],
   )
 
   // Strict DB-PIN-verified SOS Stand Down
@@ -1392,12 +1414,25 @@ export default function FieldPage() {
       >
         {evidenceBusy ? (
           <>
-            <span className="size-4 border-2 border-slate-400 border-t-white rounded-full animate-spin" aria-hidden />
+            <span
+              className="size-4 border-2 border-slate-400 border-t-white rounded-full animate-spin"
+              aria-hidden
+            />
             <span>Saving photo…</span>
           </>
         ) : (
           <>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
@@ -1406,7 +1441,7 @@ export default function FieldPage() {
         )}
       </button>
       {evidenceProof && (
-        <p className="mt-1 text-[10px] text-emerald-400 flex items-center gap-1">
+        <p className="mt-1 text-xs text-emerald-400 flex items-center gap-1">
           <span aria-hidden>✓</span> Evidence saved — watermarked with school, time &amp; date
         </p>
       )}
@@ -1414,34 +1449,35 @@ export default function FieldPage() {
   )
 
   // Honest empty state when nothing is on today — say what's next, in plain words.
-  const emptyDutyCard = !isAssignmentLoading && !paperAssignment ? (
-    <div className="w-full rounded-2xl border border-[#1C2337] bg-[#0F121E] p-4 text-center select-none">
-      <Building2 className="size-6 text-slate-500 mx-auto mb-1.5" />
-      <p className="text-xs font-semibold text-slate-200">No paper deployed for today</p>
-      <p className="text-[10px] text-slate-500 mt-1 leading-snug">
-        {assignment.isDeployed
-          ? assignment.seriesName
-            ? `You're deployed to ${assignment.seriesName}.`
-            : "You're deployed this series."
-          : 'You are not deployed to an exam centre yet.'}
-      </p>
-      {assignment.nextPaper ? (
-        <p className="text-[10px] text-slate-400 mt-2 tabular-nums">
-          Next up:{' '}
-          <span className="text-slate-200 font-semibold">
-            {new Date(`${assignment.nextPaper.date}T00:00:00Z`).toLocaleDateString('en-GB', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            })}
-            {' · '}
-            {assignment.nextPaper.paperName}
-            {assignment.nextPaper.startTime ? ` · ${assignment.nextPaper.startTime}` : ''}
-          </span>
+  const emptyDutyCard =
+    !isAssignmentLoading && !paperAssignment ? (
+      <div className="w-full rounded-2xl border border-[#1C2337] bg-[#0F121E] p-4 text-center select-none">
+        <Building2 className="size-6 text-slate-500 mx-auto mb-1.5" />
+        <p className="text-xs font-semibold text-slate-200">No paper deployed for today</p>
+        <p className="text-xs text-slate-500 mt-1 leading-snug">
+          {assignment.isDeployed
+            ? assignment.seriesName
+              ? `You're deployed to ${assignment.seriesName}.`
+              : "You're deployed this series."
+            : 'You are not deployed to an exam centre yet.'}
         </p>
-      ) : null}
-    </div>
-  ) : null
+        {assignment.nextPaper ? (
+          <p className="text-xs text-slate-400 mt-2 tabular-nums">
+            Next up:{' '}
+            <span className="text-slate-200 font-semibold">
+              {new Date(`${assignment.nextPaper.date}T00:00:00Z`).toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              })}
+              {' · '}
+              {assignment.nextPaper.paperName}
+              {assignment.nextPaper.startTime ? ` · ${assignment.nextPaper.startTime}` : ''}
+            </span>
+          </p>
+        ) : null}
+      </div>
+    ) : null
 
   const todaySchoolCard = (
     <TodaySchoolCard
@@ -1458,7 +1494,8 @@ export default function FieldPage() {
   )
 
   const pendingArrival = assignment.today?.arrival
-  const pendingArrivalMs = resolveEventMs(pendingArrival?.at, pendingArrival?.phoneTime) ?? Number.NaN
+  const pendingArrivalMs =
+    resolveEventMs(pendingArrival?.at, pendingArrival?.phoneTime) ?? Number.NaN
   const unconfirmedMinutes =
     pendingArrival && !Number.isNaN(pendingArrivalMs)
       ? Math.max(0, Math.floor((nowTick - pendingArrivalMs) / 60_000))
@@ -1479,13 +1516,12 @@ export default function FieldPage() {
             : 'border-amber-500/40 bg-amber-500/10'
         }`}
       >
-        <span className="size-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+        <span className="size-2 rounded-full bg-amber-400 shrink-0" />
         <span className="flex-1 leading-snug text-xs text-amber-200">
           {isConfirmationOverdue ? (
             <>
               <strong>Please confirm now.</strong> We detected you at the centre{' '}
-              {unconfirmedMinutes} minutes ago and Regional Command has not seen your
-              confirmation.
+              {unconfirmedMinutes} minutes ago and Regional Command has not seen your confirmation.
             </>
           ) : (
             <>
@@ -1499,12 +1535,12 @@ export default function FieldPage() {
 
   const detectionNote =
     activeDetection === 'native-background' ? (
-      <p className="text-[11px] leading-snug text-slate-400 font-sans">
-        Your phone records location even while the app is in the background. Keep the
-        &ldquo;WAEC field tracking&rdquo; notification on.
+      <p className="text-xs leading-snug text-slate-400 font-sans">
+        Your phone records location even while the app is in the background. Keep the &ldquo;WAEC
+        field tracking&rdquo; notification on.
       </p>
     ) : (
-      <p className="text-[11px] leading-snug text-slate-400 font-sans">
+      <p className="text-xs leading-snug text-slate-400 font-sans">
         On the web, location is checked only while this page is open. It cannot see you when the
         page is closed.
       </p>
@@ -1518,8 +1554,8 @@ export default function FieldPage() {
       <div className="flex items-start gap-2">
         <Camera className="size-4 text-sky-300 shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-sky-200">One photo requested</p>
-          <p className="text-[11px] leading-snug text-sky-100/85 mt-0.5">
+          <p className="text-xs font-semibold text-sky-200">One photo requested</p>
+          <p className="text-xs leading-snug text-sky-100/85 mt-0.5">
             {photoRequest.reason}. The photo will carry the school, date, time and your name.
           </p>
         </div>
@@ -1531,7 +1567,7 @@ export default function FieldPage() {
           fulfillAfterUploadRef.current = photoRequest.id
           evidenceInputRef.current?.click()
         }}
-        className="h-11 w-full rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition cursor-pointer disabled:opacity-60"
+        className="h-11 w-full rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-60"
       >
         {evidenceBusy ? 'Saving photo…' : 'Take the requested photo'}
       </button>
@@ -1543,15 +1579,12 @@ export default function FieldPage() {
       {/* App chrome — banners and header stay pinned while the officer scrolls */}
       <div className="sticky top-0 z-30 shrink-0">
         {/* Offline Alert Banner */}
-        <OfflineBanner
-          isOffline={isOffline}
-          queuedCount={queuedSosCount + queuedArrivalCount}
-        />
+        <OfflineBanner isOffline={isOffline} queuedCount={queuedSosCount + queuedArrivalCount} />
 
         {deviceWarnings.length > 0 ? (
           <div
             role="status"
-            className="w-full border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-[11px] leading-snug text-amber-200 font-sans"
+            className="w-full border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs leading-snug text-amber-200 font-sans"
           >
             <strong>Phone check:</strong> {deviceWarnings.join(' ')}
           </div>
@@ -1561,13 +1594,13 @@ export default function FieldPage() {
         {isSosActive && (
           <div className="w-full bg-red-600/20 border-b border-red-500/40 px-4 py-2 flex items-center justify-between text-xs text-red-200">
             <div className="flex items-center gap-2 font-semibold">
-              <Radio className="size-4 text-red-400 animate-pulse shrink-0" />
+              <Radio className="size-4 text-red-400 shrink-0" />
               <span>Help has been called — Regional Command has your location</span>
             </div>
             <button
               type="button"
               onClick={() => setSosModalOpen(true)}
-              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold transition cursor-pointer shrink-0"
+              className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition cursor-pointer shrink-0"
             >
               View alert
             </button>
@@ -1588,7 +1621,7 @@ export default function FieldPage() {
       {/* Floating Feedback Toast */}
       {fieldFeedback && (
         <div
-          className={`fixed top-16 left-1/2 -translate-x-1/2 z-[600] flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-medium shadow-2xl backdrop-blur-md max-w-[92vw] ${
+          className={`fixed top-16 left-1/2 -translate-x-1/2 z-[600] flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-medium shadow-lg max-w-[92vw] ${
             fieldFeedback.type === 'error'
               ? 'border-rose-500/40 bg-[#1A0D12]/95 text-rose-300'
               : 'border-emerald-500/35 bg-[#0C1814]/95 text-emerald-300'
@@ -1678,7 +1711,7 @@ export default function FieldPage() {
           <section className="flex flex-col gap-2.5">
             <SectionLabel>Today&apos;s duty</SectionLabel>
             {isAssignmentLoading ? (
-              <div className="h-[88px] animate-pulse rounded-2xl border border-[#1C2337] bg-[#0F121E]" />
+              <div className="h-[88px] rounded-2xl border border-[#1C2337] bg-[#0F121E]" />
             ) : (
               emptyDutyCard ?? <PaperTiles assignment={paperAssignment} />
             )}
@@ -1688,7 +1721,7 @@ export default function FieldPage() {
               <button
                 type="button"
                 onClick={handleCheckIn}
-                className="h-12 w-full rounded-xl border border-white/10 bg-[#1E2B7B] text-[13px] font-bold text-white transition hover:bg-[#28389E] cursor-pointer"
+                className="h-12 w-full rounded-xl border border-white/10 bg-[#1E2B7B] text-sm font-semibold text-white transition hover:bg-[#28389E] cursor-pointer"
               >
                 Confirm — I&apos;m here
               </button>
@@ -1699,14 +1732,14 @@ export default function FieldPage() {
           {/* Schedule — the card carries its own expand header */}
           {todayTimeline.length > 0 && <DayTimeline items={todayTimeline} collapsible={true} />}
 
-          <p className="px-2 text-center text-[11px] leading-snug text-slate-500 select-none">
+          <p className="px-2 text-center text-xs leading-snug text-slate-500 select-none">
             In danger? Press and hold the red SOS button to call for help.
           </p>
         </div>
       </div>
 
       {/* Mobile action dock — the primary action never scrolls away */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#1A2035] bg-[#0A0D18]/95 backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#1A2035] bg-[#0A0D18] lg:hidden">
         <div className="mx-auto w-full max-w-md px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2.5">
             <div className="min-w-0 flex-1">
@@ -1803,7 +1836,7 @@ export default function FieldPage() {
               <button
                 type="button"
                 onClick={handleCheckIn}
-                className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-bold text-white transition cursor-pointer border border-white/10"
+                className="w-full h-11 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] text-xs font-semibold text-white transition cursor-pointer border border-white/10"
               >
                 Confirm — I&apos;m here
               </button>
@@ -1819,17 +1852,13 @@ export default function FieldPage() {
 
             {evidenceDock}
 
-            <SosHoldButton
-              onTriggerSos={handleTriggerSos}
-              isOffline={isOffline}
-              variant="dock"
-            />
+            <SosHoldButton onTriggerSos={handleTriggerSos} isOffline={isOffline} variant="dock" />
 
             {isFeatureEnabled('FIELD_INCIDENT_REPORTING') ? (
               <ReportButton onOpenReport={() => setReportModalOpen(true)} />
             ) : null}
 
-            <p className="text-[11px] text-slate-500 text-center select-none pt-1">
+            <p className="text-xs text-slate-500 text-center select-none pt-1">
               Keyboard: focus SOS and hold Space for 1 second.
             </p>
           </div>
@@ -1837,11 +1866,7 @@ export default function FieldPage() {
       </div>
 
       {/* Emergency trigger — always reachable in the phone thumb zone */}
-      <SosHoldButton
-        onTriggerSos={handleTriggerSos}
-        isOffline={isOffline}
-        variant="floating"
-      />
+      <SosHoldButton onTriggerSos={handleTriggerSos} isOffline={isOffline} variant="floating" />
 
       {/* Emergency SOS confirmation / stand-down */}
       <EmergencySosModal
@@ -1855,7 +1880,9 @@ export default function FieldPage() {
           effectiveUserLat !== undefined && effectiveUserLng !== undefined
             ? {
                 lat: `${effectiveUserLat.toFixed(4)}° ${effectiveUserLat >= 0 ? 'N' : 'S'}`,
-                lng: `${Math.abs(effectiveUserLng).toFixed(4)}° ${effectiveUserLng >= 0 ? 'E' : 'W'}`,
+                lng: `${Math.abs(effectiveUserLng).toFixed(4)}° ${
+                  effectiveUserLng >= 0 ? 'E' : 'W'
+                }`,
                 acc: liveCoords ? `±${liveCoords.accuracy}m` : 'Simulated',
               }
             : { lat: '--', lng: '--', acc: 'Acquiring' }

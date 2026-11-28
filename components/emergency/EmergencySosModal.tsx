@@ -80,7 +80,7 @@ function InfoRow({
     <div className="flex items-start gap-3">
       <Icon className="mt-0.5 size-4 shrink-0 text-red-300" />
       <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{label}</p>
+        <p className="text-xs font-semibold tracking-wide text-zinc-500">{label}</p>
         <p className="truncate text-[13px] font-semibold text-zinc-100">{value}</p>
       </div>
     </div>
@@ -101,7 +101,7 @@ export function EmergencySosModal({
 }: EmergencySosModalProps) {
   const [isTriggered, setIsTriggered] = useState(initialTriggered)
   const [sentAt, setSentAt] = useState<string | null>(
-    initialTriggered ? formatGmtTime(new Date()) : null
+    initialTriggered ? formatGmtTime(new Date()) : null,
   )
   const [progress, setProgress] = useState(initialTriggered ? 1 : 0)
   const [isHolding, setIsHolding] = useState(false)
@@ -167,7 +167,7 @@ export function EmergencySosModal({
       }
       frameRef.current = requestAnimationFrame(step)
     },
-    [notes, onDispatchSos]
+    [notes, onDispatchSos],
   )
 
   const startHold = () => {
@@ -216,7 +216,7 @@ export function EmergencySosModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06070C]/95 p-0 backdrop-blur-md sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#06070C]/95 p-0 sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
@@ -232,21 +232,19 @@ export function EmergencySosModal({
             <div className="flex items-center justify-between border-b border-red-500/25 pb-3.5">
               <div className="flex items-center gap-2.5">
                 <span className="relative flex size-2.5">
-                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75 motion-reduce:animate-none" />
+                  <span className="absolute inline-flex size-full rounded-full bg-red-400 opacity-75 motion-reduce:animate-none" />
                   <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
                 </span>
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-red-200">
-                  Emergency sent
-                </span>
+                <span className="text-xs font-semibold text-red-200">Emergency sent</span>
               </div>
-              <span className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-zinc-300">
+              <span className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-zinc-300">
                 {sentAt ?? '--:--'} GMT
               </span>
             </div>
 
             <div className="space-y-4 py-5">
               <div>
-                <h2 className="text-2xl font-extrabold leading-tight text-white sm:text-3xl">
+                <h2 className="text-2xl font-semibold leading-tight text-white sm:text-3xl">
                   Help is on the way.
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-300">
@@ -272,7 +270,7 @@ export function EmergencySosModal({
 
               <a
                 href="tel:191"
-                className="flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white text-base font-extrabold text-[#0B1220] shadow-lg transition active:scale-[0.99] motion-reduce:transition-none"
+                className="flex min-h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl bg-white text-base font-semibold text-[#0B1220] shadow-lg transition active:scale-[0.99] motion-reduce:transition-none"
               >
                 <PhoneCall className="size-5" />
                 Call police — 191
@@ -282,7 +280,7 @@ export function EmergencySosModal({
                 <button
                   type="button"
                   onClick={() => setShowStandDown(true)}
-                  className="min-h-[52px] w-full rounded-2xl border border-white/15 bg-white/5 text-sm font-bold text-zinc-200 transition hover:bg-white/10 active:scale-[0.99] motion-reduce:transition-none cursor-pointer"
+                  className="min-h-[52px] w-full rounded-2xl border border-white/15 bg-white/5 text-sm font-semibold text-zinc-200 transition hover:bg-white/10 active:scale-[0.99] motion-reduce:transition-none cursor-pointer"
                 >
                   I&apos;m safe — stand down
                 </button>
@@ -307,13 +305,13 @@ export function EmergencySosModal({
                       }}
                       placeholder="••••"
                       aria-label="4-digit PIN to stand down"
-                      className="h-12 flex-1 rounded-xl border border-white/15 bg-[#0B101C] text-center text-lg font-bold tracking-[0.4em] text-white outline-none focus:border-emerald-400"
+                      className="h-12 flex-1 rounded-xl border border-white/15 bg-[#0B101C] text-center text-lg font-semibold tracking-[0.4em] text-white outline-none focus:border-emerald-400"
                     />
                     <button
                       type="button"
                       disabled={isSubmittingStandDown}
                       onClick={() => void verifyStandDown()}
-                      className="h-12 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:opacity-60 cursor-pointer"
+                      className="h-12 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60 cursor-pointer"
                     >
                       {isSubmittingStandDown ? 'Checking…' : 'Confirm'}
                     </button>
@@ -333,7 +331,7 @@ export function EmergencySosModal({
                 </div>
               )}
 
-              <p className="text-center text-[11px] leading-snug text-zinc-500">
+              <p className="text-center text-xs leading-snug text-zinc-500">
                 Only stand down when you are safe. An officer may call you.
               </p>
               <button
@@ -350,9 +348,7 @@ export function EmergencySosModal({
             <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
               <div className="flex items-center gap-2.5">
                 <span className="size-2.5 rounded-full bg-amber-400" />
-                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-zinc-200">
-                  Emergency assistance
-                </span>
+                <span className="text-xs font-semibold text-zinc-200">Emergency assistance</span>
               </div>
               <button
                 type="button"
@@ -366,7 +362,7 @@ export function EmergencySosModal({
 
             <div className="flex flex-col items-center gap-5 py-6 text-center">
               <div>
-                <h2 className="text-xl font-extrabold text-white sm:text-2xl">Need urgent help?</h2>
+                <h2 className="text-xl font-semibold text-white sm:text-2xl">Need urgent help?</h2>
                 <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-zinc-300">
                   Hold the button to send your location to Regional Command. Use this only in an
                   emergency.
@@ -374,7 +370,7 @@ export function EmergencySosModal({
               </div>
 
               <label className="w-full text-left">
-                <span className="mb-1 block text-[11px] font-semibold text-zinc-400">
+                <span className="mb-1 block text-xs font-semibold text-zinc-400">
                   What happened? (optional)
                 </span>
                 <input
@@ -387,7 +383,11 @@ export function EmergencySosModal({
               </label>
 
               <div className="relative flex size-40 select-none items-center justify-center">
-                <svg className="absolute size-40 -rotate-90" viewBox="0 0 140 140" aria-hidden="true">
+                <svg
+                  className="absolute size-40 -rotate-90"
+                  viewBox="0 0 140 140"
+                  aria-hidden="true"
+                >
                   <circle
                     cx="70"
                     cy="70"
@@ -443,15 +443,13 @@ export function EmergencySosModal({
                   ) : (
                     <AlertOctagon className="size-8 text-amber-200" />
                   )}
-                  <span className="mt-1 text-xs font-extrabold tracking-wider">HOLD 1s</span>
+                  <span className="mt-1 text-xs font-semibold ">HOLD 1s</span>
                 </button>
               </div>
 
               <div className="space-y-1">
-                <p className="text-sm font-bold text-zinc-100" aria-live="polite">
-                  {isHolding
-                    ? sosCountdownLabel(progress)
-                    : 'Press and hold to send the alert'}
+                <p className="text-sm font-semibold text-zinc-100" aria-live="polite">
+                  {isHolding ? sosCountdownLabel(progress) : 'Press and hold to send the alert'}
                 </p>
                 <p className="text-xs text-zinc-400">Release early to cancel — nothing is sent.</p>
               </div>
@@ -459,7 +457,7 @@ export function EmergencySosModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-[48px] w-full rounded-xl border border-white/10 bg-white/5 text-sm font-bold text-zinc-300 transition hover:bg-white/10 cursor-pointer"
+                className="min-h-[48px] w-full rounded-xl border border-white/10 bg-white/5 text-sm font-semibold text-zinc-300 transition hover:bg-white/10 cursor-pointer"
               >
                 Not an emergency — close
               </button>

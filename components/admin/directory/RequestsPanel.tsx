@@ -50,8 +50,12 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
   const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([])
   const [pinResetRequests, setPinResetRequests] = useState<PinResetRequest[]>([])
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [declineTarget, setDeclineTarget] = useState<{ kind: 'access' | 'pin'; id: string } | null>(null)
-  const [tempPin, setTempPin] = useState<{ pin: string; name: string; expiresAt: string } | null>(null)
+  const [declineTarget, setDeclineTarget] = useState<{ kind: 'access' | 'pin'; id: string } | null>(
+    null,
+  )
+  const [tempPin, setTempPin] = useState<{ pin: string; name: string; expiresAt: string } | null>(
+    null,
+  )
   const [copied, setCopied] = useState(false)
 
   const load = useCallback(async () => {
@@ -61,8 +65,12 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
       const res = await fetch('/api/requests', { credentials: 'include', cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Could not load requests.')
-      setAccessRequests((data.accessRequests || []).filter((r: AccessRequest) => r.status === 'PENDING'))
-      setPinResetRequests((data.pinResetRequests || []).filter((r: PinResetRequest) => r.status === 'PENDING'))
+      setAccessRequests(
+        (data.accessRequests || []).filter((r: AccessRequest) => r.status === 'PENDING'),
+      )
+      setPinResetRequests(
+        (data.pinResetRequests || []).filter((r: PinResetRequest) => r.status === 'PENDING'),
+      )
       setLastUpdated(new Date())
     } catch (e: any) {
       setError(e?.message || 'Could not load requests.')
@@ -75,7 +83,11 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
     load()
   }, [load])
 
-  const decide = async (kind: 'access' | 'pin', id: string, action: 'approve' | 'issue' | 'decline') => {
+  const decide = async (
+    kind: 'access' | 'pin',
+    id: string,
+    action: 'approve' | 'issue' | 'decline',
+  ) => {
     if (busyId) return
     if (action === 'decline') {
       setDeclineTarget({ kind, id })
@@ -85,7 +97,11 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
     await runDecision(kind, id, action)
   }
 
-  const runDecision = async (kind: 'access' | 'pin', id: string, action: 'approve' | 'issue' | 'decline') => {
+  const runDecision = async (
+    kind: 'access' | 'pin',
+    id: string,
+    action: 'approve' | 'issue' | 'decline',
+  ) => {
     if (busyId) return
     setBusyId(id)
     setError('')
@@ -105,7 +121,11 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
       } else if (action === 'issue') {
         setPinResetRequests((prev) => prev.filter((r) => r.id !== id))
         const req = pinResetRequests.find((r) => r.id === id)
-        setTempPin({ pin: data.tempPin, name: req?.officerName || 'Officer', expiresAt: data.expiresAt })
+        setTempPin({
+          pin: data.tempPin,
+          name: req?.officerName || 'Officer',
+          expiresAt: data.expiresAt,
+        })
         setCopied(false)
         onChanged?.()
       } else {
@@ -141,7 +161,10 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
 
   if (loading) {
     return (
-      <section aria-label="Requests" className="h-12 flex items-center gap-2.5 rounded-2xl border border-[#22263C] bg-[#0E111D] px-4">
+      <section
+        aria-label="Requests"
+        className="h-12 flex items-center gap-2.5 rounded-2xl border border-[#22263C] bg-[#0E111D] px-4"
+      >
         <Loader2 className="size-4 animate-spin text-indigo-400" aria-hidden />
         <span className="text-xs text-slate-400">Loading requests…</span>
       </section>
@@ -150,12 +173,21 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
 
   if (pendingTotal === 0 && !error) {
     return (
-      <section aria-label="Requests" className="h-12 flex items-center gap-2.5 rounded-2xl border border-[#22263C] bg-[#0E111D] px-4">
+      <section
+        aria-label="Requests"
+        className="h-12 flex items-center gap-2.5 rounded-2xl border border-[#22263C] bg-[#0E111D] px-4"
+      >
         <ShieldCheck className="size-4 text-emerald-400/80 shrink-0" aria-hidden />
         <span className="text-xs font-semibold text-slate-300 truncate">No requests waiting</span>
         <span className="ml-auto flex items-center gap-2 shrink-0">
-          <span className="text-[10px] text-slate-400 hidden sm:inline">Updated {updatedLabel}</span>
-          <button type="button" onClick={load} aria-label="Refresh requests" title={`Refresh requests — updated ${updatedLabel}`} className="size-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
+          <span className="text-xs text-slate-400 hidden sm:inline">Updated {updatedLabel}</span>
+          <button
+            type="button"
+            onClick={load}
+            aria-label="Refresh requests"
+            title={`Refresh requests — updated ${updatedLabel}`}
+            className="size-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+          >
             <RefreshCw className="size-3.5" aria-hidden />
           </button>
         </span>
@@ -164,23 +196,39 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
   }
 
   return (
-    <section aria-label="Requests" className="rounded-2xl border border-[#22263C] bg-[#0E111D] overflow-hidden">
+    <section
+      aria-label="Requests"
+      className="rounded-2xl border border-[#22263C] bg-[#0E111D] overflow-hidden"
+    >
       <div className="px-4 pt-3.5 pb-2 flex items-center justify-between gap-2 border-b border-[#1C2237]">
         <div className="flex items-center gap-2 min-w-0">
           <span className="size-8 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-300">
             <Inbox className="size-4" aria-hidden />
           </span>
           <div className="min-w-0">
-            <h3 className="text-xs font-bold tracking-wider text-slate-300">Requests</h3>
-            <p className="text-[10px] text-slate-400">{pendingTotal} waiting for review</p>
+            <h3 className="text-xs font-semibold text-slate-300">Requests</h3>
+            <p className="text-xs text-slate-400">{pendingTotal} waiting for review</p>
           </div>
         </div>
-        <button type="button" onClick={load} aria-label="Refresh requests" title={`Refresh requests — updated ${updatedLabel}`} className="size-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
+        <button
+          type="button"
+          onClick={load}
+          aria-label="Refresh requests"
+          title={`Refresh requests — updated ${updatedLabel}`}
+          className="size-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+        >
           <RefreshCw className="size-4" aria-hidden />
         </button>
       </div>
 
-      {error && <div role="alert" className="px-4 py-2 text-[11px] text-rose-300 bg-rose-950/40 border-b border-rose-500/20">{error}</div>}
+      {error && (
+        <div
+          role="alert"
+          className="px-4 py-2 text-xs text-rose-300 bg-rose-950/40 border-b border-rose-500/20"
+        >
+          {error}
+        </div>
+      )}
 
       {pendingTotal > 0 ? (
         <div className="max-h-96 overflow-y-auto divide-y divide-[#1C2237]">
@@ -189,21 +237,43 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
             <div key={r.id} className="px-4 py-3 flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-white truncate">{r.fullName}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5 truncate">{
-                  (() => {
+                <p className="text-xs text-slate-400 mt-0.5 truncate">
+                  {(() => {
                     const d = r.phone.replace(/\D/g, '')
                     const national = d.length >= 9 ? '0' + d.slice(-9) : d
                     return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')} · ${r.staffId}`
                   })()}
                 </p>
-                <p className="text-[9px] text-slate-500 mt-0.5">{formatRelativeTime(r.createdAt)} · needs access approval</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {formatRelativeTime(r.createdAt)} · needs access approval
+                </p>
               </div>
               <div className="flex flex-col gap-1.5 shrink-0">
-                <button type="button" onClick={() => decide('access', r.id, 'approve')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 disabled:opacity-50 text-[10px] font-bold text-white inline-flex items-center gap-1.5 transition cursor-pointer">
-                  {busyId === r.id ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <Check className="size-3" aria-hidden />} Approve
+                <button
+                  type="button"
+                  onClick={() => decide('access', r.id, 'approve')}
+                  disabled={busyId === r.id}
+                  className="h-11 px-3 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 disabled:opacity-50 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {busyId === r.id ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden />
+                  ) : (
+                    <Check className="size-3" aria-hidden />
+                  )}{' '}
+                  Approve
                 </button>
-                <button type="button" onClick={() => decide('access', r.id, 'decline')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg border border-rose-500/40 text-rose-300 hover:bg-rose-500/10 disabled:opacity-50 text-[10px] font-bold inline-flex items-center gap-1.5 transition cursor-pointer">
-                  {busyId === r.id ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <X className="size-3" aria-hidden />} Decline
+                <button
+                  type="button"
+                  onClick={() => decide('access', r.id, 'decline')}
+                  disabled={busyId === r.id}
+                  className="h-11 px-3 rounded-lg border border-rose-500/40 text-rose-300 hover:bg-rose-500/10 disabled:opacity-50 text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {busyId === r.id ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden />
+                  ) : (
+                    <X className="size-3" aria-hidden />
+                  )}{' '}
+                  Decline
                 </button>
               </div>
             </div>
@@ -213,22 +283,48 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
           {pinResetRequests.map((r) => (
             <div key={r.id} className="px-4 py-3 flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-white truncate">{r.officerName || 'Field officer'}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+                <p className="text-xs font-semibold text-white truncate">
+                  {r.officerName || 'Field officer'}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5 truncate">
                   {(() => {
                     const d = (r.officerPhone || '').replace(/\D/g, '')
                     const national = d.length >= 9 ? '0' + d.slice(-9) : d
-                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}${r.staffId ? ` · ${r.staffId}` : ''}`
+                    return `${national.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}${
+                      r.staffId ? ` · ${r.staffId}` : ''
+                    }`
                   })()}
                 </p>
-                <p className="text-[9px] text-slate-500 mt-0.5">{formatRelativeTime(r.createdAt)} · needs a new PIN</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {formatRelativeTime(r.createdAt)} · needs a new PIN
+                </p>
               </div>
               <div className="flex flex-col gap-1.5 shrink-0">
-                <button type="button" onClick={() => decide('pin', r.id, 'issue')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-[10px] font-bold text-white inline-flex items-center gap-1.5 transition cursor-pointer">
-                  {busyId === r.id ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <KeyRound className="size-3" aria-hidden />} Give new PIN
+                <button
+                  type="button"
+                  onClick={() => decide('pin', r.id, 'issue')}
+                  disabled={busyId === r.id}
+                  className="h-11 px-3 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {busyId === r.id ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden />
+                  ) : (
+                    <KeyRound className="size-3" aria-hidden />
+                  )}{' '}
+                  Give new PIN
                 </button>
-                <button type="button" onClick={() => decide('pin', r.id, 'decline')} disabled={busyId === r.id} className="h-8 px-3 rounded-lg border border-rose-500/40 text-rose-300 hover:bg-rose-500/10 disabled:opacity-50 text-[10px] font-bold inline-flex items-center gap-1.5 transition cursor-pointer">
-                  {busyId === r.id ? <Loader2 className="size-3 animate-spin" aria-hidden /> : <X className="size-3" aria-hidden />} Decline
+                <button
+                  type="button"
+                  onClick={() => decide('pin', r.id, 'decline')}
+                  disabled={busyId === r.id}
+                  className="h-11 px-3 rounded-lg border border-rose-500/40 text-rose-300 hover:bg-rose-500/10 disabled:opacity-50 text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {busyId === r.id ? (
+                    <Loader2 className="size-3 animate-spin" aria-hidden />
+                  ) : (
+                    <X className="size-3" aria-hidden />
+                  )}{' '}
+                  Decline
                 </button>
               </div>
             </div>
@@ -239,7 +335,11 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
       {/* Decline confirm — in-app, never a native popup */}
       <ConfirmDialog
         open={declineTarget !== null}
-        title={declineTarget?.kind === 'access' ? 'Decline this access request?' : 'Decline this PIN reset?'}
+        title={
+          declineTarget?.kind === 'access'
+            ? 'Decline this access request?'
+            : 'Decline this PIN reset?'
+        }
         description={
           declineTarget?.kind === 'access'
             ? 'The person will not be able to sign in. You can approve them later if they apply again.'
@@ -258,27 +358,51 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
 
       {/* One-time temporary PIN modal */}
       {tempPin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" role="dialog" aria-modal="true" aria-label="Temporary PIN">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Temporary PIN"
+        >
           <div className="w-full max-w-sm rounded-2xl border border-indigo-500/40 bg-[#0E111D] p-5 space-y-4">
             <div className="flex items-start gap-3">
               <span className="size-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center shrink-0">
                 <KeyRound className="size-5 text-indigo-300" aria-hidden />
               </span>
               <div className="min-w-0">
-                <h4 className="text-sm font-bold text-white">Temporary PIN for {tempPin.name}</h4>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Shown once. Expires in 24 hours{tempPin.expiresAt ? ` (${new Date(tempPin.expiresAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })})` : ''}. They choose their own PIN at first sign-in.
+                <h4 className="text-sm font-semibold text-white">
+                  Temporary PIN for {tempPin.name}
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  Shown once. Expires in 24 hours
+                  {tempPin.expiresAt
+                    ? ` (${new Date(tempPin.expiresAt).toLocaleString('en-GB', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })})`
+                    : ''}
+                  . They choose their own PIN at first sign-in.
                 </p>
               </div>
             </div>
             <div className="rounded-xl border border-indigo-500/30 bg-[#0A0D17] px-4 py-4 text-center">
-              <span className="text-4xl font-black tracking-[0.4em] text-white select-all tabular-nums">{tempPin.pin}</span>
+              <span className="text-4xl font-semibold tracking-[0.4em] text-white select-all tabular-nums">
+                {tempPin.pin}
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={copyPin} className="flex-1 h-12 rounded-xl border border-[#22263C] text-xs font-bold text-slate-200 inline-flex items-center justify-center gap-2 hover:text-white hover:border-slate-500 transition cursor-pointer">
+              <button
+                type="button"
+                onClick={copyPin}
+                className="flex-1 h-12 rounded-xl border border-[#22263C] text-xs font-semibold text-slate-200 inline-flex items-center justify-center gap-2 hover:text-white hover:border-slate-500 transition cursor-pointer"
+              >
                 <Copy className="size-4" aria-hidden /> {copied ? 'Copied' : 'Copy PIN'}
               </button>
-              <button type="button" onClick={() => setTempPin(null)} className="flex-1 h-12 rounded-xl bg-[#3b57f0] hover:bg-[#3250dd] text-xs font-bold text-white inline-flex items-center justify-center gap-2 transition cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setTempPin(null)}
+                className="flex-1 h-12 rounded-xl bg-[#3b57f0] hover:bg-[#3250dd] text-xs font-semibold text-white inline-flex items-center justify-center gap-2 transition cursor-pointer"
+              >
                 <Check className="size-4" aria-hidden /> Done
               </button>
             </div>
@@ -288,4 +412,3 @@ export function RequestsPanel({ onChanged }: RequestsPanelProps) {
     </section>
   )
 }
-

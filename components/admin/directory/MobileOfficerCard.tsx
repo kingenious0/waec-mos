@@ -1,15 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import {
-  MoreVertical,
-  Star,
-  KeyRound,
-  ShieldAlert,
-  ShieldCheck,
-  Trash2,
-  User,
-} from 'lucide-react'
+import { MoreVertical, Star, KeyRound, ShieldAlert, ShieldCheck, Trash2, User } from 'lucide-react'
 import { formatGhanaPhone } from '@/lib/phone'
 
 export interface MobileOfficerCardOfficer {
@@ -60,7 +52,7 @@ export function MobileOfficerCard({
   return (
     <div className="relative rounded-2xl border border-[#22263C] bg-[#0E111D] p-4">
       <div className="flex items-start gap-3">
-        <div className="size-12 shrink-0 rounded-full bg-[#1E2B7B] border border-white/10 flex items-center justify-center text-sm font-bold text-white">
+        <div className="size-12 shrink-0 rounded-full bg-[#1E2B7B] border border-white/10 flex items-center justify-center text-sm font-semibold text-white">
           {initials}
         </div>
 
@@ -86,27 +78,25 @@ export function MobileOfficerCard({
 
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
             <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                 isActive
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                   : 'border-rose-500/30 bg-rose-500/10 text-rose-400'
               }`}
             >
               <span
-                className={`size-1.5 rounded-full ${
-                  isActive ? 'bg-emerald-400' : 'bg-rose-400'
-                }`}
+                className={`size-1.5 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-rose-400'}`}
               />
               {isActive ? 'Account active' : 'Blocked'}
             </span>
             {isLeader && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#22263C] bg-[#121629] px-2 py-0.5 text-[11px] font-semibold text-slate-300 whitespace-nowrap">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#22263C] bg-[#121629] px-2 py-0.5 text-xs font-semibold text-slate-300 whitespace-nowrap">
                 <Star className="size-3 fill-amber-400 text-amber-400" />
                 Leader
               </span>
             )}
             {noCentre && (
-              <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-400 whitespace-nowrap">
+              <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-400 whitespace-nowrap">
                 No centre
               </span>
             )}

@@ -3,16 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { SessionData } from '@/lib/auth/session'
-import {
-  X,
-  Pencil,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  Star,
-  LogOut,
-  Building2,
-} from 'lucide-react'
+import { X, Pencil, Eye, EyeOff, CheckCircle2, Star, LogOut, Building2 } from 'lucide-react'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -80,11 +71,7 @@ export function ProfileModal({
   const roleName = session.role === 'ADMIN' ? 'Headquarters Admin' : 'Field Officer'
   const statusLabel =
     onDutyStatus ||
-    (session.status === 'ACTIVE'
-      ? 'Active'
-      : session.status === 'REVOKED'
-      ? 'Blocked'
-      : 'Offline')
+    (session.status === 'ACTIVE' ? 'Active' : session.status === 'REVOKED' ? 'Blocked' : 'Offline')
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -116,8 +103,7 @@ export function ProfileModal({
       ...(examCenters ? { assignedCenterCode: assignedCenterCode || '' } : {}),
       ...(examCenters
         ? {
-            assignedCenter:
-              examCenters.find((c) => c.code === assignedCenterCode)?.name || '',
+            assignedCenter: examCenters.find((c) => c.code === assignedCenterCode)?.name || '',
           }
         : {}),
       photo,
@@ -149,16 +135,16 @@ export function ProfileModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-3xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.95)] select-none"
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-xl select-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Title Bar matching screenshot */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
-          <h2 className="text-xl font-bold tracking-tight text-white font-sans">
+          <h2 className="text-xl font-medium tracking-tight text-white font-sans">
             {session.role === 'FIELD_OFFICER' ? 'Officer Profile' : 'My Profile'}
           </h2>
           <button
@@ -175,17 +161,8 @@ export function ProfileModal({
         <form onSubmit={handleSave} className="max-h-[82vh] overflow-y-auto px-6 pb-6 space-y-5">
           {/* Main Card Surface with Decorative Banner + Overlapping Avatar */}
           <div className="rounded-2xl border border-[#22263C] bg-[#121626] overflow-hidden">
-            {/* Banner: Abstract Deep Blue & Cyan Pattern Header */}
-            <div className="relative h-28 sm:h-32 w-full bg-gradient-to-r from-[#1E2B7B] via-[#2A3B9E] to-[#1258A2] overflow-hidden flex items-center justify-between px-6">
-              <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px] opacity-15" />
-              <div className="absolute right-4 top-4 flex gap-1 opacity-25">
-                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
-                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
-                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
-                <span className="w-1.5 h-6 bg-white rounded-full rotate-12" />
-              </div>
-              <div className="absolute -left-6 -bottom-6 size-24 rounded-full border-4 border-white/10 pointer-events-none" />
-            </div>
+            {/* Quiet solid header */}
+            <div className="h-24 w-full border-b border-[#22263C] bg-[#121826]" />
 
             {/* Centered Overlapping Avatar (Uploadable & Replaceable) */}
             <div className="relative flex flex-col items-center -mt-12 sm:-mt-14 pb-4">
@@ -202,21 +179,17 @@ export function ProfileModal({
                 <div
                   onClick={() => fileInputRef.current?.click()}
                   title="Click to change profile picture"
-                  className="size-24 sm:size-28 rounded-full border-4 border-[#121626] bg-[#1E2B7B] shadow-2xl flex items-center justify-center overflow-hidden text-2xl font-bold text-[#F6D300] cursor-pointer relative"
+                  className="size-24 sm:size-28 rounded-full border border-white/10 bg-[#181D2E] flex items-center justify-center overflow-hidden text-2xl font-medium text-slate-300 cursor-pointer relative"
                 >
                   {photo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={photo}
-                      alt={session.name}
-                      className="size-full object-cover"
-                    />
+                    <img src={photo} alt={session.name} className="size-full object-cover" />
                   ) : (
                     <span>{initials}</span>
                   )}
 
                   {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-[10px] text-white font-medium">
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-xs text-white font-medium">
                     <Pencil className="size-4 mb-0.5 text-[#F6D300]" />
                     <span>Upload</span>
                   </div>
@@ -227,7 +200,7 @@ export function ProfileModal({
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   title="Upload profile picture"
-                  className="absolute bottom-0 right-1 size-7 rounded-full bg-[#1E2B7B] border-2 border-[#121626] text-white hover:text-[#F6D300] hover:bg-[#28389E] flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                  className="absolute bottom-0 right-1 size-8 rounded-full bg-[#3B57F0] border-2 border-[#121626] text-white hover:bg-[#324BDA] flex items-center justify-center transition-colors cursor-pointer"
                 >
                   <Pencil className="size-3.5" />
                 </button>
@@ -235,8 +208,10 @@ export function ProfileModal({
 
               {/* Name & Role Tag below avatar */}
               <div className="text-center mt-2.5">
-                <div className="flex items-center justify-center gap-1.5 font-bold text-base text-white">
-                  <span>{firstName} {lastName}</span>
+                <div className="flex items-center justify-center gap-1.5 font-medium text-base text-white">
+                  <span>
+                    {firstName} {lastName}
+                  </span>
                   {isLeader && (
                     <span title="Leader" className="text-[#F6D300]">
                       <Star className="size-3.5 fill-[#F6D300]" />
@@ -336,9 +311,13 @@ export function ProfileModal({
                       <button
                         type="button"
                         onClick={() => setShowPin(!showPin)}
-                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                        className="text-xs text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
                       >
-                        {showPin ? <EyeOff className="size-3 text-sky-400" /> : <Eye className="size-3" />}
+                        {showPin ? (
+                          <EyeOff className="size-3 text-sky-400" />
+                        ) : (
+                          <Eye className="size-3" />
+                        )}
                         <span className={showPin ? 'text-sky-400 font-medium' : ''}>
                           {showPin ? 'Hide' : 'Show'}
                         </span>
@@ -351,7 +330,7 @@ export function ProfileModal({
                         value={pin}
                         onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                         placeholder="••••"
-                        className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-xs font-sans font-bold text-[#F6D300] placeholder:text-slate-500 tracking-widest focus:outline-hidden focus:border-sky-400 transition-colors"
+                        className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] pl-3.5 pr-10 py-2.5 text-sm font-sans font-medium text-slate-200 placeholder:text-slate-500 focus:outline-hidden focus:border-[#3B57F0] transition-colors"
                       />
                       <button
                         type="button"
@@ -360,7 +339,11 @@ export function ProfileModal({
                         title={showPin ? 'Hide PIN' : 'Show PIN'}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
                       >
-                        {showPin ? <EyeOff className="size-4 text-sky-400" /> : <Eye className="size-4" />}
+                        {showPin ? (
+                          <EyeOff className="size-4 text-sky-400" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -391,7 +374,7 @@ export function ProfileModal({
                   </div>
                 ) : (
                   <div className="flex items-center h-10 px-3.5 rounded-xl border border-[#22263C] bg-[#0A0D17]/60 text-xs font-medium text-emerald-400 gap-2">
-                    <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="size-2 rounded-full bg-emerald-400" />
                     <span>Active</span>
                   </div>
                 )}
@@ -400,31 +383,30 @@ export function ProfileModal({
               {/* Duty Assignment & Exam Paper Schedule (Field Officers Only) */}
               {session.role === 'FIELD_OFFICER' && (
                 <>
-                {/* Assigned centre picker — shown only when provided by the dossier (admin) flow */}
-                {examCenters && examCenters.length > 0 && (
-                  <div className="rounded-2xl border border-[#22263C] bg-[#0E1220] p-3.5 space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#F6D300] flex items-center gap-1.5">
-                      <Building2 className="size-3.5 text-[#F6D300]" />
-                      <span>Assigned centre</span>
-                    </span>
-                    <select
-                      value={assignedCenterCode}
-                      onChange={(e) => setAssignedCenterCode(e.target.value)}
-                      className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white focus:outline-hidden focus:border-sky-400 transition-colors font-sans"
-                    >
-                      <option value="">No centre yet</option>
-                      {examCenters.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.name} ({c.code})
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-slate-500">
-                      Picking “No centre yet” removes the assignment on save.
-                    </p>
-                  </div>
-                )}
-
+                  {/* Assigned centre picker — shown only when provided by the dossier (admin) flow */}
+                  {examCenters && examCenters.length > 0 && (
+                    <div className="rounded-2xl border border-[#22263C] bg-[#0E1220] p-3.5 space-y-2">
+                      <span className="text-xs font-medium text-slate-300 flex items-center gap-2">
+                        <Building2 className="size-4" />
+                        <span>Assigned centre</span>
+                      </span>
+                      <select
+                        value={assignedCenterCode}
+                        onChange={(e) => setAssignedCenterCode(e.target.value)}
+                        className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-white focus:outline-hidden focus:border-sky-400 transition-colors font-sans"
+                      >
+                        <option value="">No centre yet</option>
+                        {examCenters.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.name} ({c.code})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-slate-500">
+                        Picking “No centre yet” removes the assignment on save.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -441,7 +423,7 @@ export function ProfileModal({
                   placeholder="Add brief notes about your role or station..."
                   className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] p-3 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400 transition-colors resize-none"
                 />
-                <div className="text-right text-[10px] text-slate-500 mt-1 font-sans">
+                <div className="text-right text-xs text-slate-500 mt-1 font-sans">
                   {bio.length}/200 characters
                 </div>
               </div>
@@ -470,7 +452,7 @@ export function ProfileModal({
                   <span>Changes saved!</span>
                 </div>
               ) : (
-                <span className="hidden sm:inline text-[11px] text-slate-500">
+                <span className="hidden sm:inline text-xs text-slate-500">
                   WAEC Official Operations Account
                 </span>
               )}
@@ -488,7 +470,7 @@ export function ProfileModal({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] disabled:opacity-60 border border-white/10 text-xs font-bold text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] active:bg-[#152062] disabled:opacity-60 border border-white/10 text-xs font-medium text-white shadow-lg shadow-blue-950/40 transition-colors cursor-pointer"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>

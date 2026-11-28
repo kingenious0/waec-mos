@@ -91,7 +91,7 @@ function deriveDistrictName(address?: Record<string, string>): string | null {
 function findDistrict(
   display: string,
   address: Record<string, string> | undefined,
-  districts: DistrictOption[]
+  districts: DistrictOption[],
 ): DistrictOption | null {
   if (districts.length === 0) return null
   const specific = [
@@ -106,9 +106,7 @@ function findDistrict(
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
-  const general = [display, ...Object.values(address || {})]
-    .join(' ')
-    .toLowerCase()
+  const general = [display, ...Object.values(address || {})].join(' ').toLowerCase()
   if (!general.trim()) return null
 
   let best: { district: DistrictOption; score: number; weight: number } | null = null
@@ -129,7 +127,10 @@ function findDistrict(
         weight += w.length
       }
     }
-    if (score > 0 && (!best || score > best.score || (score === best.score && weight > best.weight))) {
+    if (
+      score > 0 &&
+      (!best || score > best.score || (score === best.score && weight > best.weight))
+    ) {
       best = { district: d, score, weight }
     }
   }
@@ -141,7 +142,7 @@ function stripCenterSuffix(query: string): string {
   return query
     .replace(
       /\b(center|centre|hall|block|site|campus|assembly|gate|annex|form\s*[\d]+|[\d]+)\b.*$/i,
-      ''
+      '',
     )
     .replace(/\s+/g, ' ')
     .trim()
@@ -241,7 +242,7 @@ export function ExamCenterModal({
       setDistrictName(
         initialCenter.districtName ||
           districts.find((d) => d.id === initialCenter.districtId)?.name ||
-          ''
+          '',
       )
       setRegionName(initialCenter.regionName || '')
       setSupervisorContact(initialCenter.supervisorContact || '')
@@ -273,13 +274,13 @@ export function ExamCenterModal({
       districts.find(
         (d) =>
           d.name.trim().toLowerCase().includes(target) ||
-          target.includes(d.name.trim().toLowerCase())
+          target.includes(d.name.trim().toLowerCase()),
       )
     if (match) setDistrictId(match.id)
   }, [isOpen, districtId, districtName, districts])
 
   /* ------------------------------------------------------------------ */
-  /* School search against OpenStreetMap Nominatim (Ghana only)          */
+  /* School search against OpenStreetMap Nominatim (Ghana only) */
   /* ------------------------------------------------------------------ */
   const runGeocode = useCallback(async (query: string, signal: AbortSignal) => {
     const url =
@@ -325,9 +326,7 @@ export function ExamCenterModal({
         }))
         setSuggestions(mapped)
         if (mapped.length === 0) {
-          setSearchNotice(
-            'No Ghana match found — drag the pin on the map to place it manually.'
-          )
+          setSearchNotice('No Ghana match found — drag the pin on the map to place it manually.')
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') return
@@ -348,9 +347,7 @@ export function ExamCenterModal({
       const typed = name.trim()
       // Preserve a manually typed suffix: "Amaniampong SHS center A"
       // → picked "Amaniampong SHS" + " center A"
-      const suffixMatch = typed.match(
-        /\b(?:center|centre|hall|block|site|campus)\s*[a-z0-9]+\b/i
-      )
+      const suffixMatch = typed.match(/\b(?:center|centre|hall|block|site|campus)\s*[a-z0-9]+\b/i)
       const nextName = suffixMatch ? `${school.name} ${suffixMatch[0]}` : school.name
 
       // Adopt the canonical school name without re-triggering the search
@@ -389,11 +386,11 @@ export function ExamCenterModal({
         flyTargetRef.current = { lat: school.lat, lng: school.lng }
       }
     },
-    [name, districts]
+    [name, districts],
   )
 
   /* ------------------------------------------------------------------ */
-  /* Embedded Leaflet map with draggable pin + live geofence circle      */
+  /* Embedded Leaflet map with draggable pin + live geofence circle */
   /* ------------------------------------------------------------------ */
   useEffect(() => {
     if (!isOpen || !mounted) return
@@ -418,13 +415,13 @@ export function ExamCenterModal({
       const pinIcon = L.divIcon({
         className: 'center-pin',
         html: `<div style="
-          width:16px;height:16px;
-          border-radius:50% 50% 50% 0;
-          transform:rotate(-45deg);
-          background:#F6D300;
-          border:2px solid #0C0F17;
-          box-shadow:0 0 12px rgba(246,211,0,0.75);
-        "></div>`,
+ width:16px;height:16px;
+ border-radius:50% 50% 50% 0;
+ transform:rotate(-45deg);
+ background:#F6D300;
+ border:2px solid #0C0F17;
+ box-shadow:0 0 12px rgba(246,211,0,0.75);
+ "></div>`,
         iconSize: [16, 16],
         iconAnchor: [8, 16],
       })
@@ -569,11 +566,11 @@ export function ExamCenterModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 p-3 sm:p-5 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl overflow-hidden rounded-3xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.95)] select-none font-sans max-h-[92vh] overflow-y-auto"
+        className="relative w-full max-w-2xl lg:max-w-3xl xl:max-w-4xl overflow-hidden rounded-2xl border border-[#22263C] bg-[#0E111D] text-slate-100 shadow-xl select-none font-sans max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
@@ -582,7 +579,7 @@ export function ExamCenterModal({
               <Building2 className="size-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <h2 className="text-lg font-semibold tracking-tight text-white">
                 {mode === 'edit' ? 'Edit Examination Centre' : 'Register Examination Centre'}
               </h2>
               <p className="text-xs text-slate-400">
@@ -633,7 +630,7 @@ export function ExamCenterModal({
                 />
 
                 {suggestions.length > 0 && (
-                  <ul className="absolute left-0 right-0 top-full z-[1001] mt-1 max-h-60 overflow-y-auto overflow-hidden rounded-xl border border-[#22263C] bg-[#121626] shadow-[0_20px_50px_rgba(0,0,0,0.85)] divide-y divide-[#1C2237]">
+                  <ul className="absolute left-0 right-0 top-full z-[1001] mt-1 max-h-60 overflow-y-auto overflow-hidden rounded-xl border border-[#22263C] bg-[#121626] shadow-lg divide-y divide-[#1C2237]">
                     {suggestions.map((s) => (
                       <li key={s.id}>
                         <button
@@ -646,7 +643,7 @@ export function ExamCenterModal({
                             <span className="block truncate text-xs font-semibold text-white">
                               {s.name}
                             </span>
-                            <span className="block truncate text-[10px] text-slate-500">
+                            <span className="block truncate text-xs text-slate-500">
                               {s.display}
                             </span>
                           </span>
@@ -657,9 +654,7 @@ export function ExamCenterModal({
                 )}
 
                 {searchNotice && (
-                  <p className="mt-1.5 text-[10px] leading-relaxed text-amber-400/85">
-                    {searchNotice}
-                  </p>
+                  <p className="mt-1.5 text-xs leading-relaxed text-amber-400/85">{searchNotice}</p>
                 )}
               </div>
             </div>
@@ -675,7 +670,7 @@ export function ExamCenterModal({
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="050412"
-                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-[#F6D300] font-bold placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400"
+                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3.5 py-2.5 text-xs text-[#F6D300] font-semibold placeholder:text-slate-500 focus:outline-hidden focus:border-sky-400"
                 />
               </div>
 
@@ -683,7 +678,7 @@ export function ExamCenterModal({
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
                   <span>District</span>
                   {districtAuto && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
+                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">
                       AUTO-FILLED
                     </span>
                   )}
@@ -698,7 +693,7 @@ export function ExamCenterModal({
                     setDistrictName(value)
                     setDistrictAuto(false)
                     const exact = districts.find(
-                      (d) => d.name.trim().toLowerCase() === value.trim().toLowerCase()
+                      (d) => d.name.trim().toLowerCase() === value.trim().toLowerCase(),
                     )
                     setDistrictId(exact ? exact.id : '')
                   }}
@@ -710,11 +705,10 @@ export function ExamCenterModal({
                     <option key={d.id} value={d.name} />
                   ))}
                 </datalist>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px]">
+                <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
                   {regionName && (
                     <span className="text-slate-500">
-                      Region:{' '}
-                      <span className="font-medium text-slate-400">{regionName}</span>
+                      Region: <span className="font-medium text-slate-400">{regionName}</span>
                     </span>
                   )}
                   {!districtId && districtName.trim() && (
@@ -733,12 +727,12 @@ export function ExamCenterModal({
             <div className="overflow-hidden rounded-xl border border-[#22263C]">
               <div ref={containerRef} className="h-[230px] w-full bg-[#0A0D17]" />
               <div className="flex items-center justify-between gap-2 border-t border-[#1C2237] bg-[#0A0D17] px-3 py-2">
-                <span className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                <span className="flex items-center gap-1.5 text-xs text-slate-500">
                   <MapPin className="size-3 text-slate-500" />
                   Drag the pin or click the map to fine-tune
                 </span>
                 <span
-                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
                     coordsAuto
                       ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                       : 'border border-[#22263C] bg-[#121626] text-slate-400'
@@ -767,7 +761,7 @@ export function ExamCenterModal({
               {showAdvanced && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">
                       Latitude
                     </label>
                     <input
@@ -783,7 +777,7 @@ export function ExamCenterModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">
                       Longitude
                     </label>
                     <input
@@ -817,24 +811,24 @@ export function ExamCenterModal({
                     setRadius(e.target.value)
                     if (Number(e.target.value) <= 500) setLargeRadiusAck(false)
                   }}
-                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-sky-400 font-bold focus:outline-hidden focus:border-sky-400"
+                  className="w-full rounded-xl border border-[#22263C] bg-[#0A0D17] px-3 py-2.5 text-xs text-sky-400 font-semibold focus:outline-hidden focus:border-sky-400"
                 />
-                <p className="mt-1.5 text-[10px] text-slate-500">
+                <p className="mt-1.5 text-xs text-slate-500">
                   {Number(radius) > 0 && !Number.isNaN(Number(radius))
                     ? `${Math.round(Number(radius))} m from the centre`
                     : 'Around the centre, not across it'}
                 </p>
                 {Number(radius) > 200 && Number(radius) <= 500 && (
-                  <p className="mt-1.5 text-[10px] font-semibold text-amber-400">
+                  <p className="mt-1.5 text-xs font-semibold text-amber-400">
                     This is large. Officers passing by might be marked as arrived.
                   </p>
                 )}
                 {Number(radius) > 500 && (
                   <div className="mt-1.5 space-y-1.5">
-                    <p className="text-[10px] font-semibold text-rose-400">
+                    <p className="text-xs font-semibold text-rose-400">
                       This is large. Officers passing by might be marked as arrived.
                     </p>
-                    <label className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-2.5 py-2 text-[10px] text-rose-200 cursor-pointer">
+                    <label className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-2.5 py-2 text-xs text-rose-200 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={largeRadiusAck}
@@ -862,7 +856,7 @@ export function ExamCenterModal({
             </div>
 
             {selectedDistrict && districtAuto && (
-              <p className="text-[10px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 District auto-filled from the school&apos;s geocoded address — adjust above if
                 needed.
               </p>
@@ -881,15 +875,21 @@ export function ExamCenterModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 disabled:opacity-60 text-xs font-bold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl bg-[#1E2B7B] hover:bg-[#28389E] border border-white/10 disabled:opacity-60 text-xs font-semibold text-white shadow-lg transition cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="size-3.5 text-white" />
-              <span>{isSubmitting ? 'Saving...' : mode === 'edit' ? 'Save centre changes' : 'Register centre'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Saving...'
+                  : mode === 'edit'
+                  ? 'Save centre changes'
+                  : 'Register centre'}
+              </span>
             </button>
           </div>
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   )
 }
