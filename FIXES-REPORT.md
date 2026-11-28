@@ -1,9 +1,9 @@
 # WAEC MOS V1:1 Field Officer Operations — Final Fix & Delivery Report
 
-**Date:** Sat Nov 28 2026  
-**Branch:** `main`  
-**Application commits:** `8655cd6`, `ec695ca` and the current unslop design pass  
-**Production:** `https://waec-mos-prd.vercel.app`  
+**Date:** Sat Nov 28 2026<br>
+**Branch:** `main`<br>
+**Application commits:** `8655cd6`, `ec695ca`, `f647496` (unslop design pass)<br>
+**Production:** `https://waec-mos-prd.vercel.app`<br>
 **Status:** Shipped after full TypeScript, test, build, APK and HTTP verification.
 
 ---
@@ -169,6 +169,17 @@ Build note: Next.js 16 emits a non-blocking deprecation notice for the `middlewa
   - admin HTTP login returned `403`;
   these are test-account/environment issues, not application gate failures.
 - Known dependency advisories remain on `drizzle-orm`, `zod` and `xlsx`; no exploit path was found in the delivered workflows. Rotate `DATABASE_URL` and `AUTH_PEPPER` if the repository was ever public.
+
+### Post-unslop push (`f647496`)
+
+HTTP-only recheck after pushing the design pass:
+
+- `200`: `/`, `/login`, `/signup`, `/request-access`, `/forgot-password`, `/change-password`, `/manifest.webmanifest`, `/icon.png`, `/apple-icon.png`
+- `307`: `/choose-pin`, `/admin`, `/field`, `/profile` — protected routes redirect unauthenticated users to sign-in; this is expected.
+- `401`: `/api/auth/me`, `/api/field/duty`, `/api/field/photo-request`, `/api/field/evidence`, `/api/field/groups`, `/api/fleet`, `/api/incidents`, `/api/officers`, `/api/operations`
+- `405`: `GET /api/field/groups/assignments`, `GET /api/field/groups/members` — POST-only routes exist and reject the wrong method.
+- `/demo` returned a stale `200` edge-cache `HIT` immediately after push, but a cache-busted request returned `404`; the route is deleted in the deployed build and contains no fake-data markers. This is recorded rather than hidden.
+- Production `/login` HTML was checked over HTTP: zero decorative slop tokens. Local served HTML was checked on all six public auth routes: `200`, zero decorative slop tokens.
 
 ---
 
